@@ -2652,6 +2652,76 @@ struct HomeView: View {
         return lower.contains("failed") || lower.contains("unavailable") || lower.contains("expired")
     }
 
+    var workloadByMember: [(member: FamilyMember, count: Int)] {
+        let horizon = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+        let source = showOnlyShared ? store.visibleEvents : store.events
+        return store.members.map { member in
+            let count = source.filter { event in
+                event.startDate >= Date() &&
+                event.startDate <= horizon &&
+                event.assignedMemberIds.contains(member.id)
+            }.count
+            return (member, count)
+        }
+    }
+
+    var topLoadCount: Int {
+        workloadByMember.map(\.count).max() ?? 0
+    }
+
+    var leastLoadCount: Int {
+        workloadByMember.map(\.count).min() ?? 0
+    }
+
+    var activeStreakDays: Int {
+        let cal = Calendar.current
+        let activityDates: [Date] = (showOnlyShared ? store.visibleFamilyActivities : store.familyActivities).map { $0.date }
+        let activeDays = Set(activityDates.map { cal.startOfDay(for: $0) })
+        var streak = 0
+        for offset in 0..<30 {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: Date())) else { break }
+            if activeDays.contains(day) {
+                streak += 1
+            } else if offset == 0 {
+                continue
+            } else {
+                break
+            }
+        }
+        return streak
+    }
+
+    var balanceScore: Int {
+        guard topLoadCount > 0 else { return 100 }
+        let spread = topLoadCount - leastLoadCount
+        let ratio = Double(spread) / Double(topLoadCount)
+        return max(0, Int((1 - ratio) * 100))
+    }
+
+    var proactiveRecommendations: [String] {
+        var notes: [String] = []
+        if todayEventsCount == 0 {
+            notes.append("No events today. Add a focus block now to keep the family rhythm consistent.")
+        }
+        if pendingShoppingItems >= 8 {
+            notes.append("Shopping backlog is high. Use Weekly Grocery Run template to clear items in one trip.")
+        }
+        if topLoadCount >= 4 && topLoadCount - leastLoadCount >= 3,
+           let busiest = workloadByMember.max(by: { $0.count < $1.count })?.member.name {
+            notes.append("\(busiest) has the heaviest schedule this week. Reassign one event to balance workload.")
+        }
+        if upcomingEvents.count <= 1 {
+            notes.append("Light upcoming calendar. Seed next week with 2 routine templates to avoid last-minute rush.")
+        }
+        if activeStreakDays >= 5 {
+            notes.append("Great momentum: \(activeStreakDays)-day family activity streak. Keep it going tomorrow.")
+        }
+        if notes.isEmpty {
+            notes.append("Schedule looks healthy. Review Friday and weekend plans early to stay ahead.")
+        }
+        return Array(notes.prefix(3))
+    }
+
     var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
@@ -2823,6 +2893,49 @@ struct HomeView: View {
                                         }
                                         Spacer()
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    HomeSectionCard(title: "Family Insights") {
+                        HStack(spacing: 8) {
+                            HomeInsightBadge(title: "Balance", value: "\(balanceScore)%")
+                            HomeInsightBadge(title: "Streak", value: "\(activeStreakDays)d")
+                            HomeInsightBadge(title: "Next 7d", value: "\(workloadByMember.map(\.count).reduce(0, +))")
+                        }
+
+                        if workloadByMember.isEmpty {
+                            Text("Add family members to see workload insights.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(workloadByMember, id: \.member.id) { item in
+                                    HomeMemberLoadRow(
+                                        name: item.member.name,
+                                        color: item.member.color,
+                                        count: item.count,
+                                        maxCount: max(1, topLoadCount)
+                                    )
+                                }
+                            }
+                        }
+
+                        Divider().padding(.vertical, 2)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Proactive Recommendations")
+                                .font(.system(size: 13, weight: .bold))
+                            ForEach(Array(proactiveRecommendations.enumerated()), id: \.offset) { _, note in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(AuraThemePalette.current.accentStart)
+                                        .padding(.top, 2)
+                                    Text(note)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondary)
                                 }
                             }
                         }
@@ -3056,6 +3169,58 @@ struct HomeLoadingRows: View {
             }
         }
         .redacted(reason: .placeholder)
+    }
+}
+
+struct HomeInsightBadge: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 14, weight: .black, design: .rounded))
+                .foregroundColor(AuraThemePalette.current.accentStart)
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(AuraThemePalette.current.accentStart.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct HomeMemberLoadRow: View {
+    let name: String
+    let color: Color
+    let count: Int
+    let maxCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                HStack(spacing: 6) {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                    Text(name)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                Spacer()
+                Text("\(count)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.secondary)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(.tertiarySystemFill))
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(color.opacity(0.85))
+                        .frame(width: max(8, geo.size.width * CGFloat(count) / CGFloat(max(1, maxCount))))
+                }
+            }
+            .frame(height: 8)
+        }
     }
 }
 
