@@ -584,6 +584,16 @@ struct SharedActivityEntry: Identifiable, Codable, Equatable {
     var details: String
 }
 
+struct DataIntegrityReport {
+    var fixedEventTimeRanges = 0
+    var repairedCategoryReferences = 0
+    var removedInvalidAssignments = 0
+
+    var totalFixes: Int {
+        fixedEventTimeRanges + repairedCategoryReferences + removedInvalidAssignments
+    }
+}
+
 struct FamilyMember: Identifiable, Codable, Equatable, Hashable {
     var id = UUID()
     var name: String
@@ -1348,6 +1358,7 @@ class EventStore: ObservableObject {
                 await self?.refreshServerContext()
             }
         }
+        _ = runDataIntegritySweep()
         startPeriodicPull()
         queueSyncPush()
         refreshDailyStepsIfEnabled()
@@ -1447,6 +1458,45 @@ class EventStore: ObservableObject {
         NotificationManager.shared.cancel(id)
         events.removeAll { $0.id == id }
         saveEvents()
+    }
+
+    func rebuildScheduledNotifications() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        for event in events where event.hasAlarm {
+            NotificationManager.shared.schedule(event, cat: category(for: event.categoryId))
+        }
+        syncStatus = "Notifications rebuilt"
+    }
+
+    @discardableResult
+    func runDataIntegritySweep() -> DataIntegrityReport {
+        var report = DataIntegrityReport()
+        let validCategoryIds = Set(categories.map(\.id))
+        let validMemberIds = Set(members.map(\.id))
+        let fallbackCategoryId = categories.first?.id
+
+        for idx in events.indices {
+            if events[idx].endDate <= events[idx].startDate {
+                events[idx].endDate = events[idx].startDate.addingTimeInterval(60 * 30)
+                report.fixedEventTimeRanges += 1
+            }
+            if !validCategoryIds.contains(events[idx].categoryId), let fallbackCategoryId {
+                events[idx].categoryId = fallbackCategoryId
+                report.repairedCategoryReferences += 1
+            }
+            let originalCount = events[idx].assignedMemberIds.count
+            events[idx].assignedMemberIds = events[idx].assignedMemberIds.filter { validMemberIds.contains($0) }
+            if events[idx].assignedMemberIds.count != originalCount {
+                report.removedInvalidAssignments += (originalCount - events[idx].assignedMemberIds.count)
+            }
+        }
+
+        if report.totalFixes > 0 {
+            events.sort { $0.startDate < $1.startDate }
+            saveEvents()
+            syncStatus = "Data normalized (\(report.totalFixes) fixes)"
+        }
+        return report
     }
     func events(for date: Date) -> [CalendarEvent] {
         visibleEvents.filter { Calendar.current.isDate($0.startDate, inSameDayAs: date) }
@@ -6502,6 +6552,35 @@ struct SettingsView: View {
             .sorted { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
     }
 
+    var readinessChecks: [(title: String, isReady: Bool, detail: String)] {
+        [
+            (
+                "Profile",
+                !profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Set display name for sharing"
+            ),
+            (
+                "Family Members",
+                !store.members.isEmpty,
+                "Add at least one member"
+            ),
+            (
+                "Sync Connection",
+                store.hasServerHousehold || !householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Link a server or household code"
+            ),
+            (
+                "Notifications",
+                enableInAppBanner || enableActionableReminders,
+                "Enable at least one reminder channel"
+            )
+        ]
+    }
+
+    var releaseReadyCount: Int {
+        readinessChecks.filter { $0.isReady }.count
+    }
+
     var body: some View {
         NavigationView {
             List {
@@ -6934,6 +7013,43 @@ struct SettingsView: View {
                     }
                 }
 
+                Section {
+                    ForEach(readinessChecks, id: \.title) { check in
+                        HStack {
+                            Image(systemName: check.isReady ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                .foregroundColor(check.isReady ? .green : .orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(check.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(check.isReady ? "Ready" : check.detail)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+
+                    Button {
+                        let report = store.runDataIntegritySweep()
+                        serverMessage = report.totalFixes == 0
+                            ? "Integrity sweep complete. No issues found."
+                            : "Integrity sweep fixed \(report.totalFixes) issue\(report.totalFixes == 1 ? "" : "s")."
+                    } label: {
+                        Label("Run Integrity Sweep", systemImage: "checkmark.shield")
+                    }
+
+                    Button {
+                        store.rebuildScheduledNotifications()
+                        serverMessage = "Notifications rebuilt from current events."
+                    } label: {
+                        Label("Rebuild Event Notifications", systemImage: "bell.and.waveform")
+                    }
+                } header: {
+                    Text("Release Readiness")
+                } footer: {
+                    Text("\(releaseReadyCount)/\(readinessChecks.count) readiness checks passed.")
+                }
+
                 // ── Household Sync ─────────────────────────────
                 Section {
                     TextField("Household Code", text: $householdCode)
@@ -7059,12 +7175,6 @@ struct SettingsView: View {
                             store.saveCats()
                         }
                         catSoundVal    = newSound
-                    .onChange(of: enableActionableReminders) { _ in
-                        NotificationManager.shared.configureReminderCategories()
-                    }
-                    .onChange(of: enableReminderSnooze) { _ in
-                        NotificationManager.shared.configureReminderCategories()
-                    }
                         editSoundCatId = nil
                     }
                 )
@@ -7079,6 +7189,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showAddMember) {
                 AddMemberView(isPresented: $showAddMember).environmentObject(store)
+            }
+            .onChange(of: enableActionableReminders) { _ in
+                NotificationManager.shared.configureReminderCategories()
+            }
+            .onChange(of: enableReminderSnooze) { _ in
+                NotificationManager.shared.configureReminderCategories()
             }
             .onAppear {
                 stepCustomNames = Set(dailyStepSharedWithNames)
