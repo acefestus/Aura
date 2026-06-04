@@ -22,13 +22,359 @@ struct AuraApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AuraAppShellView()
                 .environmentObject(store)
                 .environmentObject(shareManager)
                 .onAppear { NotificationManager.shared.requestPermission() }
                 .onOpenURL { url in
                     shareManager.handleIncomingURL(url)
                 }
+        }
+    }
+}
+
+struct AuraAppShellView: View {
+    @EnvironmentObject var store: EventStore
+    @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
+    @State private var showSplash = true
+
+    var body: some View {
+        ZStack {
+            if showSplash {
+                AuraSplashScreen()
+                    .transition(.opacity)
+            } else if !hasSeenOnboarding {
+                AuraOnboardingView {
+                    hasSeenOnboarding = true
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if !store.hasServerSession && !allowOfflineMode {
+                AuraAuthGatewayView()
+                    .transition(.opacity)
+            } else {
+                ContentView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(AuraMotion.smooth, value: showSplash)
+        .task {
+            guard showSplash else { return }
+            try? await Task.sleep(nanoseconds: 1_100_000_000)
+            withAnimation(AuraMotion.smooth) {
+                showSplash = false
+            }
+        }
+    }
+}
+
+struct AuraSplashScreen: View {
+    var body: some View {
+        let p = AuraThemePalette.current
+        ZStack {
+            LinearGradient(colors: [p.backgroundStart, p.backgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 42, weight: .bold))
+                    .foregroundColor(.white)
+                Text("Aura")
+                    .font(.system(size: 40, weight: .black, design: .rounded))
+                    .foregroundColor(.white)
+                Text("Family Life, Beautifully Orchestrated")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+        }
+    }
+}
+
+private struct AuraHeroFamilyImage: View {
+    let assetName: String
+    let fallbackIcon: String
+
+    var body: some View {
+        Group {
+            if let image = UIImage(named: assetName) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    LinearGradient(colors: [Color(hex: "1E293B"), Color(hex: "0F172A")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+    }
+}
+
+struct AuraOnboardingView: View {
+    @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
+    @State private var page = 0
+    var onFinish: () -> Void
+
+    var body: some View {
+        let p = AuraThemePalette.current
+        ZStack {
+            LinearGradient(colors: [p.backgroundStart.opacity(0.95), p.backgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                TabView(selection: $page) {
+                    onboardingCard(
+                        title: "Built For Your Family",
+                        subtitle: "Events, lists, routines, and memories in one premium daily hub.",
+                        imageAsset: "family_all",
+                        fallbackIcon: "person.3.sequence.fill"
+                    ).tag(0)
+
+                    onboardingCard(
+                        title: "Private By Design",
+                        subtitle: "Choose Personal, Family, or Custom visibility for every activity.",
+                        imageAsset: "family_mom",
+                        fallbackIcon: "lock.shield.fill"
+                    ).tag(1)
+
+                    onboardingCard(
+                        title: "Real-Time Household Sync",
+                        subtitle: "Stay in sync across phones with your Aura account and household.",
+                        imageAsset: "family_kid",
+                        fallbackIcon: "arrow.triangle.2.circlepath"
+                    ).tag(2)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .frame(maxHeight: 520)
+
+                HStack(spacing: 10) {
+                    Button(page == 2 ? "Start Setup" : "Next") {
+                        AuraHaptics.tap(.medium)
+                        if page == 2 {
+                            allowOfflineMode = false
+                            onFinish()
+                        } else {
+                            withAnimation(AuraMotion.smooth) { page += 1 }
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Skip for now") {
+                        allowOfflineMode = true
+                        onFinish()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .tint(.white)
+                .foregroundColor(.black)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 28)
+        }
+    }
+
+    private func onboardingCard(title: String, subtitle: String, imageAsset: String, fallbackIcon: String) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            AuraHeroFamilyImage(assetName: imageAsset, fallbackIcon: fallbackIcon)
+                .frame(height: 360)
+            Text(title)
+                .font(.system(size: 30, weight: .black, design: .rounded))
+                .foregroundColor(.white)
+            Text(subtitle)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.white.opacity(0.86))
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1))
+    }
+}
+
+struct AuraAuthGatewayView: View {
+    enum Mode: String, CaseIterable {
+        case signIn = "Sign In"
+        case create = "Create Account"
+    }
+
+    @EnvironmentObject var store: EventStore
+    @AppStorage("backendBaseURL") private var backendBaseURL = ""
+    @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
+    @AppStorage("profileDisplayName") private var profileDisplayName = ""
+    @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
+    @State private var mode: Mode = .signIn
+    @State private var email = ""
+    @State private var password = ""
+    @State private var displayName = ""
+    @State private var householdName = "Our Family"
+    @State private var householdCode = ""
+    @State private var message = ""
+    @State private var isWorking = false
+
+    var body: some View {
+        let p = AuraThemePalette.current
+        ScrollView {
+            VStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Welcome to Aura")
+                        .font(.system(size: 34, weight: .black, design: .rounded))
+                    Text("Set up your family account first for the full premium sync experience.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 10) {
+                    AuraHeroFamilyImage(assetName: "family_dad", fallbackIcon: "person.fill")
+                    AuraHeroFamilyImage(assetName: "family_mom", fallbackIcon: "person.fill")
+                    AuraHeroFamilyImage(assetName: "family_kid", fallbackIcon: "figure.2.and.child.holdinghands")
+                }
+                .frame(height: 160)
+
+                VStack(spacing: 12) {
+                    TextField("Backend URL", text: Binding(
+                        get: { backendBaseURL },
+                        set: {
+                            backendBaseURL = $0
+                            store.updateBackendBaseURL($0)
+                        }
+                    ))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.URL)
+
+                    Picker("Mode", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { m in
+                            Text(m.rawValue).tag(m)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.emailAddress)
+                    SecureField("Password", text: $password)
+
+                    if mode == .create {
+                        TextField("Display name", text: $displayName)
+                    }
+
+                    Button {
+                        isWorking = true
+                        message = ""
+                        Task {
+                            let result: Result<Void, Error>
+                            if mode == .create {
+                                result = await store.registerServerAccount(email: email, password: password, displayName: displayName)
+                            } else {
+                                result = await store.loginServerAccount(email: email, password: password)
+                            }
+                            await MainActor.run {
+                                isWorking = false
+                                switch result {
+                                case .success:
+                                    password = ""
+                                    backendAccountEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        profileDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    }
+                                    message = mode == .create ? "Account created. Continue with household setup." : "Signed in successfully."
+                                case .failure(let error):
+                                    message = error.localizedDescription
+                                }
+                            }
+                        }
+                    } label: {
+                        Label(mode == .create ? "Create Account" : "Sign In", systemImage: "person.crop.circle.badge.checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+
+                    if store.hasServerSession {
+                        Divider().padding(.vertical, 6)
+
+                        TextField("Household name", text: $householdName)
+                        Button {
+                            isWorking = true
+                            message = ""
+                            Task {
+                                let result = await store.createServerHousehold(name: householdName)
+                                await MainActor.run {
+                                    isWorking = false
+                                    switch result {
+                                    case .success(let code):
+                                        householdCode = code
+                                        message = "Household created. Code: \(code)"
+                                    case .failure(let error):
+                                        message = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Create Household", systemImage: "person.3.sequence.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+
+                        TextField("Join code", text: $householdCode)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                        Button {
+                            isWorking = true
+                            message = ""
+                            Task {
+                                let result = await store.joinServerHousehold(code: householdCode)
+                                await MainActor.run {
+                                    isWorking = false
+                                    switch result {
+                                    case .success:
+                                        message = "Joined household successfully."
+                                    case .failure(let error):
+                                        message = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Join Household", systemImage: "person.2.badge.plus")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button {
+                            allowOfflineMode = true
+                            message = "You can continue offline and set up account later in Settings."
+                        } label: {
+                            Text("Continue Offline")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                    }
+
+                    if isWorking { ProgressView() }
+                    if !message.isEmpty {
+                        Text(message)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(16)
+                .background(LinearGradient(colors: [Color.white, Color.white.opacity(0.96)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(p.accentStart.opacity(0.22), lineWidth: 1))
+            }
+            .padding(20)
+        }
+        .background(
+            LinearGradient(colors: [p.backgroundStart.opacity(0.2), p.backgroundEnd.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+        )
+        .onAppear {
+            email = backendAccountEmail
+            displayName = profileDisplayName
+            store.updateBackendBaseURL(backendBaseURL)
         }
     }
 }
@@ -1688,7 +2034,8 @@ class EventStore: ObservableObject {
         periodicPullTask?.cancel()
         periodicPullTask = Task { [weak self] in
             while let self, !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 15_000_000_000)
+                let interval: UInt64 = self.hasServerHousehold ? 6_000_000_000 : 15_000_000_000
+                try? await Task.sleep(nanoseconds: interval)
                 await self.pullSnapshot()
             }
         }
