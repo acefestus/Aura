@@ -385,6 +385,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NotificationManager.shared.configureReminderCategories()
         return true
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -408,6 +409,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             }
         }
         completionHandler([.sound, .badge])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        NotificationManager.shared.handleNotificationResponse(response)
+        completionHandler()
     }
 }
 
@@ -2176,19 +2184,91 @@ class EventStore: ObservableObject {
 class NotificationManager {
     static let shared = NotificationManager()
 
+    private enum ReminderKeys {
+        static let eventId = "aura.eventId"
+        static let title = "aura.title"
+        static let body = "aura.body"
+        static let soundRaw = "aura.soundRaw"
+    }
+
+    private enum ReminderActions {
+        static let category = "AURA_EVENT_REMINDER"
+        static let snooze = "AURA_SNOOZE"
+    }
+
+    private var reminderSnoozeMinutes: Int {
+        let saved = UserDefaults.standard.integer(forKey: "reminderSnoozeMinutes")
+        return saved == 0 ? 10 : saved
+    }
+
+    private var enableActionableReminders: Bool {
+        UserDefaults.standard.object(forKey: "enableActionableReminders") == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: "enableActionableReminders")
+    }
+
+    private var enableReminderSnooze: Bool {
+        UserDefaults.standard.object(forKey: "enableReminderSnooze") == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: "enableReminderSnooze")
+    }
+
+    private var enableSmartReminderMessaging: Bool {
+        UserDefaults.standard.object(forKey: "enableSmartReminderMessaging") == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: "enableSmartReminderMessaging")
+    }
+
     func requestPermission() {
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+            .requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] _, _ in
+                self?.configureReminderCategories()
+            }
+    }
+
+    func configureReminderCategories() {
+        guard enableActionableReminders && enableReminderSnooze else {
+            UNUserNotificationCenter.current().setNotificationCategories([])
+            return
+        }
+        let snooze = UNNotificationAction(
+            identifier: ReminderActions.snooze,
+            title: "Snooze",
+            options: []
+        )
+        let category = UNNotificationCategory(
+            identifier: ReminderActions.category,
+            actions: [snooze],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    func handleNotificationResponse(_ response: UNNotificationResponse) {
+        guard response.actionIdentifier == ReminderActions.snooze else { return }
+        let content = response.notification.request.content
+        scheduleSnooze(from: content, minutes: reminderSnoozeMinutes)
     }
 
     func schedule(_ event: CalendarEvent, cat: EventCategory?) {
+        configureReminderCategories()
         let c = UNMutableNotificationContent()
         c.title = event.title
-        c.body  = cat.map { $0.name } ?? "Event"
+        c.body = reminderBody(for: event, category: cat)
         if !event.location.isEmpty { c.subtitle = event.location }
         let appSound = event.soundOverride ?? cat?.sound ?? .systemDefault
         c.sound = appSound.unSound
         c.badge = 1
+        if enableActionableReminders && enableReminderSnooze {
+            c.categoryIdentifier = ReminderActions.category
+        }
+        c.userInfo = [
+            ReminderKeys.eventId: event.id.uuidString,
+            ReminderKeys.title: event.title,
+            ReminderKeys.body: c.body,
+            ReminderKeys.soundRaw: appSound.rawValue
+        ]
 
         let fire: Date
         if event.isAllDay {
@@ -2205,6 +2285,49 @@ class NotificationManager {
             trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         )
         UNUserNotificationCenter.current().add(req)
+    }
+
+    private func scheduleSnooze(from content: UNNotificationContent, minutes: Int) {
+        guard minutes > 0 else { return }
+        let snoozeContent = UNMutableNotificationContent()
+        snoozeContent.title = content.userInfo[ReminderKeys.title] as? String ?? content.title
+        snoozeContent.body = "Snoozed \(minutes)m \u{00B7} \(content.userInfo[ReminderKeys.body] as? String ?? content.body)"
+        snoozeContent.subtitle = content.subtitle
+        if let raw = content.userInfo[ReminderKeys.soundRaw] as? String,
+           let appSound = AppSound(rawValue: raw) {
+            snoozeContent.sound = appSound.unSound
+        } else {
+            snoozeContent.sound = content.sound
+        }
+        snoozeContent.badge = 1
+        if enableActionableReminders && enableReminderSnooze {
+            snoozeContent.categoryIdentifier = ReminderActions.category
+        }
+        snoozeContent.userInfo = content.userInfo
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "\(UUID().uuidString)-snooze",
+            content: snoozeContent,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func reminderBody(for event: CalendarEvent, category: EventCategory?) -> String {
+        let fallback = category?.name ?? "Event"
+        guard enableSmartReminderMessaging else { return fallback }
+
+        if event.isAllDay {
+            return "All-day reminder \u{00B7} \(fallback)"
+        }
+
+        if event.alarmMins > 0 {
+            let startTime = event.startDate.formatted(date: .omitted, time: .shortened)
+            return "Starts in \(event.alarmMins)m at \(startTime) \u{00B7} \(fallback)"
+        }
+
+        return "Starting now \u{00B7} \(fallback)"
     }
 
     func cancel(_ id: UUID) {
@@ -5592,6 +5715,10 @@ struct SettingsView: View {
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
     @AppStorage("backendHouseholdName") private var backendStoredHouseholdName = ""
     @AppStorage("enableInAppBanner") private var enableInAppBanner = true
+    @AppStorage("enableActionableReminders") private var enableActionableReminders = true
+    @AppStorage("enableReminderSnooze") private var enableReminderSnooze = true
+    @AppStorage("enableSmartReminderMessaging") private var enableSmartReminderMessaging = true
+    @AppStorage("reminderSnoozeMinutes") private var reminderSnoozeMinutes = 10
     @AppStorage("shareDailySteps") private var shareDailySteps = false
     @AppStorage("dailyStepVisibility") private var dailyStepVisibilityRaw = VisibilityScope.personal.rawValue
     @AppStorage("dailyStepSharedWithNames") private var dailyStepSharedWithNamesRaw = ""
@@ -6002,6 +6129,16 @@ struct SettingsView: View {
                 // ── Notifications ─────────────────────────────
                 Section("Notifications") {
                     Toggle("Themed In-App Banner", isOn: $enableInAppBanner)
+                    Toggle("Actionable Event Reminders", isOn: $enableActionableReminders)
+                    Toggle("Allow Snooze Action", isOn: $enableReminderSnooze)
+                        .disabled(!enableActionableReminders)
+                    Toggle("Smart Reminder Messaging", isOn: $enableSmartReminderMessaging)
+
+                    Stepper(value: $reminderSnoozeMinutes, in: 5...60, step: 5) {
+                        Text("Default Snooze: \(reminderSnoozeMinutes) min")
+                    }
+                    .disabled(!enableActionableReminders || !enableReminderSnooze)
+
                     Button {
                         NotificationCenter.default.post(
                             name: .auraInAppBanner,
@@ -6176,6 +6313,12 @@ struct SettingsView: View {
                             store.saveCats()
                         }
                         catSoundVal    = newSound
+                    .onChange(of: enableActionableReminders) { _ in
+                        NotificationManager.shared.configureReminderCategories()
+                    }
+                    .onChange(of: enableReminderSnooze) { _ in
+                        NotificationManager.shared.configureReminderCategories()
+                    }
                         editSoundCatId = nil
                     }
                 )
