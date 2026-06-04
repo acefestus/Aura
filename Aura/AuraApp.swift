@@ -2030,6 +2030,15 @@ class EventStore: ObservableObject {
         }
     }
 
+    @MainActor
+    func refreshHomeDashboard() async {
+        if hasServerSession {
+            await refreshServerContext()
+        }
+        await pullSnapshot()
+        refreshDailyStepsIfEnabled(force: true)
+    }
+
     private func startPeriodicPull() {
         periodicPullTask?.cancel()
         periodicPullTask = Task { [weak self] in
@@ -2220,6 +2229,7 @@ struct ContentView: View {
     @State private var showStartLiveActivity = false
     @State private var showQuickGrocery = false
     @State private var showAddMember = false
+    @State private var eventDraftPreset: EventDraftPreset? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
 
@@ -2231,7 +2241,7 @@ struct ContentView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $tab) {
-                HomeView(showCreate: $showCreate)
+                HomeView(showCreate: $showCreate, eventDraftPreset: $eventDraftPreset)
                     .id("home-\(widgetThemeJSON)")
                     .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
                 AgendaView(showCreate: $showCreate)
@@ -2281,8 +2291,10 @@ struct ContentView: View {
             .scaleEffect(showCreate ? 0.96 : 1)
         }
         .preferredColorScheme(preferredScheme)
-        .sheet(isPresented: $showCreate) {
-            CreateEventView(isPresented: $showCreate).environmentObject(store)
+        .sheet(isPresented: $showCreate, onDismiss: {
+            eventDraftPreset = nil
+        }) {
+            CreateEventView(isPresented: $showCreate, preset: eventDraftPreset).environmentObject(store)
         }
         .sheet(isPresented: $showAddList) {
             AddFamilyListView(isPresented: $showAddList).environmentObject(store)
@@ -2300,7 +2312,10 @@ struct ContentView: View {
             AddMemberView(isPresented: $showAddMember).environmentObject(store)
         }
         .confirmationDialog("Quick Actions", isPresented: $showQuickHomeActions, titleVisibility: .visible) {
-            Button("Schedule Event") { showCreate = true }
+            Button("Schedule Event") {
+                eventDraftPreset = .defaultForActiveMember(in: store)
+                showCreate = true
+            }
             Button("Log Activity") { showAddActivity = true }
             Button("Start Live Activity") { showStartLiveActivity = true }
             Button("Add Grocery Item") { showQuickGrocery = true }
@@ -2385,9 +2400,11 @@ struct ContentView: View {
 struct HomeView: View {
     @EnvironmentObject var store: EventStore
     @Binding var showCreate: Bool
+    @Binding var eventDraftPreset: EventDraftPreset?
     @State private var showLogActivity = false
     @State private var showStartLiveActivity = false
     @State private var showQuickAddItem = false
+    @State private var showQuickEventTemplates = false
     @State private var showOnlyShared = true
     @State private var editingActivity: FamilyActivity? = nil
 
@@ -2406,34 +2423,83 @@ struct HomeView: View {
         Array((showOnlyShared ? store.visibleFamilyActivities : store.familyActivities).prefix(3))
     }
 
+    var todayEvents: [CalendarEvent] {
+        store.events(for: Date()).sorted { $0.startDate < $1.startDate }
+    }
+
+    var upcomingEvents: [CalendarEvent] {
+        let source = showOnlyShared ? store.visibleEvents : store.events
+        return source
+            .filter { $0.startDate > Date() && !Calendar.current.isDateInToday($0.startDate) }
+            .sorted { $0.startDate < $1.startDate }
+            .prefix(4)
+            .map { $0 }
+    }
+
+    var hasSyncIssue: Bool {
+        let lower = store.syncStatus.lowercased()
+        return lower.contains("failed") || lower.contains("unavailable") || lower.contains("expired")
+    }
+
+    var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good Morning"
+        case 12..<18: return "Good Afternoon"
+        default: return "Good Evening"
+        }
+    }
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 14) {
-                    HomeSectionCard(title: "Viewing As") {
-                        Picker("Family Member", selection: Binding(
-                            get: { store.activeMember?.id },
-                            set: { store.setActiveMember(id: $0) }
-                        )) {
-                            ForEach(store.members) { member in
-                                Text(member.name).tag(Optional(member.id))
-                            }
-                        }
-                        .pickerStyle(.menu)
+                    HomeHeroCard(
+                        title: "\(greeting), \(store.activeProfileName)",
+                        subtitle: "\(todayEventsCount) events today · \(pendingShoppingItems) list items pending",
+                        detail: store.syncStatus
+                    ) {
+                        Task { await store.refreshHomeDashboard() }
                     }
 
-                    Toggle("Show only what is visible to me", isOn: $showOnlyShared)
-                        .font(.system(size: 13, weight: .semibold))
+                    if hasSyncIssue {
+                        HomeSectionCard(title: "Needs Attention") {
+                            Label(store.syncStatus, systemImage: "wifi.exclamationmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.orange)
+                            Text("Pull to refresh on Home or tap Refresh to reconnect and pull the latest family data.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
 
-                    HomeHeroCard(
-                        title: "Family Pulse",
-                        subtitle: "\(todayEventsCount) events today · \(pendingShoppingItems) list items pending"
-                    )
+                    HomeSectionCard(title: "Viewing As") {
+                        HStack {
+                            Picker("Family Member", selection: Binding(
+                                get: { store.activeMember?.id },
+                                set: { store.setActiveMember(id: $0) }
+                            )) {
+                                ForEach(store.members) { member in
+                                    Text(member.name).tag(Optional(member.id))
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            Spacer()
+
+                            Toggle("Visible Only", isOn: $showOnlyShared)
+                                .labelsHidden()
+                                .tint(AuraThemePalette.current.accentStart)
+                        }
+                        Text(showOnlyShared ? "Showing items you can access." : "Showing full household data.")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
 
                     HStack(spacing: 10) {
                         HomeQuickActionButton(label: "Schedule Event", icon: "calendar.badge.plus") {
                             AuraHaptics.tap(.light)
-                            showCreate = true
+                            showQuickEventTemplates = true
                         }
                         HomeQuickActionButton(label: "Log Activity", icon: "figure.walk") {
                             AuraHaptics.tap(.light)
@@ -2482,13 +2548,25 @@ struct HomeView: View {
                     }
 
                     HomeSectionCard(title: "Today") {
-                        if store.events(for: Date()).isEmpty {
-                            Text("No events today")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                        if store.isBootstrapping {
+                            HomeLoadingRows()
+                        } else if todayEvents.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("No events planned for today")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Use Schedule Event to add your next family moment.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                Button("Add First Event") {
+                                    eventDraftPreset = .defaultForActiveMember(in: store)
+                                    showCreate = true
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(AuraThemePalette.current.accentStart)
+                            }
                         } else {
                             VStack(spacing: 8) {
-                                ForEach(store.events(for: Date()).prefix(4)) { e in
+                                ForEach(todayEvents.prefix(4)) { e in
                                     HStack {
                                         Circle()
                                             .fill(store.category(for: e.categoryId)?.color ?? AuraThemePalette.current.accentStart)
@@ -2506,8 +2584,38 @@ struct HomeView: View {
                         }
                     }
 
+                    HomeSectionCard(title: "Upcoming") {
+                        if store.isBootstrapping {
+                            HomeLoadingRows()
+                        } else if upcomingEvents.isEmpty {
+                            Text("No upcoming events after today.")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(upcomingEvents) { e in
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(AuraThemePalette.current.accentStart)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(e.title)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .lineLimit(1)
+                                            Text(dayAndTimeLabel(e))
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     HomeSectionCard(title: "Recent Family Activities") {
-                        if recentActivities.isEmpty {
+                        if store.isBootstrapping {
+                            HomeLoadingRows()
+                        } else if recentActivities.isEmpty {
                             Text("No activities logged yet")
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondary)
@@ -2555,7 +2663,19 @@ struct HomeView: View {
                 .padding(16)
                 .padding(.bottom, 90)
             }
+            .refreshable {
+                await store.refreshHomeDashboard()
+            }
             .navigationTitle("Home")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        Task { await store.refreshHomeDashboard() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showLogActivity) {
             AddActivityView(isPresented: $showLogActivity)
@@ -2572,6 +2692,19 @@ struct HomeView: View {
         .sheet(item: $editingActivity) { activity in
             AddActivityView(isPresented: .constant(true), editingActivity: activity)
                 .environmentObject(store)
+        }
+        .confirmationDialog("Schedule Event", isPresented: $showQuickEventTemplates, titleVisibility: .visible) {
+            ForEach(HomeEventQuickTemplate.allCases, id: \.self) { template in
+                Button(template.label) {
+                    eventDraftPreset = .from(template: template, store: store)
+                    showCreate = true
+                }
+            }
+            Button("Custom Event") {
+                eventDraftPreset = .defaultForActiveMember(in: store)
+                showCreate = true
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -2590,11 +2723,20 @@ struct HomeView: View {
         f.dateStyle = .medium
         return "\(a.durationMinutes)m · \(names.joined(separator: ", ")) · \(f.string(from: a.date))"
     }
+
+    private func dayAndTimeLabel(_ event: CalendarEvent) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = event.isAllDay ? .none : .short
+        return event.isAllDay ? "\(f.string(from: event.startDate)) · All day" : f.string(from: event.startDate)
+    }
 }
 
 struct HomeHeroCard: View {
     let title: String
     let subtitle: String
+    let detail: String
+    var onRefresh: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -2604,6 +2746,24 @@ struct HomeHeroCard: View {
             Text(subtitle)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.9))
+            HStack {
+                Label(detail, systemImage: "bolt.horizontal.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.16), in: Capsule())
+                Spacer()
+                Button("Refresh") {
+                    onRefresh()
+                }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.2), in: Capsule())
+            }
+            .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -2658,6 +2818,107 @@ struct HomeSectionCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct HomeLoadingRows: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.tertiarySystemFill))
+                    .frame(height: 14)
+            }
+        }
+        .redacted(reason: .placeholder)
+    }
+}
+
+enum HomeEventQuickTemplate: CaseIterable {
+    case schoolDropOff
+    case doctorVisit
+    case familyDinner
+    case choirPractice
+
+    var label: String {
+        switch self {
+        case .schoolDropOff: return "School Drop Off"
+        case .doctorVisit: return "Doctor Visit"
+        case .familyDinner: return "Family Dinner"
+        case .choirPractice: return "Choir Practice"
+        }
+    }
+
+    var durationMinutes: Int {
+        switch self {
+        case .schoolDropOff: return 30
+        case .doctorVisit: return 60
+        case .familyDinner: return 90
+        case .choirPractice: return 120
+        }
+    }
+
+    var categoryHint: String {
+        switch self {
+        case .schoolDropOff: return "Kindergarten"
+        case .doctorVisit: return "Doctor · Children"
+        case .familyDinner: return "Family"
+        case .choirPractice: return "Choir · Church"
+        }
+    }
+}
+
+struct EventDraftPreset {
+    var title: String
+    var notes: String
+    var location: String
+    var start: Date
+    var end: Date
+    var categoryId: UUID?
+    var visibility: VisibilityScope
+    var sharedWithNames: [String]
+    var assignedMemberIds: [UUID]
+    var hasAlarm: Bool
+    var alarmMins: Int
+
+    static func defaultForActiveMember(in store: EventStore) -> EventDraftPreset {
+        let roundedStart = roundedToHalfHour(from: Date().addingTimeInterval(1800))
+        let memberIds = store.activeMember.map { [$0.id] } ?? []
+        return .init(
+            title: "",
+            notes: "",
+            location: "",
+            start: roundedStart,
+            end: roundedStart.addingTimeInterval(3600),
+            categoryId: store.categories.first?.id,
+            visibility: .family,
+            sharedWithNames: [],
+            assignedMemberIds: memberIds,
+            hasAlarm: true,
+            alarmMins: 15
+        )
+    }
+
+    static func from(template: HomeEventQuickTemplate, store: EventStore) -> EventDraftPreset {
+        var base = defaultForActiveMember(in: store)
+        let start = roundedToHalfHour(from: Date().addingTimeInterval(1800))
+        base.title = template.label
+        base.start = start
+        base.end = start.addingTimeInterval(Double(template.durationMinutes) * 60)
+        base.categoryId = store.categories.first(where: { $0.name.caseInsensitiveCompare(template.categoryHint) == .orderedSame })?.id ?? base.categoryId
+        return base
+    }
+
+    private static func roundedToHalfHour(from date: Date) -> Date {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let minute = comps.minute ?? 0
+        comps.minute = minute < 30 ? 30 : 0
+        if minute >= 30 {
+            comps.hour = (comps.hour ?? 0) + 1
+        }
+        comps.second = 0
+        return cal.date(from: comps) ?? date
     }
 }
 
@@ -4790,6 +5051,7 @@ struct CreateEventView: View {
     @EnvironmentObject var store: EventStore
     @Binding var isPresented: Bool
     var editing: CalendarEvent? = nil
+    var preset: EventDraftPreset? = nil
 
     @State private var title      = ""
     @State private var notes      = ""
@@ -5064,8 +5326,25 @@ struct CreateEventView: View {
 
     func preload() {
         catId = store.categories.first?.id ?? catId
-        if editing == nil, let activeMember = store.activeMember {
-            assignedMemberIds = [activeMember.id]
+        if editing == nil {
+            if let preset {
+                title = preset.title
+                notes = preset.notes
+                location = preset.location
+                start = preset.start
+                end = preset.end
+                if let presetCategoryId = preset.categoryId,
+                   store.category(for: presetCategoryId) != nil {
+                    catId = presetCategoryId
+                }
+                visibility = preset.visibility
+                sharedWithNames = Set(preset.sharedWithNames)
+                assignedMemberIds = Set(preset.assignedMemberIds)
+                hasAlarm = preset.hasAlarm
+                alarmMins = preset.alarmMins
+            } else if let activeMember = store.activeMember {
+                assignedMemberIds = [activeMember.id]
+            }
         }
         guard let e = editing else { return }
         title       = e.title
