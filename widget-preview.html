@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura — Widget Preview & Gradient Picker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    background: #0a0a0f;
+    color: #fff;
+    min-height: 100vh;
+    padding: 48px 24px 120px;
+  }
+
+  h1 { text-align: center; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 56px; }
+
+  /* ── Section ── */
+  .section { max-width: 860px; margin: 0 auto 64px; }
+  .section-badge {
+    display: inline-block;
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    padding: 4px 10px; border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .section-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .section-desc { font-size: 14px; color: #666; margin-bottom: 28px; line-height: 1.5; }
+
+  /* ── Widget shells ── */
+  .widgets-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .widget-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .size-tag { font-size: 11px; color: #444; font-weight: 500; }
+  .w-small  { width: 158px; height: 158px; border-radius: 22px; overflow: hidden; }
+  .w-medium { width: 338px; height: 158px; border-radius: 22px; overflow: hidden; }
+  .w-large  { width: 338px; height: 354px; border-radius: 22px; overflow: hidden; }
+
+  /* ── Gradient themes ── */
+  .gradient-section { max-width: 860px; margin: 0 auto 64px; }
+  .gradients-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .g-swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer;
+  }
+  .g-swatch .g-box {
+    width: 120px; height: 70px; border-radius: 16px;
+    border: 3px solid transparent;
+    transition: border 0.15s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .g-swatch:hover .g-box { transform: scale(1.04); }
+  .g-swatch.selected .g-box { border-color: #fff; }
+  .g-swatch .g-name { font-size: 11px; color: #666; font-weight: 500; }
+  .g-swatch.selected .g-name { color: #fff; }
+
+  /* ── Live preview label ── */
+  .preview-note {
+    font-size: 12px; color: #555; margin-bottom: 16px; font-style: italic;
+  }
+
+  /* ── CTA ── */
+  .cta-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,15,0.93);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid #1a1a24;
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    z-index: 100;
+  }
+  .cta-msg { font-size: 14px; color: #666; }
+  .cta-msg span { color: #fff; font-weight: 600; }
+  .cta-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none; color: #fff;
+    font-size: 15px; font-weight: 700;
+    padding: 12px 32px; border-radius: 14px;
+    cursor: pointer; opacity: 0.35; pointer-events: none;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .cta-btn.active { opacity: 1; pointer-events: all; }
+  .cta-btn.active:hover { transform: scale(1.03); }
+
+  hr { border: none; border-top: 1px solid #15151e; margin: 0 auto 64px; max-width: 860px; }
+
+  /* ==============================================================
+     MERGED WIDGET (A + D)
+     Small:  pill | big-number | title | time
+     Medium: left=number+days | right=pill+title+time+count
+     Large:  top=number+event | bottom=upcoming list
+  ============================================================== */
+
+  /* shared */
+  .mw-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 99px; padding: 3px 9px;
+    font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.8);
+    width: fit-content;
+  }
+  .mw-eyebrow {
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4);
+  }
+  .mw-big-num {
+    font-size: 52px; font-weight: 900; line-height: 1;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .mw-days-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+  }
+  .mw-title { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
+  .mw-time {
+    font-size: 11px; color: rgba(255,255,255,0.5);
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* small */
+  .mw-small {
+    width: 100%; height: 100%;
+    padding: 13px;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .mw-small-num-row {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+  }
+  .mw-small-num-row .mw-big-num { font-size: 44px; }
+  .mw-small-num-side { display: flex; flex-direction: column; }
+  .mw-small-divider {
+    height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0;
+  }
+
+  /* medium */
+  .mw-medium { width: 100%; height: 100%; display: flex; }
+  .mw-med-left {
+    width: 110px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .mw-med-left .mw-big-num { font-size: 52px; }
+  .mw-med-right {
+    flex: 1; padding: 14px 14px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .mw-med-right-top { display: flex; flex-direction: column; gap: 5px; }
+  .mw-count-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: rgba(255,255,255,0.35);
+  }
+  .mw-count-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.3); }
+
+  /* large */
+  .mw-large { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .mw-large-top {
+    padding: 16px;
+    display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .mw-large-top .mw-big-num { font-size: 56px; }
+  .mw-large-top-right { display: flex; flex-direction: column; gap: 4px; }
+  .mw-large-top-title { font-size: 18px; font-weight: 700; color: #fff; }
+  .mw-large-top-time { font-size: 12px; color: rgba(255,255,255,0.45); }
+  .mw-large-list { flex: 1; overflow: hidden; padding: 8px 0; }
+  .mw-large-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 16px;
+  }
+  .mw-large-bar { width: 3px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+  .mw-large-event-title { font-size: 13px; font-weight: 600; color: #fff; }
+  .mw-large-event-time { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+  /* settings mockup */
+  .settings-mock {
+    background: #1c1c1e;
+    border-radius: 16px;
+    overflow: hidden;
+    width: 338px;
+  }
+  .settings-header {
+    padding: 14px 16px 10px;
+    font-size: 13px; font-weight: 700; color: #888;
+    letter-spacing: 0.3px;
+  }
+  .settings-row {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #2c2c2e;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 15px; color: #fff; }
+  .settings-row-value { font-size: 14px; color: #888; display: flex; align-items: center; gap: 6px; }
+  .settings-chevron { color: #3a3a3c; font-size: 12px; }
+  .settings-swatch-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; }
+  .settings-swatch {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .settings-swatch.active { border-color: #fff; transform: scale(1.15); }
+</style>
+</head>
+<body>
+
+<h1>Aura Widgets</h1>
+<p class="subtitle">Merged design (A + D) — pick your gradient theme</p>
+
+<!-- ================================================================
+     SECTION 1 — Gradient Theme Picker
+================================================================ -->
+<div class="gradient-section">
+  <div class="section-badge">STEP 1</div>
+  <div class="section-title" style="margin-bottom:4px">Choose Your Gradient Theme</div>
+  <div class="section-desc">This will be selectable inside Aura's Settings. The widget live-updates below as you click.</div>
+
+  <div class="gradients-row" id="swatches">
+
+    <div class="g-swatch selected" onclick="setGradient(this,'#1e1b4b','#4c1d95','#6366f1','#a78bfa')" data-name="Indigo Night">
+      <div class="g-box" style="background:linear-gradient(135deg,#1e1b4b,#4c1d95)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Indigo Night</div>
+      </div>
+      <span class="g-name">Indigo Night</span>
+    </div>
+
+    <div class="g-swatch" onclick="setGradient(this,'#0f172a','#1e3a5f','#38bdf8','#7dd3fc')" data-name="Ocean Deep">
+      <div class="g-box" style="background:linear-gradient(135deg,#0f172a,#1e3a5f)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Ocean Deep</div>
+      </div>
+      <span class="g-name">Ocean Deep</span>
+    </div>
+
+    <div class="g-swatch" onclick="setGradient(this,'#1a0a2e','#6b1a3a','#f472b6','#fda4af')" data-name="Rose Noir">
+      <div class="g-box" style="background:linear-gradient(135deg,#1a0a2e,#6b1a3a)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Rose Noir</div>
+      </div>
+      <span class="g-name">Rose Noir</span>
+    </div>
+
+    <div class="g-swatch" onclick="setGradient(this,'#022c22','#064e3b','#34d399','#6ee7b7')" data-name="Forest Dusk">
+      <div class="g-box" style="background:linear-gradient(135deg,#022c22,#064e3b)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Forest Dusk</div>
+      </div>
+      <span class="g-name">Forest Dusk</span>
+    </div>
+
+    <div class="g-swatch" onclick="setGradient(this,'#1c0a00','#78350f','#fb923c','#fcd34d')" data-name="Amber Ember">
+      <div class="g-box" style="background:linear-gradient(135deg,#1c0a00,#78350f)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Amber Ember</div>
+      </div>
+      <span class="g-name">Amber Ember</span>
+    </div>
+
+    <div class="g-swatch" onclick="setGradient(this,'#0f0f0f','#1a1a1a','#e5e5e5','#ffffff')" data-name="Midnight Grey">
+      <div class="g-box" style="background:linear-gradient(135deg,#0f0f0f,#2a2a2a)">
+        <div style="position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.6)">Midnight Grey</div>
+      </div>
+      <span class="g-name">Midnight Grey</span>
+    </div>
+
+  </div>
+</div>
+
+<hr>
+
+<!-- ================================================================
+     SECTION 2 — Live Widget Previews
+================================================================ -->
+<div class="section">
+  <div class="section-badge">STEP 2</div>
+  <div class="section-title">Live Widget Preview</div>
+  <div class="section-desc">This is exactly how your widget will look on the home screen. Updates instantly as you change the theme above.</div>
+  <p class="preview-note">* Small and Medium widgets available at launch. Large can be added after.</p>
+
+  <div class="widgets-row">
+
+    <!-- SMALL -->
+    <div class="widget-col">
+      <div class="w-small" id="widget-small">
+        <div class="mw-small" id="ws-bg">
+          <!-- pill -->
+          <div class="mw-pill" id="ws-pill">♪ Choir · Church</div>
+          <!-- number row -->
+          <div class="mw-small-num-row">
+            <div class="mw-big-num" id="ws-num" style="background:linear-gradient(180deg,#6366f1,#a78bfa)">3</div>
+            <div class="mw-small-num-side">
+              <div class="mw-days-label">DAYS</div>
+              <div style="font-size:8px;color:rgba(255,255,255,0.3);margin-top:1px;">TO GO</div>
+            </div>
+          </div>
+          <!-- divider -->
+          <div class="mw-small-divider"></div>
+          <!-- event info -->
+          <div class="mw-eyebrow" style="margin-bottom:3px">NEXT UP</div>
+          <div class="mw-title" style="font-size:13px">Doctor · Mama</div>
+          <div class="mw-time" style="margin-top:3px">🕐 9:00 AM · Today</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <!-- MEDIUM -->
+    <div class="widget-col">
+      <div class="w-medium" id="widget-medium">
+        <div class="mw-medium" id="wm-bg">
+          <!-- left: countdown -->
+          <div class="mw-med-left">
+            <div class="mw-eyebrow">DAYS TO</div>
+            <div class="mw-big-num" id="wm-num" style="background:linear-gradient(180deg,#6366f1,#a78bfa)">3</div>
+            <div class="mw-days-label">JOB INTERVIEW</div>
+          </div>
+          <!-- right: next up -->
+          <div class="mw-med-right">
+            <div class="mw-med-right-top">
+              <div class="mw-pill">♥ Health</div>
+              <div class="mw-eyebrow" style="margin-top:4px">NEXT UP</div>
+              <div class="mw-title">Doctor · Mama</div>
+              <div class="mw-time">🕐 9:00 AM · Today</div>
+            </div>
+            <div class="mw-count-row">
+              <div class="mw-count-dot"></div>
+              <div class="mw-count-dot"></div>
+              <div class="mw-count-dot"></div>
+              4 events today
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+    <!-- LARGE -->
+    <div class="widget-col">
+      <div class="w-large" id="widget-large">
+        <div class="mw-large" id="wl-bg">
+          <!-- top: countdown + next event -->
+          <div class="mw-large-top">
+            <div>
+              <div class="mw-eyebrow">DAYS TO</div>
+              <div class="mw-big-num" id="wl-num" style="background:linear-gradient(180deg,#6366f1,#a78bfa)">3</div>
+              <div class="mw-days-label">JOB INTERVIEW</div>
+            </div>
+            <div class="mw-large-top-right">
+              <div class="mw-pill">♥ Health</div>
+              <div class="mw-large-top-title">Doctor · Mama</div>
+              <div class="mw-large-top-time">🕐 9:00 AM — Today</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">4 events today</div>
+            </div>
+          </div>
+          <!-- list: rest of today's events -->
+          <div class="mw-large-list">
+            <div class="mw-large-row">
+              <div class="mw-large-bar" style="background:#8b5cf6"></div>
+              <div>
+                <div class="mw-large-event-title">Meeting · Work</div>
+                <div class="mw-large-event-time">👥 2:00 PM</div>
+              </div>
+            </div>
+            <div class="mw-large-row">
+              <div class="mw-large-bar" style="background:#7c3aed"></div>
+              <div>
+                <div class="mw-large-event-title">Choir · Church</div>
+                <div class="mw-large-event-time">♪ 7:00 PM</div>
+              </div>
+            </div>
+            <div class="mw-large-row">
+              <div class="mw-large-bar" style="background:#14b8a6"></div>
+              <div>
+                <div class="mw-large-event-title">Job Interview</div>
+                <div class="mw-large-event-time">💼 All Day · Tue 11 May</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Large</span>
+    </div>
+
+  </div>
+</div>
+
+<hr>
+
+<!-- ================================================================
+     SECTION 3 — Settings Preview
+================================================================ -->
+<div class="section">
+  <div class="section-badge">IN THE APP</div>
+  <div class="section-title">Settings → Widget Theme</div>
+  <div class="section-desc">This is how the theme picker will look inside the Aura Settings screen. Tap a swatch to switch theme instantly.</div>
+
+  <div class="settings-mock">
+    <div class="settings-header">WIDGET THEME</div>
+    <div class="settings-row">
+      <span class="settings-row-label">Current Theme</span>
+      <span class="settings-row-value" id="settings-theme-name">Indigo Night <span class="settings-chevron">›</span></span>
+    </div>
+    <div class="settings-swatch-row">
+      <div class="settings-swatch active" id="ss-0" style="background:linear-gradient(135deg,#1e1b4b,#4c1d95)" onclick="settingsSwatch(0,'Indigo Night')"></div>
+      <div class="settings-swatch" id="ss-1" style="background:linear-gradient(135deg,#0f172a,#1e3a5f)" onclick="settingsSwatch(1,'Ocean Deep')"></div>
+      <div class="settings-swatch" id="ss-2" style="background:linear-gradient(135deg,#1a0a2e,#6b1a3a)" onclick="settingsSwatch(2,'Rose Noir')"></div>
+      <div class="settings-swatch" id="ss-3" style="background:linear-gradient(135deg,#022c22,#064e3b)" onclick="settingsSwatch(3,'Forest Dusk')"></div>
+      <div class="settings-swatch" id="ss-4" style="background:linear-gradient(135deg,#1c0a00,#78350f)" onclick="settingsSwatch(4,'Amber Ember')"></div>
+      <div class="settings-swatch" id="ss-5" style="background:linear-gradient(135deg,#0f0f0f,#2a2a2a)" onclick="settingsSwatch(5,'Midnight Grey')"></div>
+    </div>
+    <div class="settings-row">
+      <span class="settings-row-label">Show countdown</span>
+      <span class="settings-row-value">On <span class="settings-chevron">›</span></span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-row-label">Show event list (large)</span>
+      <span class="settings-row-value">On <span class="settings-chevron">›</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── CTA Bar ── -->
+<div class="cta-bar">
+  <div class="cta-msg">Theme: <span id="selected-theme">Indigo Night</span></div>
+  <button class="cta-btn active" onclick="confirmChoice()">Build This Widget</button>
+</div>
+
+<script>
+  const gradients = [
+    { name:'Indigo Night', c1:'#1e1b4b', c2:'#4c1d95', n1:'#6366f1', n2:'#a78bfa' },
+    { name:'Ocean Deep',   c1:'#0f172a', c2:'#1e3a5f', n1:'#38bdf8', n2:'#7dd3fc' },
+    { name:'Rose Noir',    c1:'#1a0a2e', c2:'#6b1a3a', n1:'#f472b6', n2:'#fda4af' },
+    { name:'Forest Dusk',  c1:'#022c22', c2:'#064e3b', n1:'#34d399', n2:'#6ee7b7' },
+    { name:'Amber Ember',  c1:'#1c0a00', c2:'#78350f', n1:'#fb923c', n2:'#fcd34d' },
+    { name:'Midnight Grey',c1:'#0f0f0f', c2:'#1a1a1a', n1:'#e5e5e5', n2:'#ffffff' },
+  ];
+
+  let currentIdx = 0;
+
+  function setGradient(el, c1, c2, n1, n2) {
+    // deselect all swatches
+    document.querySelectorAll('.g-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+
+    const name = el.dataset.name;
+    document.getElementById('selected-theme').textContent = name;
+    document.getElementById('settings-theme-name').innerHTML = name + ' <span class="settings-chevron">›</span>';
+
+    // bg gradient
+    const bg = `linear-gradient(135deg, ${c1}, ${c2})`;
+    ['ws-bg','wm-bg','wl-bg'].forEach(id => {
+      document.getElementById(id).style.background = bg;
+    });
+
+    // number gradient
+    const ng = `linear-gradient(180deg, ${n1}, ${n2})`;
+    ['ws-num','wm-num','wl-num'].forEach(id => {
+      document.getElementById(id).style.background = ng;
+    });
+
+    // sync settings swatches
+    const idx = gradients.findIndex(g => g.name === name);
+    document.querySelectorAll('.settings-swatch').forEach((s,i) => {
+      s.classList.toggle('active', i === idx);
+    });
+    currentIdx = idx;
+  }
+
+  function settingsSwatch(idx, name) {
+    const g = gradients[idx];
+    // find matching g-swatch
+    const swatches = document.querySelectorAll('.g-swatch');
+    swatches.forEach(s => { if(s.dataset.name === name) setGradient(s, g.c1, g.c2, g.n1, g.n2); });
+  }
+
+  function confirmChoice() {
+    const theme = document.getElementById('selected-theme').textContent;
+    alert('Great choice!\n\nTell GitHub Copilot:\n"Build the merged widget with the ' + theme + ' theme (and all themes selectable in Settings)"\n\nIt will create the full WidgetKit extension.');
+  }
+</script>
+</body>
+</html>

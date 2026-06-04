@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura — All Widget Designs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    background: #0a0a0f;
+    color: #fff;
+    min-height: 100vh;
+    padding: 48px 24px 100px;
+  }
+
+  h1 { text-align: center; font-size: 30px; font-weight: 800; margin-bottom: 6px; }
+  .subtitle { text-align: center; color: #555; font-size: 14px; margin-bottom: 56px; }
+
+  /* ── Option block ── */
+  .option {
+    max-width: 960px;
+    margin: 0 auto 72px;
+    scroll-margin-top: 20px;
+  }
+  .option-header {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 6px;
+  }
+  .option-badge {
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+    font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+    padding: 4px 10px; border-radius: 6px;
+    white-space: nowrap;
+  }
+  .option-title { font-size: 22px; font-weight: 700; }
+  .option-desc { font-size: 13px; color: #555; margin-bottom: 28px; line-height: 1.6; }
+
+  .elements-list {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 28px;
+  }
+  .el-tag {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+    background: #16161f; color: #888;
+    border: 1px solid #22222e;
+  }
+  .el-tag.highlight { background: rgba(99,102,241,0.15); color: #a5b4fc; border-color: rgba(99,102,241,0.3); }
+
+  .widgets-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .widget-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .size-tag { font-size: 11px; color: #444; font-weight: 500; }
+
+  .w-small  { width: 158px; height: 158px; border-radius: 22px; overflow: hidden; cursor: pointer; transition: transform .15s; }
+  .w-medium { width: 338px; height: 158px; border-radius: 22px; overflow: hidden; cursor: pointer; transition: transform .15s; }
+  .w-large  { width: 338px; height: 354px; border-radius: 22px; overflow: hidden; cursor: pointer; transition: transform .15s; }
+  .w-small:hover, .w-medium:hover, .w-large:hover { transform: scale(1.03); }
+  .selected-ring { outline: 3px solid #6366f1; outline-offset: 3px; border-radius: 25px; }
+
+  hr { border: none; border-top: 1px solid #13131a; margin: 0 auto 72px; max-width: 960px; }
+
+  /* ── Selection panel ── */
+  .select-panel {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid #1a1a26;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    z-index: 100;
+    flex-wrap: wrap;
+  }
+  .selection-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    font-size: 12px; font-weight: 600;
+    padding: 5px 12px; border-radius: 20px;
+    background: #1a1a26; color: #666;
+    border: 1px solid #222;
+  }
+  .chip.on { background: rgba(99,102,241,0.2); color: #a5b4fc; border-color: #6366f1; }
+  .build-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none; color: #fff;
+    font-size: 14px; font-weight: 700;
+    padding: 11px 28px; border-radius: 12px;
+    cursor: pointer; opacity: 0.3; pointer-events: none;
+    transition: opacity .2s, transform .1s;
+    white-space: nowrap;
+  }
+  .build-btn.active { opacity: 1; pointer-events: all; }
+  .build-btn.active:hover { transform: scale(1.03); }
+
+  /* ================================================================
+     OPTION A — Next Up (Dark Gradient)
+  ================================================================ */
+  .a-small {
+    width:100%; height:100%;
+    background: linear-gradient(135deg,#1e1b4b,#312e81);
+    padding:13px; display:flex; flex-direction:column;
+  }
+  .a-pill {
+    display:inline-flex; align-items:center; gap:4px;
+    background:rgba(255,255,255,0.15); border-radius:99px;
+    padding:3px 9px; font-size:9px; font-weight:700;
+    color:rgba(255,255,255,0.8); width:fit-content;
+  }
+  .a-spacer { flex:1; }
+  .a-eyebrow { font-size:9px; font-weight:700; letter-spacing:1.5px; color:#a5b4fc; margin-bottom:3px; }
+  .a-title   { font-size:15px; font-weight:700; color:#fff; line-height:1.2; margin-bottom:5px; }
+  .a-time    { font-size:11px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:4px; }
+
+  .a-medium {
+    width:100%; height:100%;
+    background: linear-gradient(135deg,#1e1b4b,#4c1d95);
+    display:flex;
+  }
+  .a-med-left { flex:1; padding:16px; display:flex; flex-direction:column; }
+  .a-med-right {
+    width:80px; background:rgba(255,255,255,0.07);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  }
+  .a-count { font-size:36px; font-weight:800; color:#fff; line-height:1; }
+  .a-count-lbl { font-size:10px; color:rgba(255,255,255,0.4); }
+
+  /* ================================================================
+     OPTION B — Today's Agenda (White)
+  ================================================================ */
+  .b-medium { width:100%; height:100%; background:#fff; display:flex; flex-direction:column; }
+  .b-hdr { padding:10px 14px 8px; display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid #f0f0f0; }
+  .b-today { font-size:10px; font-weight:800; color:#6366f1; letter-spacing:1px; margin-bottom:1px; }
+  .b-date  { font-size:13px; font-weight:600; color:#000; }
+  .b-cnt   { font-size:11px; color:#999; margin-top:2px; }
+  .b-row   { display:flex; align-items:center; padding:5px 14px; gap:10px; }
+  .b-bar   { width:3px; height:36px; border-radius:2px; flex-shrink:0; }
+  .b-etitle{ font-size:13px; font-weight:600; color:#000; }
+  .b-etime { font-size:11px; color:#999; }
+  .b-ico   { margin-left:auto; font-size:12px; }
+
+  .b-large { width:100%; height:100%; background:#fff; display:flex; flex-direction:column; }
+  .b-lhdr  { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #f0f0f0; }
+  .b-ltoday{ font-size:11px; font-weight:800; color:#6366f1; letter-spacing:1px; margin-bottom:2px; }
+  .b-ldate { font-size:15px; font-weight:700; color:#000; }
+  .b-circle{ width:36px; height:36px; border-radius:50%; background:rgba(99,102,241,0.12); display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700; color:#6366f1; }
+  .b-lrow  { display:flex; align-items:center; padding:8px 16px; gap:12px; border-bottom:1px solid #f5f5f5; }
+  .b-lbar  { width:4px; height:46px; border-radius:3px; flex-shrink:0; }
+  .b-ltitle{ font-size:14px; font-weight:600; color:#000; }
+  .b-lmeta { font-size:11px; color:#999; margin-top:2px; }
+
+  /* ================================================================
+     OPTION C — Calendar + Dots
+  ================================================================ */
+  .c-small { width:100%; height:100%; background:#f2f2f7; padding:10px; display:flex; flex-direction:column; gap:4px; }
+  .c-month { font-size:10px; font-weight:800; color:#6366f1; text-align:center; letter-spacing:1px; }
+  .c-wdays { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; }
+  .c-wd    { font-size:7px; font-weight:600; color:#999; }
+  .c-grid  { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+  .c-day   { display:flex; flex-direction:column; align-items:center; height:18px; position:relative; }
+  .c-dnum  { font-size:8px; color:#333; width:16px; height:16px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+  .c-day.today .c-dnum { background:#6366f1; color:#fff; font-weight:700; }
+  .c-dot   { width:3px; height:3px; border-radius:50%; background:#6366f1; position:absolute; bottom:0; }
+  .c-divline { border:none; border-top:1px solid #ddd; }
+  .c-next  { display:flex; align-items:center; gap:4px; font-size:9px; font-weight:600; color:#333; }
+  .c-ndot  { width:6px; height:6px; border-radius:50%; background:#ec4899; flex-shrink:0; }
+
+  .c-medium { width:100%; height:100%; background:#f2f2f7; display:flex; }
+  .c-mleft  { padding:12px; width:180px; flex-shrink:0; border-right:1px solid #ddd; display:flex; flex-direction:column; gap:4px; }
+  .c-mright { flex:1; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .c-mtoday { font-size:10px; font-weight:800; color:#6366f1; letter-spacing:1px; margin-bottom:4px; }
+  .c-mevt   { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:500; color:#333; }
+  .c-medot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+  /* ================================================================
+     OPTION D — Countdown
+  ================================================================ */
+  .d-small {
+    width:100%; height:100%;
+    background: linear-gradient(180deg,#0f172a,#1e293b);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .d-num   { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+  .d-big   { font-size:52px; font-weight:900; line-height:1; background:linear-gradient(180deg,#6366f1,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .d-to    { font-size:9px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.3); margin-top:2px; }
+  .d-foot  { width:100%; border-top:1px solid rgba(255,255,255,0.08); padding:8px 12px 10px; display:flex; align-items:center; gap:5px; }
+  .d-ftxt  { font-size:11px; font-weight:600; color:#fff; }
+
+  .d-medium { width:100%; height:100%; background:linear-gradient(135deg,#0f172a,#1e293b); display:flex; }
+  .d-mleft  { width:110px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:1px solid rgba(255,255,255,0.08); }
+  .d-mbig   { font-size:56px; font-weight:900; line-height:1; background:linear-gradient(180deg,#6366f1,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .d-mdays  { font-size:10px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.35); }
+  .d-mright { flex:1; padding:16px; display:flex; flex-direction:column; justify-content:space-between; }
+  .d-mey    { font-size:9px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.3); }
+  .d-mtitle { font-size:15px; font-weight:700; color:#fff; margin-top:6px; }
+  .d-mdate  { font-size:11px; color:rgba(255,255,255,0.4); margin-top:3px; }
+  .d-malso  { font-size:10px; color:rgba(255,255,255,0.3); }
+
+  /* ================================================================
+     MERGED — A + D
+  ================================================================ */
+  .m-small {
+    width:100%; height:100%;
+    background:linear-gradient(135deg,#1e1b4b,#312e81);
+    padding:13px; display:flex; flex-direction:column;
+  }
+  .m-numrow { flex:1; display:flex; align-items:center; gap:10px; }
+  .m-bignum { font-size:44px; font-weight:900; line-height:1; background:linear-gradient(180deg,#6366f1,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .m-numside { display:flex; flex-direction:column; }
+  .m-daystag { font-size:9px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.3); }
+  .m-hr { height:1px; background:rgba(255,255,255,0.1); margin:8px 0; }
+  .m-eyebrow { font-size:9px; font-weight:700; letter-spacing:1.5px; color:rgba(255,255,255,0.4); margin-bottom:3px; }
+  .m-title   { font-size:13px; font-weight:700; color:#fff; line-height:1.2; }
+  .m-time    { font-size:10px; color:rgba(255,255,255,0.45); margin-top:3px; }
+  .m-pill    { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.15); border-radius:99px; padding:3px 8px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.8); width:fit-content; }
+
+  .m-medium { width:100%; height:100%; background:linear-gradient(135deg,#1e1b4b,#4c1d95); display:flex; }
+  .m-mleft  { width:110px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; border-right:1px solid rgba(255,255,255,0.08); }
+  .m-mlbig  { font-size:52px; font-weight:900; line-height:1; background:linear-gradient(180deg,#6366f1,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .m-mright { flex:1; padding:14px; display:flex; flex-direction:column; justify-content:space-between; }
+  .m-mrtop  { display:flex; flex-direction:column; gap:5px; }
+  .m-count  { font-size:11px; color:rgba(255,255,255,0.3); }
+
+  .m-large  { width:100%; height:100%; background:linear-gradient(135deg,#1e1b4b,#4c1d95); display:flex; flex-direction:column; }
+  .m-ltop   { padding:14px 16px; display:flex; align-items:center; gap:14px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .m-ltbig  { font-size:52px; font-weight:900; line-height:1; background:linear-gradient(180deg,#6366f1,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .m-ltright{ display:flex; flex-direction:column; gap:4px; }
+  .m-lttitle{ font-size:17px; font-weight:700; color:#fff; }
+  .m-lttime { font-size:12px; color:rgba(255,255,255,0.45); }
+  .m-list   { flex:1; overflow:hidden; padding:6px 0; }
+  .m-lrow   { display:flex; align-items:center; gap:10px; padding:6px 16px; }
+  .m-lbar   { width:3px; height:36px; border-radius:2px; flex-shrink:0; }
+  .m-letitle{ font-size:13px; font-weight:600; color:#fff; }
+  .m-letime { font-size:11px; color:rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<h1>All Widget Designs</h1>
+<p class="subtitle">Click any widget to mark it — mix elements from different options, then hit "Tell me what to build"</p>
+
+<!-- ================================================================
+     OPTION A
+================================================================ -->
+<div class="option" id="opt-a">
+  <div class="option-header">
+    <span class="option-badge">OPTION A</span>
+    <span class="option-title">Next Up — Dark Gradient</span>
+  </div>
+  <div class="option-desc">Focus on a single upcoming event. Premium dark gradient background. Shows category pill, event title, and time.</div>
+  <div class="elements-list">
+    <span class="el-tag highlight">Category pill</span>
+    <span class="el-tag highlight">Event title</span>
+    <span class="el-tag highlight">Event time</span>
+    <span class="el-tag highlight">Dark gradient bg</span>
+    <span class="el-tag">Today's count (medium)</span>
+  </div>
+  <div class="widgets-row">
+
+    <div class="widget-col">
+      <div class="w-small" onclick="toggle(this,'A-Small')">
+        <div class="a-small">
+          <div class="a-pill">♪ Choir · Church</div>
+          <div class="a-spacer"></div>
+          <div class="a-eyebrow">NEXT UP</div>
+          <div class="a-title">Doctor · Mama</div>
+          <div class="a-time">🕐 9:00 AM · Today</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <div class="widget-col">
+      <div class="w-medium" onclick="toggle(this,'A-Medium')">
+        <div class="a-medium">
+          <div class="a-med-left">
+            <div class="a-eyebrow">NEXT UP</div>
+            <div class="a-title" style="font-size:18px;margin-top:4px">Doctor · Mama</div>
+            <div class="a-time" style="margin-top:4px">🕐 9:00 AM · Today</div>
+            <div class="a-spacer"></div>
+            <div class="a-pill">❤️ Health</div>
+          </div>
+          <div class="a-med-right">
+            <div class="a-count-lbl">Today</div>
+            <div class="a-count">4</div>
+            <div class="a-count-lbl">events</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION B
+================================================================ -->
+<div class="option" id="opt-b">
+  <div class="option-header">
+    <span class="option-badge">OPTION B</span>
+    <span class="option-title">Today's Agenda — White Card</span>
+  </div>
+  <div class="option-desc">Clean and functional. Full list of today's events with category colour bars. Light background, iOS-native feel.</div>
+  <div class="elements-list">
+    <span class="el-tag highlight">Full event list</span>
+    <span class="el-tag highlight">Category colour bars</span>
+    <span class="el-tag highlight">Light background</span>
+    <span class="el-tag highlight">Date header</span>
+    <span class="el-tag">Category icon</span>
+    <span class="el-tag">Dividers between events</span>
+    <span class="el-tag">Today's count</span>
+  </div>
+  <div class="widgets-row">
+
+    <div class="widget-col">
+      <div class="w-medium" onclick="toggle(this,'B-Medium')">
+        <div class="b-medium">
+          <div class="b-hdr">
+            <div><div class="b-today">TODAY</div><div class="b-date">Thursday, 8 May</div></div>
+            <div class="b-cnt">4 events</div>
+          </div>
+          <div class="b-row"><div class="b-bar" style="background:#ff6b9d"></div><div><div class="b-etitle">Doctor · Mama</div><div class="b-etime">9:00 AM</div></div><div class="b-ico" style="color:#ff6b9d">♥</div></div>
+          <div class="b-row"><div class="b-bar" style="background:#8b5cf6"></div><div><div class="b-etitle">Meeting · Work</div><div class="b-etime">2:00 PM</div></div><div class="b-ico" style="color:#8b5cf6">👥</div></div>
+          <div class="b-row"><div class="b-bar" style="background:#7c3aed"></div><div><div class="b-etitle">Choir · Church</div><div class="b-etime">7:00 PM</div></div><div class="b-ico" style="color:#7c3aed">♪</div></div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+    <div class="widget-col">
+      <div class="w-large" onclick="toggle(this,'B-Large')">
+        <div class="b-large">
+          <div class="b-lhdr">
+            <div><div class="b-ltoday">TODAY</div><div class="b-ldate">Thursday, 8 May 2026</div></div>
+            <div class="b-circle">8</div>
+          </div>
+          <div class="b-lrow"><div class="b-lbar" style="background:#ff6b9d"></div><div><div class="b-ltitle">Doctor · Mama</div><div class="b-lmeta">❤️ 9:00 AM</div></div></div>
+          <div class="b-lrow"><div class="b-lbar" style="background:#8b5cf6"></div><div><div class="b-ltitle">Meeting · Work</div><div class="b-lmeta">👥 2:00 PM</div></div></div>
+          <div class="b-lrow"><div class="b-lbar" style="background:#7c3aed"></div><div><div class="b-ltitle">Choir · Church</div><div class="b-lmeta">♪ 7:00 PM</div></div></div>
+          <div class="b-lrow" style="border:none"><div class="b-lbar" style="background:#14b8a6"></div><div><div class="b-ltitle">Job Interview</div><div class="b-lmeta">💼 All Day</div></div></div>
+        </div>
+      </div>
+      <span class="size-tag">Large</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION C
+================================================================ -->
+<div class="option" id="opt-c">
+  <div class="option-header">
+    <span class="option-badge">OPTION C</span>
+    <span class="option-title">Calendar + Dots — Mini Grid</span>
+  </div>
+  <div class="option-desc">Shows the full month at a glance. Event days get coloured dots. Today is highlighted. Next event shown at the bottom.</div>
+  <div class="elements-list">
+    <span class="el-tag highlight">Mini calendar grid</span>
+    <span class="el-tag highlight">Event dot indicators</span>
+    <span class="el-tag highlight">Today highlight</span>
+    <span class="el-tag highlight">Light background</span>
+    <span class="el-tag">Next event at bottom</span>
+    <span class="el-tag">Today's events list (medium)</span>
+  </div>
+  <div class="widgets-row">
+
+    <div class="widget-col">
+      <div class="w-small" onclick="toggle(this,'C-Small')">
+        <div class="c-small">
+          <div class="c-month">MAY 2026</div>
+          <div class="c-wdays"><span class="c-wd">S</span><span class="c-wd">M</span><span class="c-wd">T</span><span class="c-wd">W</span><span class="c-wd">T</span><span class="c-wd">F</span><span class="c-wd">S</span></div>
+          <div class="c-grid">
+            <div class="c-day"></div><div class="c-day"></div><div class="c-day"></div><div class="c-day"></div>
+            <div class="c-day"><span class="c-dnum">1</span></div>
+            <div class="c-day"><span class="c-dnum">2</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-dnum">3</span></div>
+            <div class="c-day"><span class="c-dnum">4</span></div><div class="c-day"><span class="c-dnum">5</span></div><div class="c-day"><span class="c-dnum">6</span></div><div class="c-day"><span class="c-dnum">7</span></div>
+            <div class="c-day today"><span class="c-dnum">8</span></div>
+            <div class="c-day"><span class="c-dnum">9</span></div><div class="c-day"><span class="c-dnum">10</span></div>
+            <div class="c-day"><span class="c-dnum">11</span></div>
+            <div class="c-day"><span class="c-dnum">12</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-dnum">13</span></div><div class="c-day"><span class="c-dnum">14</span></div>
+            <div class="c-day"><span class="c-dnum">15</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-dnum">16</span></div><div class="c-day"><span class="c-dnum">17</span></div>
+          </div>
+          <hr class="c-divline">
+          <div class="c-next"><div class="c-ndot"></div>Choir · Church  7 PM</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <div class="widget-col">
+      <div class="w-medium" onclick="toggle(this,'C-Medium')">
+        <div class="c-medium">
+          <div class="c-mleft">
+            <div class="c-month" style="font-size:9px;text-align:left;margin-bottom:4px">MAY 2026</div>
+            <div class="c-wdays"><span class="c-wd">S</span><span class="c-wd">M</span><span class="c-wd">T</span><span class="c-wd">W</span><span class="c-wd">T</span><span class="c-wd">F</span><span class="c-wd">S</span></div>
+            <div class="c-grid">
+              <div class="c-day"></div><div class="c-day"></div><div class="c-day"></div><div class="c-day"></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">1</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">2</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">3</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">4</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">5</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">6</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">7</span></div>
+              <div class="c-day today"><span class="c-dnum" style="font-size:9px;width:18px;height:18px">8</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">9</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">10</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">11</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">12</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">13</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">14</span></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">15</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-dnum" style="font-size:9px">16</span></div><div class="c-day"><span class="c-dnum" style="font-size:9px">17</span></div>
+            </div>
+          </div>
+          <div class="c-mright">
+            <div class="c-mtoday">TODAY</div>
+            <div class="c-mevt"><div class="c-medot" style="background:#ff6b9d"></div>Doctor · Mama</div>
+            <div class="c-mevt"><div class="c-medot" style="background:#8b5cf6"></div>Meeting · Work</div>
+            <div class="c-mevt"><div class="c-medot" style="background:#7c3aed"></div>Choir · Church</div>
+            <div class="c-mevt"><div class="c-medot" style="background:#14b8a6"></div>Job Interview</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION D
+================================================================ -->
+<div class="option" id="opt-d">
+  <div class="option-header">
+    <span class="option-badge">OPTION D</span>
+    <span class="option-title">Countdown — Bold Number</span>
+  </div>
+  <div class="option-desc">High impact. Big gradient number showing days until the next important event. Dark, dramatic, instantly glanceable.</div>
+  <div class="elements-list">
+    <span class="el-tag highlight">Countdown number</span>
+    <span class="el-tag highlight">Countdown target event</span>
+    <span class="el-tag highlight">Dark background</span>
+    <span class="el-tag highlight">Gradient number text</span>
+    <span class="el-tag">Today's count (medium)</span>
+    <span class="el-tag">Event date</span>
+  </div>
+  <div class="widgets-row">
+
+    <div class="widget-col">
+      <div class="w-small" onclick="toggle(this,'D-Small')">
+        <div class="d-small">
+          <div class="d-num">
+            <div class="d-big">3</div>
+            <div class="d-to">DAYS TO</div>
+          </div>
+          <div class="d-foot">
+            <span>💼</span>
+            <span class="d-ftxt">Job Interview</span>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <div class="widget-col">
+      <div class="w-medium" onclick="toggle(this,'D-Medium')">
+        <div class="d-medium">
+          <div class="d-mleft">
+            <div class="d-mbig">3</div>
+            <div class="d-mdays">DAYS</div>
+          </div>
+          <div class="d-mright">
+            <div>
+              <div class="d-mey">UPCOMING</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:6px"><span>💼</span><div class="d-mtitle">Job Interview</div></div>
+              <div class="d-mdate">Tuesday, 11 May</div>
+            </div>
+            <div class="d-malso">Also today: 3 events</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     MERGED A + D  (current preview from widget-preview.html)
+================================================================ -->
+<div class="option" id="opt-m">
+  <div class="option-header">
+    <span class="option-badge" style="background:rgba(236,72,153,0.2);color:#f9a8d4">MERGED A + D</span>
+    <span class="option-title">Next Up + Countdown</span>
+  </div>
+  <div class="option-desc">Combines the countdown number from D with the category pill, event title and time from A. Available in Small, Medium and Large.</div>
+  <div class="elements-list">
+    <span class="el-tag highlight">Countdown number</span>
+    <span class="el-tag highlight">Category pill</span>
+    <span class="el-tag highlight">Event title</span>
+    <span class="el-tag highlight">Event time</span>
+    <span class="el-tag highlight">Dark gradient bg</span>
+    <span class="el-tag">Today's count (medium)</span>
+    <span class="el-tag">Full event list (large)</span>
+    <span class="el-tag">Colour bars (large)</span>
+  </div>
+  <div class="widgets-row">
+
+    <!-- small -->
+    <div class="widget-col">
+      <div class="w-small" onclick="toggle(this,'M-Small')">
+        <div class="m-small">
+          <div class="m-pill">♪ Choir · Church</div>
+          <div class="m-numrow">
+            <div class="m-bignum">3</div>
+            <div class="m-numside">
+              <div class="m-daystag">DAYS</div>
+              <div style="font-size:8px;color:rgba(255,255,255,0.25)">TO GO</div>
+            </div>
+          </div>
+          <div class="m-hr"></div>
+          <div class="m-eyebrow">NEXT UP</div>
+          <div class="m-title">Doctor · Mama</div>
+          <div class="m-time">🕐 9:00 AM · Today</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <!-- medium -->
+    <div class="widget-col">
+      <div class="w-medium" onclick="toggle(this,'M-Medium')">
+        <div class="m-medium">
+          <div class="m-mleft">
+            <div class="m-eyebrow">DAYS TO</div>
+            <div class="m-mlbig">3</div>
+            <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.25)">INTERVIEW</div>
+          </div>
+          <div class="m-mright">
+            <div class="m-mrtop">
+              <div class="m-pill">❤️ Health</div>
+              <div class="m-eyebrow" style="margin-top:4px">NEXT UP</div>
+              <div class="m-title" style="font-size:15px">Doctor · Mama</div>
+              <div class="m-time">🕐 9:00 AM · Today</div>
+            </div>
+            <div class="m-count">● ● ● 4 events today</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+    <!-- large -->
+    <div class="widget-col">
+      <div class="w-large" onclick="toggle(this,'M-Large')">
+        <div class="m-large">
+          <div class="m-ltop">
+            <div>
+              <div class="m-eyebrow">DAYS TO</div>
+              <div class="m-ltbig">3</div>
+              <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.25)">INTERVIEW</div>
+            </div>
+            <div class="m-ltright">
+              <div class="m-pill">❤️ Health</div>
+              <div class="m-lttitle">Doctor · Mama</div>
+              <div class="m-lttime">🕐 9:00 AM — Today</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">4 events today</div>
+            </div>
+          </div>
+          <div class="m-list">
+            <div class="m-lrow"><div class="m-lbar" style="background:#8b5cf6"></div><div><div class="m-letitle">Meeting · Work</div><div class="m-letime">👥 2:00 PM</div></div></div>
+            <div class="m-lrow"><div class="m-lbar" style="background:#7c3aed"></div><div><div class="m-letitle">Choir · Church</div><div class="m-letime">♪ 7:00 PM</div></div></div>
+            <div class="m-lrow"><div class="m-lbar" style="background:#14b8a6"></div><div><div class="m-letitle">Job Interview</div><div class="m-letime">💼 All Day · Tue 11 May</div></div></div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Large</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Selection Panel ── -->
+<div class="select-panel">
+  <div class="selection-chips" id="chips">
+    <span class="chip" id="chip-label">Nothing selected yet — click widgets above</span>
+  </div>
+  <button class="build-btn" id="build-btn" onclick="done()">Tell me what to build →</button>
+</div>
+
+<script>
+  const selected = new Set();
+
+  function toggle(el, id) {
+    el.classList.toggle('selected-ring');
+    if (selected.has(id)) {
+      selected.delete(id);
+    } else {
+      selected.add(id);
+    }
+    renderChips();
+  }
+
+  function renderChips() {
+    const container = document.getElementById('chips');
+    const btn = document.getElementById('build-btn');
+    if (selected.size === 0) {
+      container.innerHTML = '<span class="chip" id="chip-label">Nothing selected yet — click widgets above</span>';
+      btn.classList.remove('active');
+      return;
+    }
+    container.innerHTML = [...selected].map(id =>
+      `<span class="chip on">${id}</span>`
+    ).join('');
+    btn.classList.add('active');
+  }
+
+  function done() {
+    const list = [...selected].join(', ');
+    alert('You selected: ' + list + '\n\nTell GitHub Copilot exactly which elements you want combined — or just say "build the merged A+D" and it will proceed!');
+  }
+</script>
+
+</body>
+</html>

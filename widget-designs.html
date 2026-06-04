@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura — Merged Widget + Gradient Picker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    background: #0f0f13;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 48px;
+  }
+
+  .section {
+    max-width: 900px;
+    margin: 0 auto 60px;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #6366f1;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+
+  .widgets-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* ── Widget shell sizes ── */
+  .w-small  { width: 158px; height: 158px; border-radius: 22px; overflow: hidden; flex-shrink: 0; }
+  .w-medium { width: 338px; height: 158px; border-radius: 22px; overflow: hidden; flex-shrink: 0; }
+  .w-large  { width: 338px; height: 354px; border-radius: 22px; overflow: hidden; flex-shrink: 0; }
+
+  .widget-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .widget-wrap .size-tag {
+    font-size: 11px;
+    color: #555;
+    font-weight: 500;
+  }
+  .widget-wrap.selected .size-tag { color: #6366f1; }
+
+  .widget-wrap > div {
+    outline: 3px solid transparent;
+    outline-offset: 3px;
+    border-radius: 24px;
+    transition: outline 0.15s, transform 0.15s;
+  }
+  .widget-wrap:hover > div { transform: scale(1.02); }
+  .widget-wrap.selected > div { outline: 3px solid #6366f1; }
+
+  /* ── CTA ── */
+  .cta-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(15,15,19,0.92);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid #222;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 100;
+  }
+  .cta-msg { font-size: 14px; color: #888; }
+  .cta-msg span { color: #fff; font-weight: 600; }
+  .cta-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 28px;
+    border-radius: 14px;
+    cursor: pointer;
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .cta-btn.active { opacity: 1; pointer-events: all; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid #1e1e26; margin: 0 auto 60px; max-width: 900px; }
+
+  /* ================================================================
+     OPTION A — Next Up  (Dark Gradient)
+  ================================================================ */
+  .a-small {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1e1b4b, #312e81);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  .a-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 99px;
+    padding: 3px 9px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.75);
+    width: fit-content;
+  }
+  .a-spacer { flex: 1; }
+  .a-eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #a5b4fc;
+    margin-bottom: 3px;
+  }
+  .a-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    margin-bottom: 5px;
+  }
+  .a-time {
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .a-medium {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+    display: flex;
+  }
+  .a-med-left {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .a-med-right {
+    width: 80px;
+    background: rgba(255,255,255,0.07);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .a-med-count {
+    font-size: 36px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+  .a-med-label { font-size: 10px; color: rgba(255,255,255,0.4); }
+
+  /* ================================================================
+     OPTION B — Today's Agenda  (Light Card)
+  ================================================================ */
+  .b-medium {
+    width: 100%; height: 100%;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+  }
+  .b-header {
+    padding: 10px 14px 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .b-today-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #6366f1;
+    letter-spacing: 1px;
+    margin-bottom: 1px;
+  }
+  .b-date { font-size: 13px; font-weight: 600; color: #000; }
+  .b-count { font-size: 11px; color: #999; margin-top: 2px; }
+  .b-list { flex: 1; overflow: hidden; }
+  .b-row {
+    display: flex;
+    align-items: center;
+    padding: 5px 14px;
+    gap: 10px;
+  }
+  .b-bar { width: 3px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+  .b-event-title { font-size: 13px; font-weight: 600; color: #000; line-height: 1.2; }
+  .b-event-time { font-size: 11px; color: #999; }
+  .b-icon { margin-left: auto; font-size: 12px; }
+
+  .b-large {
+    width: 100%; height: 100%;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+  }
+  .b-large-header {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .b-large-today { font-size: 11px; font-weight: 800; color: #6366f1; letter-spacing: 1px; margin-bottom: 2px; }
+  .b-large-date { font-size: 16px; font-weight: 700; color: #000; }
+  .b-circle {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(99,102,241,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: #6366f1;
+  }
+  .b-large-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 12px;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .b-large-bar { width: 4px; height: 46px; border-radius: 3px; flex-shrink: 0; }
+  .b-large-title { font-size: 14px; font-weight: 600; color: #000; }
+  .b-large-meta { font-size: 11px; color: #999; margin-top: 2px; }
+
+  /* ================================================================
+     OPTION C — Calendar + Dots
+  ================================================================ */
+  .c-small {
+    width: 100%; height: 100%;
+    background: #f2f2f7;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .c-month {
+    font-size: 10px; font-weight: 800; color: #6366f1;
+    text-align: center; letter-spacing: 1px;
+  }
+  .c-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+  }
+  .c-wd { font-size: 7px; font-weight: 600; color: #999; }
+  .c-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+  }
+  .c-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 18px;
+    position: relative;
+  }
+  .c-day-num {
+    font-size: 8px;
+    color: #333;
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+  }
+  .c-day.today .c-day-num { background: #6366f1; color: #fff; font-weight: 700; }
+  .c-dot {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: #6366f1;
+    position: absolute;
+    bottom: 0;
+  }
+  .c-divider { border: none; border-top: 1px solid #ddd; }
+  .c-next {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #333;
+  }
+  .c-next-dot { width: 6px; height: 6px; border-radius: 50%; background: #ec4899; flex-shrink: 0; }
+
+  .c-medium {
+    width: 100%; height: 100%;
+    background: #f2f2f7;
+    display: flex;
+  }
+  .c-med-left {
+    padding: 12px;
+    width: 180px;
+    flex-shrink: 0;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .c-med-right {
+    flex: 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .c-med-today {
+    font-size: 10px; font-weight: 800; color: #6366f1; letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .c-med-event {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #333;
+  }
+  .c-med-edot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ================================================================
+     OPTION D — Countdown  (Dark)
+  ================================================================ */
+  .d-small {
+    width: 100%; height: 100%;
+    background: linear-gradient(180deg, #0f172a, #1e293b);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .d-num {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0;
+  }
+  .d-big {
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1;
+    background: linear-gradient(180deg, #6366f1, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .d-to {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 2px;
+  }
+  .d-footer {
+    width: 100%;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 12px 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .d-footer-icon { font-size: 10px; }
+  .d-footer-text { font-size: 11px; font-weight: 600; color: #fff; }
+
+  .d-medium {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    display: flex;
+  }
+  .d-med-left {
+    width: 110px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .d-med-big {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+    background: linear-gradient(180deg, #6366f1, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .d-med-days { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: rgba(255,255,255,0.35); }
+  .d-med-right {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .d-med-eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+  }
+  .d-med-title { font-size: 15px; font-weight: 700; color: #fff; margin-top: 6px; }
+  .d-med-date { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 3px; }
+  .d-med-also { font-size: 10px; color: rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+
+<h1>🎨 Aura Widget Designs</h1>
+<p class="subtitle">Click a widget to select it, then press "Build This Widget"</p>
+
+<!-- ================================================================
+     OPTION A
+================================================================ -->
+<div class="section">
+  <div class="section-label">Option A</div>
+  <div class="section-title">Next Up — Dark Gradient</div>
+  <div class="section-desc">Sleek & premium. Focuses on the single next event. Best for a glanceable home screen.</div>
+  <div class="widgets-row">
+
+    <!-- Small -->
+    <div class="widget-wrap" onclick="select(this,'A-Small')">
+      <div class="w-small">
+        <div class="a-small">
+          <div class="a-pill">♪ Choir</div>
+          <div class="a-spacer"></div>
+          <div class="a-eyebrow">NEXT UP</div>
+          <div class="a-title">Doctor · Mama</div>
+          <div class="a-time">🕐 9:00 AM</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <!-- Medium -->
+    <div class="widget-wrap" onclick="select(this,'A-Medium')">
+      <div class="w-medium">
+        <div class="a-medium">
+          <div class="a-med-left">
+            <div class="a-eyebrow">NEXT UP</div>
+            <div class="a-title" style="font-size:18px; margin-top:4px;">Doctor · Mama</div>
+            <div class="a-time" style="margin-top:4px;">🕐 9:00 AM</div>
+            <div class="a-spacer"></div>
+            <div class="a-pill">❤️ Health</div>
+          </div>
+          <div class="a-med-right">
+            <div class="a-med-label">Today</div>
+            <div class="a-med-count">4</div>
+            <div class="a-med-label">events</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION B
+================================================================ -->
+<div class="section">
+  <div class="section-label">Option B</div>
+  <div class="section-title">Today's Agenda — Clean White Card</div>
+  <div class="section-desc">Functional & iOS-native. Shows a full list of today's events. Great for medium & large.</div>
+  <div class="widgets-row">
+
+    <!-- Medium -->
+    <div class="widget-wrap" onclick="select(this,'B-Medium')">
+      <div class="w-medium">
+        <div class="b-medium">
+          <div class="b-header">
+            <div>
+              <div class="b-today-label">TODAY</div>
+              <div class="b-date">Thursday, 8 May</div>
+            </div>
+            <div class="b-count">4 events</div>
+          </div>
+          <div class="b-list">
+            <div class="b-row">
+              <div class="b-bar" style="background:#ff6b9d"></div>
+              <div><div class="b-event-title">Doctor · Mama</div><div class="b-event-time">9:00 AM</div></div>
+              <div class="b-icon" style="color:#ff6b9d">♥</div>
+            </div>
+            <div class="b-row">
+              <div class="b-bar" style="background:#8b5cf6"></div>
+              <div><div class="b-event-title">Meeting · Work</div><div class="b-event-time">2:00 PM</div></div>
+              <div class="b-icon" style="color:#8b5cf6">👥</div>
+            </div>
+            <div class="b-row">
+              <div class="b-bar" style="background:#7c3aed"></div>
+              <div><div class="b-event-title">Choir · Church</div><div class="b-event-time">7:00 PM</div></div>
+              <div class="b-icon" style="color:#7c3aed">♪</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+    <!-- Large -->
+    <div class="widget-wrap" onclick="select(this,'B-Large')">
+      <div class="w-large">
+        <div class="b-large">
+          <div class="b-large-header">
+            <div>
+              <div class="b-large-today">TODAY</div>
+              <div class="b-large-date">Thursday, 8 May 2026</div>
+            </div>
+            <div class="b-circle">8</div>
+          </div>
+          <div class="b-large-row">
+            <div class="b-large-bar" style="background:#ff6b9d"></div>
+            <div><div class="b-large-title">Doctor · Mama</div><div class="b-large-meta">♥ 9:00 AM</div></div>
+          </div>
+          <div class="b-large-row">
+            <div class="b-large-bar" style="background:#8b5cf6"></div>
+            <div><div class="b-large-title">Meeting · Work</div><div class="b-large-meta">👥 2:00 PM</div></div>
+          </div>
+          <div class="b-large-row">
+            <div class="b-large-bar" style="background:#7c3aed"></div>
+            <div><div class="b-large-title">Choir · Church</div><div class="b-large-meta">♪ 7:00 PM</div></div>
+          </div>
+          <div class="b-large-row" style="border:none">
+            <div class="b-large-bar" style="background:#14b8a6"></div>
+            <div><div class="b-large-title">Job Interview</div><div class="b-large-meta">💼 All Day</div></div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Large</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION C
+================================================================ -->
+<div class="section">
+  <div class="section-label">Option C</div>
+  <div class="section-title">Calendar + Dots — Mini Grid</div>
+  <div class="section-desc">Familiar calendar look with event dot indicators. At-a-glance month overview.</div>
+  <div class="widgets-row">
+
+    <!-- Small -->
+    <div class="widget-wrap" onclick="select(this,'C-Small')">
+      <div class="w-small">
+        <div class="c-small">
+          <div class="c-month">MAY 2026</div>
+          <div class="c-weekdays">
+            <span class="c-wd">S</span><span class="c-wd">M</span><span class="c-wd">T</span>
+            <span class="c-wd">W</span><span class="c-wd">T</span><span class="c-wd">F</span><span class="c-wd">S</span>
+          </div>
+          <div class="c-grid">
+            <!-- row 1: May starts Thursday (index 4) -->
+            <div class="c-day"></div><div class="c-day"></div><div class="c-day"></div><div class="c-day"></div>
+            <div class="c-day"><span class="c-day-num">1</span></div>
+            <div class="c-day"><span class="c-day-num">2</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-day-num">3</span></div>
+            <!-- row 2 -->
+            <div class="c-day"><span class="c-day-num">4</span></div>
+            <div class="c-day"><span class="c-day-num">5</span></div>
+            <div class="c-day"><span class="c-day-num">6</span></div>
+            <div class="c-day"><span class="c-day-num">7</span></div>
+            <div class="c-day today"><span class="c-day-num">8</span></div>
+            <div class="c-day"><span class="c-day-num">9</span></div>
+            <div class="c-day"><span class="c-day-num">10</span></div>
+            <!-- row 3 -->
+            <div class="c-day"><span class="c-day-num">11</span></div>
+            <div class="c-day"><span class="c-day-num">12</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-day-num">13</span></div>
+            <div class="c-day"><span class="c-day-num">14</span></div>
+            <div class="c-day"><span class="c-day-num">15</span><div class="c-dot"></div></div>
+            <div class="c-day"><span class="c-day-num">16</span></div>
+            <div class="c-day"><span class="c-day-num">17</span></div>
+          </div>
+          <hr class="c-divider">
+          <div class="c-next"><div class="c-next-dot"></div> Choir · Church  7 PM</div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <!-- Medium -->
+    <div class="widget-wrap" onclick="select(this,'C-Medium')">
+      <div class="w-medium">
+        <div class="c-medium">
+          <div class="c-med-left">
+            <div class="c-month" style="font-size:9px; text-align:left; margin-bottom:4px;">MAY 2026</div>
+            <div class="c-weekdays" style="margin-bottom:2px;">
+              <span class="c-wd">S</span><span class="c-wd">M</span><span class="c-wd">T</span>
+              <span class="c-wd">W</span><span class="c-wd">T</span><span class="c-wd">F</span><span class="c-wd">S</span>
+            </div>
+            <div class="c-grid">
+              <div class="c-day"></div><div class="c-day"></div><div class="c-day"></div><div class="c-day"></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">1</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">2</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">3</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">4</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">5</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">6</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">7</span></div>
+              <div class="c-day today"><span class="c-day-num" style="font-size:9px; width:18px; height:18px;">8</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">9</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">10</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">11</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">12</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">13</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">14</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">15</span><div class="c-dot"></div></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">16</span></div>
+              <div class="c-day"><span class="c-day-num" style="font-size:9px;">17</span></div>
+            </div>
+          </div>
+          <div class="c-med-right">
+            <div class="c-med-today">TODAY</div>
+            <div class="c-med-event"><div class="c-med-edot" style="background:#ff6b9d"></div>Doctor · Mama</div>
+            <div class="c-med-event"><div class="c-med-edot" style="background:#8b5cf6"></div>Meeting · Work</div>
+            <div class="c-med-event"><div class="c-med-edot" style="background:#7c3aed"></div>Choir · Church</div>
+            <div class="c-med-event"><div class="c-med-edot" style="background:#14b8a6"></div>Job Interview</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+<hr>
+
+<!-- ================================================================
+     OPTION D
+================================================================ -->
+<div class="section">
+  <div class="section-label">Option D</div>
+  <div class="section-title">Countdown — Bold Number</div>
+  <div class="section-desc">High-impact. Shows a big countdown to the next important event. Eye-catching on the home screen.</div>
+  <div class="widgets-row">
+
+    <!-- Small -->
+    <div class="widget-wrap" onclick="select(this,'D-Small')">
+      <div class="w-small">
+        <div class="d-small">
+          <div class="d-num">
+            <div class="d-big">3</div>
+            <div class="d-to">DAYS TO</div>
+          </div>
+          <div class="d-footer">
+            <span class="d-footer-icon">💼</span>
+            <span class="d-footer-text">Job Interview</span>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Small</span>
+    </div>
+
+    <!-- Medium -->
+    <div class="widget-wrap" onclick="select(this,'D-Medium')">
+      <div class="w-medium">
+        <div class="d-medium">
+          <div class="d-med-left">
+            <div class="d-med-big">3</div>
+            <div class="d-med-days">DAYS</div>
+          </div>
+          <div class="d-med-right">
+            <div>
+              <div class="d-med-eyebrow">UPCOMING</div>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+                <span style="font-size:14px;">💼</span>
+                <div class="d-med-title">Job Interview</div>
+              </div>
+              <div class="d-med-date">Tuesday, 11 May</div>
+            </div>
+            <div class="d-med-also">Also today: 3 events</div>
+          </div>
+        </div>
+      </div>
+      <span class="size-tag">Medium</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── CTA Bar ── -->
+<div class="cta-bar">
+  <div class="cta-msg">Selected: <span id="selected-label">none</span></div>
+  <button class="cta-btn" id="build-btn" onclick="confirmChoice()">Build This Widget</button>
+</div>
+
+<script>
+  let current = null;
+
+  function select(el, id) {
+    if (current) current.classList.remove('selected');
+    el.classList.add('selected');
+    current = el;
+    document.getElementById('selected-label').textContent = id;
+    document.getElementById('build-btn').classList.add('active');
+  }
+
+  function confirmChoice() {
+    const choice = document.getElementById('selected-label').textContent;
+    alert('You selected: Option ' + choice + '\n\nTell GitHub Copilot: "Build Option ' + choice + '" and it will create the real widget extension.');
+  }
+</script>
+
+</body>
+</html>

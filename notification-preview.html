@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura Notification Preview</title>
+  <style>
+    :root {
+      --bg0: #0b1020;
+      --bg1: #121a33;
+      --card: rgba(255, 255, 255, 0.12);
+      --card-strong: rgba(255, 255, 255, 0.18);
+      --stroke: rgba(255, 255, 255, 0.25);
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --accent-a: #6366f1;
+      --accent-b: #a78bfa;
+      --danger: #fb7185;
+      --ok: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 500px at 10% -20%, #2a2f56 0%, transparent 60%),
+        radial-gradient(900px 400px at 100% 120%, #1c2a4f 0%, transparent 50%),
+        linear-gradient(140deg, var(--bg0), var(--bg1));
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+
+    .panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 360px;
+      aspect-ratio: 9 / 19.5;
+      margin: 0 auto;
+      border-radius: 38px;
+      border: 7px solid #111827;
+      background: #000;
+      overflow: hidden;
+      box-shadow: 0 24px 50px rgba(0,0,0,0.35);
+      position: relative;
+    }
+
+    .lock-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(300px 200px at 20% 15%, rgba(99,102,241,0.35), transparent 60%),
+        radial-gradient(260px 180px at 80% 20%, rgba(167,139,250,0.30), transparent 55%),
+        linear-gradient(165deg, #10172c 0%, #1a1f3f 50%, #0f1430 100%);
+    }
+
+    .status {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      right: 0;
+      padding: 0 22px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e2e8f0;
+      opacity: 0.95;
+      z-index: 3;
+    }
+
+    .pill {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 30px;
+      border-radius: 18px;
+      background: #0b1222;
+      z-index: 2;
+    }
+
+    .clock {
+      position: absolute;
+      top: 58px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      z-index: 2;
+      font-size: 58px;
+      font-weight: 300;
+      letter-spacing: -1.4px;
+      color: #f8fafc;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    }
+
+    .date {
+      position: absolute;
+      top: 120px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 14px;
+      color: #cbd5e1;
+      z-index: 2;
+    }
+
+    .notif-stack {
+      position: absolute;
+      top: 160px;
+      left: 10px;
+      right: 10px;
+      z-index: 4;
+      display: grid;
+      gap: 10px;
+    }
+
+    .ios-notif {
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(28, 32, 52, 0.78);
+      border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    .ios-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: #dbeafe;
+      font-size: 11px;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .app-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: white;
+    }
+
+    .ios-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 4px;
+      color: #f8fafc;
+    }
+
+    .ios-msg {
+      font-size: 13px;
+      color: #dbe3f1;
+      line-height: 1.35;
+    }
+
+    .event-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(99,102,241,0.25);
+      border: 1px solid rgba(167,139,250,0.45);
+      color: #e0e7ff;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .live-preview {
+      position: absolute;
+      top: 54px;
+      left: 10px;
+      right: 10px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.3);
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+      z-index: 5;
+    }
+
+    .live-inner {
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .live-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.22);
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+    }
+
+    .live-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .live-msg {
+      font-size: 12px;
+      color: rgba(255,255,255,0.95);
+      line-height: 1.3;
+    }
+
+    .explain {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px dashed rgba(255,255,255,0.2);
+      font-size: 12px;
+      color: #dbe3f1;
+      line-height: 1.4;
+    }
+
+    .legend {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+      font-size: 12px;
+      color: #dbe3f1;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h2>1) Lock Screen Notification</h2>
+      <p>This is the iOS notification card shown on the lock screen/notification center when an Aura reminder fires.</p>
+      <div class="phone">
+        <div class="lock-bg"></div>
+        <div class="status"><span>23:06</span><span>5G ▮▮▮</span></div>
+        <div class="pill"></div>
+        <div class="clock">23:06</div>
+        <div class="date">Wednesday, June 4</div>
+        <div class="notif-stack">
+          <article class="ios-notif">
+            <div class="ios-top">
+              <span class="app-dot">A</span>
+              <span>Aura</span>
+              <span style="margin-left:auto; opacity:.8;">now</span>
+            </div>
+            <div class="ios-title">Class</div>
+            <div class="ios-msg">Reminder in 15 minutes · Room B12</div>
+            <div class="event-chip">📅 Friday, 8 May · 21:42</div>
+          </article>
+        </div>
+      </div>
+      <div class="explain">
+        On iOS this is called a <strong>Lock Screen notification</strong> (and also appears in <strong>Notification Center</strong>). It is generated by your local notification request.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2) In-App / Foreground Reminder</h2>
+      <p>When Aura is open and a reminder fires, your custom themed in-app banner appears at the top.</p>
+      <div class="phone">
+        <div class="lock-bg"></div>
+        <div class="status"><span>23:06</span><span>5G ▮▮▮</span></div>
+        <div class="pill"></div>
+        <div class="live-preview">
+          <div class="live-inner">
+            <div class="live-icon">🔔</div>
+            <div>
+              <div class="live-title">Class</div>
+              <div class="live-msg">Reminder in 15 minutes · Friday 8 May, 21:42</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background: var(--accent-a)"></i> Uses current Aura theme gradient</span>
+        <span><i class="dot" style="background: var(--ok)"></i> Triggered by event reminder time</span>
+        <span><i class="dot" style="background: var(--danger)"></i> Auto-dismisses after a few seconds</span>
+      </div>
+      <div class="explain">
+        The top mini-card is your app-specific <strong>themed in-app banner</strong>. It is different from Apple’s system lock-screen card, but both are fired from the same reminder event.
+      </div>
+    </section>
+  </div>
+</body>
+</html>

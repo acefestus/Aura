@@ -1,0 +1,454 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000003 /* AuraApp.swift */; };
+		232A7F4C2B5E8A9100000020 /* WidgetDesignPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */; };
+		232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000005 /* Assets.xcassets */; };
+		AW00000001 /* AuraWidget.swift in Sources */    = {isa = PBXBuildFile; fileRef = AW00000101 /* AuraWidget.swift */; };
+		AW00000002 /* Assets.xcassets in Resources */   = {isa = PBXBuildFile; fileRef = AW00000102 /* Assets.xcassets */; };
+		AW00000003 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000103 /* WidgetKit.framework */; };
+		AW00000004 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
+		AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AW00000105 /* AuraWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AW00000006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 232A7F4C2B5E8A9100000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AW00000200;
+			remoteInfo = AuraWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AW00000007 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		232A7F4C2B5E8A9100000003 /* AuraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraApp.swift; sourceTree = "<group>"; };
+		232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDesignPreviews.swift; sourceTree = "<group>"; };
+		232A7F4C2B5E8A9100000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AW00000107 /* Aura.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Aura.entitlements; sourceTree = "<group>"; };
+		232A7F4C2B5E8A9100000008 /* Aura.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aura.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AW00000101 /* AuraWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraWidget.swift; sourceTree = "<group>"; };
+		AW00000102 /* Assets.xcassets */  = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AW00000103 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		AW00000104 /* SwiftUI.framework */   = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework;   path = System/Library/Frameworks/SwiftUI.framework;   sourceTree = SDKROOT; };
+		AW00000105 /* AuraWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AuraWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AW00000106 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AW00000108 /* AuraWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AuraWidget.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		232A7F4C2B5E8A910000000C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AW00000300 /* Frameworks (Widget) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AW00000003 /* WidgetKit.framework in Frameworks */,
+				AW00000004 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		232A7F4C2B5E8A9100000009 = {
+			isa = PBXGroup;
+			children = (
+				232A7F4C2B5E8A910000000A /* Aura */,
+				AW00000400 /* AuraWidget */,
+				AW00000401 /* Frameworks */,
+				232A7F4C2B5E8A910000000B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		232A7F4C2B5E8A910000000A /* Aura */ = {
+			isa = PBXGroup;
+			children = (
+				232A7F4C2B5E8A9100000003 /* AuraApp.swift */,
+				232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */,
+				232A7F4C2B5E8A9100000005 /* Assets.xcassets */,
+				232A7F4C2B5E8A9100000007 /* Info.plist */,
+				AW00000107 /* Aura.entitlements */,
+			);
+			path = Aura;
+			sourceTree = "<group>";
+		};
+		232A7F4C2B5E8A910000000B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				232A7F4C2B5E8A9100000008 /* Aura.app */,
+				AW00000105 /* AuraWidgetExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AW00000400 /* AuraWidget */ = {
+			isa = PBXGroup;
+			children = (
+				AW00000101 /* AuraWidget.swift */,
+				AW00000102 /* Assets.xcassets */,
+				AW00000106 /* Info.plist */,
+				AW00000108 /* AuraWidget.entitlements */,
+			);
+			path = AuraWidget;
+			sourceTree = "<group>";
+		};
+		AW00000401 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AW00000103 /* WidgetKit.framework */,
+				AW00000104 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		232A7F4C2B5E8A9100000002 /* Aura */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 232A7F4C2B5E8A9100000014 /* Build configuration list for PBXNativeTarget "Aura" */;
+			buildPhases = (
+				232A7F4C2B5E8A910000000D /* Sources */,
+				232A7F4C2B5E8A910000000C /* Frameworks */,
+				232A7F4C2B5E8A910000000E /* Resources */,
+				AW00000007 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AW00000500 /* PBXTargetDependency */,
+			);
+			name = Aura;
+			productName = Aura;
+			productReference = 232A7F4C2B5E8A9100000008 /* Aura.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AW00000200 /* AuraWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AW00000600 /* Build configuration list for PBXNativeTarget "AuraWidgetExtension" */;
+			buildPhases = (
+				AW00000301 /* Sources (Widget) */,
+				AW00000300 /* Frameworks (Widget) */,
+				AW00000302 /* Resources (Widget) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuraWidgetExtension;
+			productName = AuraWidgetExtension;
+			productReference = AW00000105 /* AuraWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		232A7F4C2B5E8A9100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					232A7F4C2B5E8A9100000002 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					AW00000200 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 232A7F4C2B5E8A9100000013 /* Build configuration list for PBXProject "Aura" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 232A7F4C2B5E8A9100000009;
+			productRefGroup = 232A7F4C2B5E8A910000000B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				232A7F4C2B5E8A9100000002 /* Aura */,
+				AW00000200 /* AuraWidgetExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		232A7F4C2B5E8A910000000E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AW00000302 /* Resources (Widget) */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AW00000002 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		232A7F4C2B5E8A910000000D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */,
+				232A7F4C2B5E8A9100000020 /* WidgetDesignPreviews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AW00000301 /* Sources (Widget) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AW00000001 /* AuraWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AW00000500 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AW00000200 /* AuraWidgetExtension */;
+			targetProxy = AW00000006 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		232A7F4C2B5E8A910000000F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		232A7F4C2B5E8A9100000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		232A7F4C2B5E8A9100000011 /* Debug (Aura) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Aura/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personal.aura";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		232A7F4C2B5E8A9100000012 /* Release (Aura) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Aura/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personal.aura";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AW00000601 /* Debug (Widget) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personal.aura.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AW00000602 /* Release (Widget) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personal.aura.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		232A7F4C2B5E8A9100000013 /* Build configuration list for PBXProject "Aura" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				232A7F4C2B5E8A910000000F /* Debug */,
+				232A7F4C2B5E8A9100000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		232A7F4C2B5E8A9100000014 /* Build configuration list for PBXNativeTarget "Aura" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				232A7F4C2B5E8A9100000011 /* Debug (Aura) */,
+				232A7F4C2B5E8A9100000012 /* Release (Aura) */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AW00000600 /* Build configuration list for PBXNativeTarget "AuraWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AW00000601 /* Debug (Widget) */,
+				AW00000602 /* Release (Widget) */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 232A7F4C2B5E8A9100000001 /* Project object */;
+}

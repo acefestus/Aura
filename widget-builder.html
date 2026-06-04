@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura Widget Builder</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; background: #0a0a0f; color: #fff; padding: 48px 24px 120px; }
+h1 { text-align: center; font-size: 30px; font-weight: 800; margin-bottom: 6px; }
+.subtitle { text-align: center; color: #555; font-size: 14px; margin-bottom: 56px; }
+.section { max-width: 920px; margin: 0 auto 64px; }
+.badge { display: inline-block; background: rgba(99,102,241,0.2); color: #a5b4fc; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 6px; margin-bottom: 8px; }
+.sec-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.sec-desc { font-size: 13px; color: #555; margin-bottom: 28px; line-height: 1.6; }
+hr { border: none; border-top: 1px solid #13131a; margin: 0 auto 64px; max-width: 920px; }
+
+/* widgets */
+.widgets-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.widget-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.size-tag { font-size: 11px; color: #444; }
+.w-small { width:158px; height:158px; border-radius:22px; overflow:hidden; }
+.w-medium { width:338px; height:158px; border-radius:22px; overflow:hidden; }
+.w-large { width:338px; height:354px; border-radius:22px; overflow:hidden; }
+.mw-pill { display:inline-flex; align-items:center; background:rgba(255,255,255,0.15); border-radius:99px; padding:3px 9px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.8); width:fit-content; }
+.mw-bignum { font-size:44px; font-weight:900; line-height:1; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.mw-eyebrow { font-size:9px; font-weight:700; letter-spacing:1.5px; color:rgba(255,255,255,0.4); }
+.mw-title { font-size:13px; font-weight:700; color:#fff; line-height:1.2; }
+.mw-time { font-size:10px; color:rgba(255,255,255,0.45); margin-top:3px; }
+.mw-hr { height:1px; background:rgba(255,255,255,0.1); margin:8px 0; }
+
+/* presets */
+.swatches-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.swatch { display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; }
+.sw-box { width:100px; height:62px; border-radius:14px; position:relative; overflow:hidden; border:3px solid transparent; transition:border .15s,transform .15s; }
+.swatch:hover .sw-box { transform:scale(1.05); }
+.swatch.active .sw-box { border-color:#fff; }
+.sw-label { font-size:11px; color:#555; }
+.swatch.active .sw-label { color:#fff; }
+.sw-name { position:absolute; bottom:6px; left:8px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.65); }
+
+/* builder */
+.builder { background:#13131c; border:1px solid #1e1e2e; border-radius:20px; padding:24px; }
+.builder-title { font-size:15px; font-weight:700; margin-bottom:4px; }
+.builder-sub { font-size:12px; color:#555; margin-bottom:24px; }
+.color-rows { display:flex; flex-direction:column; gap:16px; margin-bottom:24px; }
+.color-row { display:flex; align-items:center; gap:14px; }
+.color-row label { font-size:13px; color:#aaa; width:180px; flex-shrink:0; }
+.color-row input[type="color"] { width:48px; height:32px; border:none; border-radius:8px; cursor:pointer; padding:0; }
+.hex-val { font-size:12px; color:#555; font-family:monospace; }
+.preview-strip { width:100%; height:48px; border-radius:12px; margin-bottom:20px; }
+.builder-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.btn-save { background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none; color:#fff; font-size:13px; font-weight:700; padding:10px 22px; border-radius:10px; cursor:pointer; }
+.btn-reset { background:#1e1e2e; border:1px solid #2a2a3e; color:#888; font-size:13px; padding:10px 18px; border-radius:10px; cursor:pointer; }
+.saved-area { margin-top:20px; }
+.saved-label { font-size:11px; color:#444; margin-bottom:10px; }
+.custom-row { display:flex; gap:10px; flex-wrap:wrap; }
+.csw { width:44px; height:44px; border-radius:50%; border:3px solid transparent; cursor:pointer; position:relative; transition:transform .15s,border .15s; flex-shrink:0; }
+.csw:hover { transform:scale(1.12); }
+.csw.active { border-color:#fff; }
+.csw .del { display:none; position:absolute; top:-4px; right:-4px; width:16px; height:16px; border-radius:50%; background:#ef4444; font-size:9px; font-weight:900; color:#fff; align-items:center; justify-content:center; cursor:pointer; }
+.csw:hover .del { display:flex; }
+
+/* settings mock */
+.s-mock { background:#1c1c1e; border-radius:18px; overflow:hidden; max-width:420px; }
+.s-hdr { padding:14px 16px 8px; font-size:12px; font-weight:700; color:#666; letter-spacing:.3px; }
+.s-row { padding:13px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #2c2c2e; }
+.s-row:last-child { border-bottom:none; }
+.s-row-l { font-size:16px; color:#fff; }
+.s-row-v { font-size:14px; color:#666; }
+.s-circles { padding:12px 16px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.scircle { width:34px; height:34px; border-radius:50%; border:3px solid transparent; cursor:pointer; transition:transform .15s,border .15s; }
+.scircle:hover { transform:scale(1.12); }
+.scircle.active { border-color:#fff; }
+.sadd { width:34px; height:34px; border-radius:50%; background:#2c2c2e; border:2px dashed #444; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; color:#666; }
+.sadd:hover { background:#3a3a3c; color:#fff; }
+.s-builder { padding:12px 16px 16px; display:none; flex-direction:column; gap:12px; border-top:1px solid #2c2c2e; }
+.s-builder.open { display:flex; }
+.s-builder-title { font-size:13px; font-weight:700; color:#fff; }
+.s-ci-row { display:flex; align-items:center; gap:10px; }
+.s-ci-row label { font-size:13px; color:#999; flex:1; }
+.s-ci-row input[type="color"] { width:44px; height:28px; border:none; border-radius:8px; cursor:pointer; padding:0; }
+.s-strip { width:100%; height:36px; border-radius:10px; }
+.s-btn-row { display:flex; gap:8px; }
+.s-save-btn { flex:1; background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none; color:#fff; font-size:13px; font-weight:700; padding:9px; border-radius:10px; cursor:pointer; }
+.s-cancel-btn { background:#2c2c2e; border:none; color:#888; font-size:13px; padding:9px 16px; border-radius:10px; cursor:pointer; }
+
+/* cta */
+.cta { position:fixed; bottom:0; left:0; right:0; background:rgba(10,10,15,0.95); backdrop-filter:blur(20px); border-top:1px solid #1a1a26; padding:14px 24px; display:flex; align-items:center; justify-content:center; gap:16px; }
+.cta-msg { font-size:14px; color:#555; }
+.cta-msg strong { color:#fff; }
+.cta-btn { background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none; color:#fff; font-size:15px; font-weight:700; padding:12px 32px; border-radius:14px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<h1>Aura Widget Builder</h1>
+<p class="subtitle">Merged design (A + D) &mdash; 6 presets + unlimited custom gradients</p>
+
+<!-- LIVE PREVIEW -->
+<div class="section">
+  <div class="badge">LIVE PREVIEW</div>
+  <div class="sec-title">Your Widget</div>
+  <div class="sec-desc">Updates instantly as you pick or adjust any colour below.</div>
+  <div class="widgets-row">
+    <div class="widget-col">
+      <div class="w-small"><div id="ws" style="width:100%;height:100%;padding:13px;display:flex;flex-direction:column">
+        <div class="mw-pill">&#9835; Choir &middot; Church</div>
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <div class="mw-bignum" id="ws-n">3</div>
+          <div><div style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.3)">DAYS</div><div style="font-size:8px;color:rgba(255,255,255,0.2)">TO GO</div></div>
+        </div>
+        <div class="mw-hr"></div>
+        <div class="mw-eyebrow">NEXT UP</div>
+        <div class="mw-title">Doctor &middot; Mama</div>
+        <div class="mw-time">&#128336; 9:00 AM &middot; Today</div>
+      </div></div>
+      <span class="size-tag">Small</span>
+    </div>
+    <div class="widget-col">
+      <div class="w-medium"><div id="wm" style="width:100%;height:100%;display:flex">
+        <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-right:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.4)">DAYS TO</div>
+          <div class="mw-bignum" style="font-size:52px" id="wm-n">3</div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.25)">INTERVIEW</div>
+        </div>
+        <div style="flex:1;padding:14px;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div class="mw-pill">&#10084;&#65039; Health</div>
+            <div class="mw-eyebrow" style="margin-top:6px">NEXT UP</div>
+            <div class="mw-title" style="font-size:15px">Doctor &middot; Mama</div>
+            <div class="mw-time">&#128336; 9:00 AM &middot; Today</div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3)">&#9679; &#9679; &#9679; 4 events today</div>
+        </div>
+      </div></div>
+      <span class="size-tag">Medium</span>
+    </div>
+    <div class="widget-col">
+      <div class="w-large"><div id="wl" style="width:100%;height:100%;display:flex;flex-direction:column">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.07)">
+          <div>
+            <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.4)">DAYS TO</div>
+            <div class="mw-bignum" style="font-size:52px" id="wl-n">3</div>
+            <div style="font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.25)">INTERVIEW</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div class="mw-pill">&#10084;&#65039; Health</div>
+            <div style="font-size:17px;font-weight:700;color:#fff">Doctor &middot; Mama</div>
+            <div class="mw-time" style="font-size:12px">&#128336; 9:00 AM &mdash; Today</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3)">4 events today</div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:6px 0">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 16px"><div style="width:3px;height:36px;border-radius:2px;background:#8b5cf6;flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600;color:#fff">Meeting &middot; Work</div><div style="font-size:11px;color:rgba(255,255,255,0.4)">&#128101; 2:00 PM</div></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 16px"><div style="width:3px;height:36px;border-radius:2px;background:#7c3aed;flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600;color:#fff">Choir &middot; Church</div><div style="font-size:11px;color:rgba(255,255,255,0.4)">&#9835; 7:00 PM</div></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 16px"><div style="width:3px;height:36px;border-radius:2px;background:#14b8a6;flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600;color:#fff">Job Interview</div><div style="font-size:11px;color:rgba(255,255,255,0.4)">&#128188; All Day &middot; Tue 11</div></div></div>
+        </div>
+      </div></div>
+      <span class="size-tag">Large</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- PRESETS -->
+<div class="section">
+  <div class="badge">STEP 1</div>
+  <div class="sec-title">Preset Themes</div>
+  <div class="sec-desc">Tap any preset — widget updates instantly and colour inputs sync below.</div>
+  <div class="swatches-row" id="presets">
+    <div class="swatch active" onclick="applyPreset(this,0)"><div class="sw-box" style="background:linear-gradient(135deg,#1e1b4b,#4c1d95)"><span class="sw-name">Indigo Night</span></div><span class="sw-label">Indigo Night</span></div>
+    <div class="swatch" onclick="applyPreset(this,1)"><div class="sw-box" style="background:linear-gradient(135deg,#0f172a,#1e3a5f)"><span class="sw-name">Ocean Deep</span></div><span class="sw-label">Ocean Deep</span></div>
+    <div class="swatch" onclick="applyPreset(this,2)"><div class="sw-box" style="background:linear-gradient(135deg,#1a0a2e,#6b1a3a)"><span class="sw-name">Rose Noir</span></div><span class="sw-label">Rose Noir</span></div>
+    <div class="swatch" onclick="applyPreset(this,3)"><div class="sw-box" style="background:linear-gradient(135deg,#022c22,#064e3b)"><span class="sw-name">Forest Dusk</span></div><span class="sw-label">Forest Dusk</span></div>
+    <div class="swatch" onclick="applyPreset(this,4)"><div class="sw-box" style="background:linear-gradient(135deg,#1c0a00,#78350f)"><span class="sw-name">Amber Ember</span></div><span class="sw-label">Amber Ember</span></div>
+    <div class="swatch" onclick="applyPreset(this,5)"><div class="sw-box" style="background:linear-gradient(135deg,#0f0f0f,#1a1a1a)"><span class="sw-name">Midnight Grey</span></div><span class="sw-label">Midnight Grey</span></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- CUSTOM BUILDER -->
+<div class="section">
+  <div class="badge">STEP 2 — OPTIONAL</div>
+  <div class="sec-title">Build Your Own Gradient</div>
+  <div class="sec-desc">Select each colour individually. Widget updates live. Hit "Save" to store it as a reusable custom theme.</div>
+  <div class="builder">
+    <div class="builder-title">Custom Gradient</div>
+    <div class="builder-sub">4 colour stops — background top, background bottom, number top colour, number bottom colour.</div>
+    <div class="color-rows">
+      <div class="color-row"><label>Background — Top colour</label><input type="color" id="c1" value="#1e1b4b" oninput="liveUpdate()"><span class="hex-val" id="h1">#1e1b4b</span></div>
+      <div class="color-row"><label>Background — Bottom colour</label><input type="color" id="c2" value="#4c1d95" oninput="liveUpdate()"><span class="hex-val" id="h2">#4c1d95</span></div>
+      <div class="color-row"><label>Big Number — Top colour</label><input type="color" id="c3" value="#6366f1" oninput="liveUpdate()"><span class="hex-val" id="h3">#6366f1</span></div>
+      <div class="color-row"><label>Big Number — Bottom colour</label><input type="color" id="c4" value="#a78bfa" oninput="liveUpdate()"><span class="hex-val" id="h4">#a78bfa</span></div>
+    </div>
+    <div style="font-size:11px;color:#444;margin-bottom:8px">Background preview:</div>
+    <div class="preview-strip" id="pstrip"></div>
+    <div class="builder-actions">
+      <button class="btn-save" onclick="saveCustom()">Save as Custom Theme</button>
+      <button class="btn-reset" onclick="applyPreset(document.querySelectorAll('.swatch')[0],0)">Reset to Preset</button>
+    </div>
+    <div class="saved-area" id="saved-area" style="display:none">
+      <div class="saved-label">Your saved themes — click to apply, hover to delete:</div>
+      <div class="custom-row" id="custom-row"></div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SETTINGS MOCKUP -->
+<div class="section">
+  <div class="badge">IN THE APP</div>
+  <div class="sec-title">How It Looks in Settings</div>
+  <div class="sec-desc">Preset circles + a + button that opens the inline colour picker. Saved custom themes appear alongside presets.</div>
+  <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start">
+    <div class="s-mock">
+      <div class="s-hdr">WIDGET THEME</div>
+      <div class="s-row"><span class="s-row-l">Current Theme</span><span class="s-row-v" id="s-name">Indigo Night ›</span></div>
+      <div class="s-circles" id="s-circles">
+        <div class="scircle active" id="sc0" style="background:linear-gradient(135deg,#1e1b4b,#4c1d95)" onclick="sPick(0)"></div>
+        <div class="scircle" id="sc1" style="background:linear-gradient(135deg,#0f172a,#1e3a5f)" onclick="sPick(1)"></div>
+        <div class="scircle" id="sc2" style="background:linear-gradient(135deg,#1a0a2e,#6b1a3a)" onclick="sPick(2)"></div>
+        <div class="scircle" id="sc3" style="background:linear-gradient(135deg,#022c22,#064e3b)" onclick="sPick(3)"></div>
+        <div class="scircle" id="sc4" style="background:linear-gradient(135deg,#1c0a00,#78350f)" onclick="sPick(4)"></div>
+        <div class="scircle" id="sc5" style="background:linear-gradient(135deg,#0f0f0f,#1a1a1a)" onclick="sPick(5)"></div>
+        <div id="s-custom-circles" style="display:contents"></div>
+        <div class="sadd" onclick="toggleSBuilder()" title="Create custom theme">+</div>
+      </div>
+      <div class="s-builder" id="s-bldr">
+        <div class="s-builder-title">New Custom Theme</div>
+        <div class="s-ci-row"><label>Background Top</label><input type="color" id="s-c1" value="#1e1b4b" oninput="sUpdate()"></div>
+        <div class="s-ci-row"><label>Background Bottom</label><input type="color" id="s-c2" value="#4c1d95" oninput="sUpdate()"></div>
+        <div class="s-ci-row"><label>Number Top</label><input type="color" id="s-c3" value="#6366f1" oninput="sUpdate()"></div>
+        <div class="s-ci-row"><label>Number Bottom</label><input type="color" id="s-c4" value="#a78bfa" oninput="sUpdate()"></div>
+        <div class="s-strip" id="s-strip"></div>
+        <div class="s-btn-row">
+          <button class="s-save-btn" onclick="sSave()">Save Theme</button>
+          <button class="s-cancel-btn" onclick="toggleSBuilder()">Cancel</button>
+        </div>
+      </div>
+      <div class="s-row"><span class="s-row-l">Show countdown number</span><span class="s-row-v">On ›</span></div>
+      <div class="s-row"><span class="s-row-l">Event list (large widget)</span><span class="s-row-v">On ›</span></div>
+      <div class="s-row"><span class="s-row-l">Notifications</span><span class="s-row-v">On ›</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding-top:8px">
+      <div style="font-size:11px;color:#444">Side-by-side preview:</div>
+      <div class="w-small"><div id="sw-s" style="width:100%;height:100%;padding:13px;display:flex;flex-direction:column">
+        <div class="mw-pill">&#9835; Choir &middot; Church</div>
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <div class="mw-bignum" id="sw-n">3</div>
+          <div><div style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.3)">DAYS</div><div style="font-size:8px;color:rgba(255,255,255,0.2)">TO GO</div></div>
+        </div>
+        <div class="mw-hr"></div>
+        <div class="mw-eyebrow">NEXT UP</div>
+        <div class="mw-title">Doctor &middot; Mama</div>
+        <div class="mw-time">&#128336; 9:00 AM &middot; Today</div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<div class="cta">
+  <div class="cta-msg">Selected: <strong id="cta-name">Indigo Night</strong></div>
+  <button class="cta-btn" onclick="alert('Ready! Now build the widget with the selected theme.')">Build This Widget ›</button>
+</div>
+
+<script>
+const P=[
+  {name:'Indigo Night',c1:'#1e1b4b',c2:'#4c1d95',n1:'#6366f1',n2:'#a78bfa'},
+  {name:'Ocean Deep',  c1:'#0f172a',c2:'#1e3a5f',n1:'#38bdf8',n2:'#7dd3fc'},
+  {name:'Rose Noir',   c1:'#1a0a2e',c2:'#6b1a3a',n1:'#f472b6',n2:'#fda4af'},
+  {name:'Forest Dusk', c1:'#022c22',c2:'#064e3b',n1:'#34d399',n2:'#6ee7b7'},
+  {name:'Amber Ember', c1:'#1c0a00',c2:'#78350f',n1:'#fb923c',n2:'#fcd34d'},
+  {name:'Midnight Grey',c1:'#0f0f0f',c2:'#1a1a1a',n1:'#e5e5e5',n2:'#ffffff'},
+];
+let customs=[];
+
+function paint(c1,c2,n1,n2){
+  const bg='linear-gradient(135deg,'+c1+','+c2+')';
+  const ng='linear-gradient(180deg,'+n1+','+n2+')';
+  ['ws','wm','wl','sw-s'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.background=bg;});
+  ['ws-n','wm-n','wl-n','sw-n'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.background=ng;});
+  document.getElementById('pstrip').style.background='linear-gradient(90deg,'+c1+','+c2+')';
+  document.getElementById('s-strip').style.background='linear-gradient(90deg,'+c1+','+c2+')';
+}
+function syncInputs(c1,c2,n1,n2){
+  const ids=['c1','c2','c3','c4'],vals=[c1,c2,n1,n2];
+  ids.forEach((id,i)=>{document.getElementById(id).value=vals[i];document.getElementById('h'+(i+1)).textContent=vals[i];});
+  ['s-c1','s-c2','s-c3','s-c4'].forEach((id,i)=>{document.getElementById(id).value=vals[i];});
+}
+function setName(n){
+  document.getElementById('cta-name').textContent=n;
+  document.getElementById('s-name').textContent=n+' ›';
+}
+function clearActive(){
+  document.querySelectorAll('.swatch').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.scircle').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.csw').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.scc').forEach(e=>e.classList.remove('active'));
+}
+
+function applyPreset(el,i){
+  clearActive();
+  el.classList.add('active');
+  const sc=document.getElementById('sc'+i);if(sc)sc.classList.add('active');
+  paint(P[i].c1,P[i].c2,P[i].n1,P[i].n2);
+  syncInputs(P[i].c1,P[i].c2,P[i].n1,P[i].n2);
+  setName(P[i].name);
+}
+function sPick(i){applyPreset(document.querySelectorAll('.swatch')[i],i);}
+
+function liveUpdate(){
+  const v=[document.getElementById('c1').value,document.getElementById('c2').value,document.getElementById('c3').value,document.getElementById('c4').value];
+  ['h1','h2','h3','h4'].forEach((id,i)=>{document.getElementById(id).textContent=v[i];});
+  ['s-c1','s-c2','s-c3','s-c4'].forEach((id,i)=>{document.getElementById(id).value=v[i];});
+  clearActive();
+  paint(v[0],v[1],v[2],v[3]);
+  setName('Custom');
+}
+
+function saveCustom(){
+  const v=[document.getElementById('c1').value,document.getElementById('c2').value,document.getElementById('c3').value,document.getElementById('c4').value];
+  const idx=customs.length;
+  customs.push({c1:v[0],c2:v[1],n1:v[2],n2:v[3],name:'Custom '+(idx+1)});
+  renderCustom();
+  applyCustom(idx);
+}
+function renderCustom(){
+  const show=customs.length>0;
+  document.getElementById('saved-area').style.display=show?'block':'none';
+  document.getElementById('custom-row').innerHTML=customs.map((t,i)=>
+    '<div class="csw" id="csw'+i+'" style="background:linear-gradient(135deg,'+t.c1+','+t.c2+')" onclick="applyCustom('+i+')">'
+    +'<div class="del" onclick="event.stopPropagation();delCustom('+i+')">&#10005;</div></div>').join('');
+  document.getElementById('s-custom-circles').innerHTML=customs.map((t,i)=>
+    '<div class="scircle scc" id="scc'+i+'" style="background:linear-gradient(135deg,'+t.c1+','+t.c2+')" onclick="applyCustom('+i+')"></div>').join('');
+}
+function applyCustom(i){
+  clearActive();
+  const t=customs[i];
+  paint(t.c1,t.c2,t.n1,t.n2);
+  syncInputs(t.c1,t.c2,t.n1,t.n2);
+  setName(t.name);
+  const csw=document.getElementById('csw'+i);if(csw)csw.classList.add('active');
+  const scc=document.getElementById('scc'+i);if(scc)scc.classList.add('active');
+}
+function delCustom(i){customs.splice(i,1);renderCustom();applyPreset(document.querySelectorAll('.swatch')[0],0);}
+
+function toggleSBuilder(){document.getElementById('s-bldr').classList.toggle('open');sUpdate();}
+function sUpdate(){
+  const v=[document.getElementById('s-c1').value,document.getElementById('s-c2').value,document.getElementById('s-c3').value,document.getElementById('s-c4').value];
+  document.getElementById('s-strip').style.background='linear-gradient(90deg,'+v[0]+','+v[1]+')';
+  ['c1','c2','c3','c4'].forEach((id,i)=>{document.getElementById(id).value=v[i];});
+  ['h1','h2','h3','h4'].forEach((id,i)=>{document.getElementById(id).textContent=v[i];});
+  clearActive();
+  paint(v[0],v[1],v[2],v[3]);
+  setName('Custom');
+}
+function sSave(){saveCustom();document.getElementById('s-bldr').classList.remove('open');}
+
+paint('#1e1b4b','#4c1d95','#6366f1','#a78bfa');
+</script>
+</body>
+</html>
