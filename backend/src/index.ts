@@ -40,6 +40,15 @@ const snapshotSchema = z.object({
   payload: z.record(z.unknown())
 });
 
+const updateProfileSchema = z.object({
+  displayName: z.string().min(1)
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8)
+});
+
 type AuthRequest = express.Request & { userId?: string };
 
 function signToken(userId: string) {
@@ -129,6 +138,50 @@ app.get("/me", requireAuth, async (req: AuthRequest, res) => {
     user: { id: user.id, email: user.email, displayName: user.displayName },
     membership
   });
+});
+
+app.patch("/me/profile", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = updateProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const db = await store.read();
+  const user = db.users.find((candidate) => candidate.id === req.userId);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  user.displayName = parsed.data.displayName.trim();
+  await store.write(db);
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
+});
+
+app.patch("/me/password", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const db = await store.read();
+  const user = db.users.find((candidate) => candidate.id === req.userId);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const matches = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+  if (!matches) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  await store.write(db);
+  res.json({ ok: true });
 });
 
 app.post("/households", requireAuth, async (req: AuthRequest, res) => {

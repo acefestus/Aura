@@ -449,9 +449,19 @@ struct AuraRemoteSnapshotEnvelope: Codable {
     var snapshot: AuraRemoteSnapshotRecord?
 }
 
+struct AuraRemoteUserEnvelope: Codable {
+    var user: AuraRemoteUser
+}
+
+struct AuraRemoteOkEnvelope: Codable {
+    var ok: Bool
+}
+
 enum AuraServerError: LocalizedError {
     case invalidBaseURL
     case invalidResponse
+    case unauthorized
+    case networkUnavailable
     case requestFailed(String)
 
     var errorDescription: String? {
@@ -460,6 +470,10 @@ enum AuraServerError: LocalizedError {
             return "Enter a valid backend URL first."
         case .invalidResponse:
             return "The server returned an invalid response."
+        case .unauthorized:
+            return "Your session expired. Please sign in again."
+        case .networkUnavailable:
+            return "Network unavailable. Check your connection and try again."
         case .requestFailed(let message):
             return message
         }
@@ -573,9 +587,22 @@ actor AuraServerSyncEngine {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: req)
+        } catch {
+            if let netErr = error as? URLError,
+               netErr.code == .notConnectedToInternet || netErr.code == .networkConnectionLost || netErr.code == .timedOut {
+                throw AuraServerError.networkUnavailable
+            }
+            throw error
+        }
         guard let http = response as? HTTPURLResponse else {
             throw AuraServerError.invalidResponse
+        }
+        if http.statusCode == 401 {
+            throw AuraServerError.unauthorized
         }
         guard (200..<300).contains(http.statusCode) else {
             throw AuraServerError.requestFailed(serverErrorMessage(from: data, statusCode: http.statusCode))
@@ -674,6 +701,26 @@ actor AuraServerSyncEngine {
     func downloadSnapshot(baseURL: String, token: String) async throws -> HouseholdSyncPayload? {
         let response: AuraRemoteSnapshotEnvelope = try await request(baseURL: baseURL, path: "/sync/snapshot", token: token)
         return response.snapshot?.payload
+    }
+
+    func updateProfile(baseURL: String, token: String, displayName: String) async throws -> AuraRemoteUserEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/me/profile",
+            method: "PATCH",
+            token: token,
+            payload: ["displayName": displayName]
+        )
+    }
+
+    func changePassword(baseURL: String, token: String, currentPassword: String, newPassword: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/me/password",
+            method: "PATCH",
+            token: token,
+            payload: ["currentPassword": currentPassword, "newPassword": newPassword]
+        )
     }
 }
 
@@ -940,6 +987,11 @@ class EventStore: ObservableObject {
         loadLiveActivitySession()
         serverAccountEmail = backendAccountEmail
         serverHouseholdName = backendStoredHouseholdName
+        if hasServerSession {
+            Task { @MainActor [weak self] in
+                await self?.refreshServerContext()
+            }
+        }
         startPeriodicPull()
         queueSyncPush()
         refreshDailyStepsIfEnabled()
@@ -1443,6 +1495,25 @@ class EventStore: ObservableObject {
         objectWillChange.send()
     }
 
+    private func mapServerError(_ error: Error, fallbackStatus: String) -> Error {
+        if let serverError = error as? AuraServerError {
+            switch serverError {
+            case .unauthorized:
+                clearServerSession()
+                syncStatus = "Session expired. Sign in again."
+                return serverError
+            case .networkUnavailable:
+                syncStatus = "Network unavailable"
+                return serverError
+            default:
+                syncStatus = fallbackStatus
+                return serverError
+            }
+        }
+        syncStatus = fallbackStatus
+        return error
+    }
+
     func registerServerAccount(email: String, password: String, displayName: String) async -> Result<Void, Error> {
         do {
             let response = try await AuraServerSyncEngine.shared.register(
@@ -1456,8 +1527,7 @@ class EventStore: ObservableObject {
             await refreshServerContext()
             return .success(())
         } catch {
-            syncStatus = "Account setup failed"
-            return .failure(error)
+            return .failure(mapServerError(error, fallbackStatus: "Account setup failed"))
         }
     }
 
@@ -1473,8 +1543,7 @@ class EventStore: ObservableObject {
             await refreshServerContext()
             return .success(())
         } catch {
-            syncStatus = "Sign-in failed"
-            return .failure(error)
+            return .failure(mapServerError(error, fallbackStatus: "Sign-in failed"))
         }
     }
 
@@ -1484,9 +1553,7 @@ class EventStore: ObservableObject {
             let me = try await AuraServerSyncEngine.shared.me(baseURL: currentBackendBaseURL, token: backendAuthToken)
             backendAccountEmail = me.user.email
             serverAccountEmail = me.user.email
-            if profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                profileDisplayName = me.user.displayName
-            }
+            profileDisplayName = me.user.displayName
 
             if me.membership != nil,
                let household = try? await AuraServerSyncEngine.shared.currentHousehold(baseURL: currentBackendBaseURL, token: backendAuthToken) {
@@ -1499,7 +1566,7 @@ class EventStore: ObservableObject {
             }
             syncStatus = hasServerHousehold ? "Server household connected" : "Signed in · household not linked"
         } catch {
-            syncStatus = "Server refresh failed"
+            _ = mapServerError(error, fallbackStatus: "Server refresh failed")
         }
     }
 
@@ -1521,8 +1588,7 @@ class EventStore: ObservableObject {
             await pushSnapshot()
             return .success(response.code)
         } catch {
-            syncStatus = "Create household failed"
-            return .failure(error)
+            return .failure(mapServerError(error, fallbackStatus: "Create household failed"))
         }
     }
 
@@ -1544,8 +1610,50 @@ class EventStore: ObservableObject {
             await pullSnapshot()
             return .success(())
         } catch {
-            syncStatus = "Join household failed"
-            return .failure(error)
+            return .failure(mapServerError(error, fallbackStatus: "Join household failed"))
+        }
+    }
+
+    func updateServerDisplayName(_ name: String) async -> Result<Void, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Sign in before updating profile."))
+        }
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else {
+            return .failure(AuraServerError.requestFailed("Display name cannot be empty."))
+        }
+        do {
+            let response = try await AuraServerSyncEngine.shared.updateProfile(
+                baseURL: currentBackendBaseURL,
+                token: backendAuthToken,
+                displayName: clean
+            )
+            profileDisplayName = response.user.displayName
+            syncStatus = "Profile updated"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Profile update failed"))
+        }
+    }
+
+    func changeServerPassword(currentPassword: String, newPassword: String) async -> Result<Void, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Sign in before changing password."))
+        }
+        guard newPassword.count >= 8 else {
+            return .failure(AuraServerError.requestFailed("New password must be at least 8 characters."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.changePassword(
+                baseURL: currentBackendBaseURL,
+                token: backendAuthToken,
+                currentPassword: currentPassword,
+                newPassword: newPassword
+            )
+            syncStatus = "Password changed"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Password change failed"))
         }
     }
 
@@ -1612,7 +1720,7 @@ class EventStore: ObservableObject {
             householdLastSnapshot = Date().timeIntervalSince1970
             syncStatus = hasServerHousehold ? "Server synced just now" : "Synced just now"
         } catch {
-            syncStatus = hasServerHousehold ? "Server sync upload failed" : "Sync upload failed"
+            _ = mapServerError(error, fallbackStatus: hasServerHousehold ? "Server sync upload failed" : "Sync upload failed")
         }
     }
 
@@ -1646,7 +1754,7 @@ class EventStore: ObservableObject {
             householdLastSnapshot = incoming.updatedAt.timeIntervalSince1970
             syncStatus = hasServerHousehold ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
         } catch {
-            syncStatus = hasServerHousehold ? "Server sync pull failed" : "Sync pull failed"
+            _ = mapServerError(error, fallbackStatus: hasServerHousehold ? "Server sync pull failed" : "Sync pull failed")
         }
     }
 
@@ -4877,6 +4985,8 @@ struct SettingsView: View {
     @State private var serverPassword = ""
     @State private var serverDisplayName = ""
     @State private var householdNameDraft = "My Family"
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
     @State private var serverMessage = ""
     @State private var isServerWorking = false
 
@@ -4904,6 +5014,20 @@ struct SettingsView: View {
                         Label("Dark",   systemImage: "moon.fill").tag("dark")
                     }
                     .pickerStyle(.menu)
+                }
+
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "externaldrive.badge.icloud")
+                            .foregroundColor(AuraThemePalette.current.accentStart)
+                        Text("Account & Server controls are here.")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    Text("Use this section for Railway URL, sign-in, and account management.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                } header: {
+                    Text("Account & Server (Railway Sync)")
                 }
 
                 Section("Family Member") {
@@ -5001,6 +5125,51 @@ struct SettingsView: View {
                     if store.hasServerSession {
                         LabeledContent("Signed in as", value: store.serverAccountEmail.isEmpty ? backendAccountEmail : store.serverAccountEmail)
                         LabeledContent("Sync backend", value: store.currentSyncBackendLabel)
+
+                        TextField("Display name", text: $serverDisplayName)
+                        Button {
+                            isServerWorking = true
+                            serverMessage = ""
+                            Task {
+                                let result = await store.updateServerDisplayName(serverDisplayName)
+                                await MainActor.run {
+                                    isServerWorking = false
+                                    switch result {
+                                    case .success:
+                                        profileDisplayName = serverDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        serverMessage = "Profile updated."
+                                    case .failure(let error):
+                                        serverMessage = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Save Profile", systemImage: "person.crop.circle.badge.checkmark")
+                        }
+
+                        SecureField("Current password", text: $currentPassword)
+                        SecureField("New password (min 8)", text: $newPassword)
+                        Button {
+                            isServerWorking = true
+                            serverMessage = ""
+                            Task {
+                                let result = await store.changeServerPassword(currentPassword: currentPassword, newPassword: newPassword)
+                                await MainActor.run {
+                                    isServerWorking = false
+                                    switch result {
+                                    case .success:
+                                        currentPassword = ""
+                                        newPassword = ""
+                                        serverMessage = "Password updated."
+                                    case .failure(let error):
+                                        serverMessage = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Change Password", systemImage: "key.fill")
+                        }
+                        .disabled(currentPassword.isEmpty || newPassword.count < 8)
 
                         Button {
                             isServerWorking = true
@@ -5401,6 +5570,12 @@ struct SettingsView: View {
                 serverEmail = backendAccountEmail
                 serverDisplayName = profileDisplayName
                 householdNameDraft = backendStoredHouseholdName.isEmpty ? "My Family" : backendStoredHouseholdName
+                Task {
+                    await store.refreshServerContext()
+                    await MainActor.run {
+                        serverDisplayName = profileDisplayName
+                    }
+                }
                 loadCustomThemes()
                 if let d = widgetThemeJSON.data(using: .utf8),
                    let t = try? JSONDecoder().decode(WidgetGradientTheme.self, from: d) {
