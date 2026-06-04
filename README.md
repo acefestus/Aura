@@ -77,3 +77,20 @@ gh repo create Aura --public --source=. --remote=origin --push
 ```
 
 If the repository name already exists, use a unique name like `Aura-family-hub`.
+
+## Final release prep
+
+Run automated smoke checks:
+
+```bash
+./scripts/release_smoke.sh
+```
+
+Run manual release checklist:
+
+- `docs/RELEASE_QA_CHECKLIST.md`
+
+Notes:
+
+- The smoke script uses `CODE_SIGNING_ALLOWED=NO` so iOS compile checks can run without a configured development team.
+- For an actual distributable build/archive, set the development team in Xcode for both app and widget targets.
