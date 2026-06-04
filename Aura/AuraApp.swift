@@ -569,7 +569,9 @@ struct AuraShareEnvelope: Codable {
 
 enum SharedActivityAction: String, Codable, CaseIterable {
     case accepted = "Accepted"
+    case inviteSent = "Invite Sent"
     case permissionChanged = "Permission Changed"
+    case conflictResolved = "Conflict Resolved"
     case revoked = "Revoked"
 }
 
@@ -1551,6 +1553,59 @@ class EventStore: ObservableObject {
         sharedActivity.insert(entry, at: 0)
         if sharedActivity.count > 300 { sharedActivity = Array(sharedActivity.prefix(300)) }
         saveSharedActivity()
+    }
+
+    func clearSharedActivity() {
+        sharedActivity = []
+        saveSharedActivity()
+    }
+
+    func logShareInvite(events: [CalendarEvent], permission: SharePermission, via channel: String) {
+        guard !events.isEmpty else { return }
+        for event in events {
+            recordSharedActivity(.init(
+                timestamp: Date(),
+                sender: activeProfileName,
+                eventTitle: event.title,
+                action: .inviteSent,
+                details: "Shared via \(channel) with \(permission.rawValue.lowercased()) access"
+            ))
+        }
+    }
+
+    func conflictsForSharedEvent(_ event: CalendarEvent) -> [CalendarEvent] {
+        conflictingEvents(for: event, excluding: event.id)
+    }
+
+    func resolveSharedEventConflict(id: UUID) -> Bool {
+        guard let existing = events.first(where: { $0.id == id }) else { return false }
+        guard existing.sharePermission == .edit else { return false }
+        guard let resolved = suggestedNonConflictingVersion(for: existing) else { return false }
+        guard resolved.startDate != existing.startDate || resolved.endDate != existing.endDate else { return false }
+
+        updateEvent(resolved)
+        recordSharedActivity(.init(
+            timestamp: Date(),
+            sender: existing.sharedBy ?? activeProfileName,
+            eventTitle: existing.title,
+            action: .conflictResolved,
+            details: "Moved to \(resolved.startDate.formatted(date: .abbreviated, time: .shortened))"
+        ))
+        return true
+    }
+
+    private func suggestedNonConflictingVersion(for event: CalendarEvent) -> CalendarEvent? {
+        let duration = max(1800, event.endDate.timeIntervalSince(event.startDate))
+        var candidate = event
+
+        for _ in 0..<24 {
+            let conflicts = conflictingEvents(for: candidate, excluding: event.id)
+            if conflicts.isEmpty { return candidate }
+            guard let latestEnd = conflicts.map(\.endDate).max() else { return candidate }
+            candidate.startDate = latestEnd.addingTimeInterval(15 * 60)
+            candidate.endDate = candidate.startDate.addingTimeInterval(duration)
+        }
+        return nil
     }
 
     // ── Family Members ─────────────────────────────────────
@@ -4105,6 +4160,7 @@ struct TodayFocusCard: View {
 }
 
 struct ShareAuraSheet: View {
+    @EnvironmentObject var store: EventStore
     @EnvironmentObject var shareManager: ShareManager
     @Environment(\.dismiss) var dismiss
 
@@ -4115,6 +4171,7 @@ struct ShareAuraSheet: View {
     @AppStorage("profileDisplayName") private var storedDisplayName = ""
     @State private var senderName = ""
     @State private var permission: SharePermission = .edit
+    @State private var shareNotice = ""
 
     var shareURL: URL? {
         shareManager.makeShareURL(
@@ -4123,6 +4180,10 @@ struct ShareAuraSheet: View {
             permission: permission,
             events: events
         )
+    }
+
+    var sortedEvents: [CalendarEvent] {
+        events.sorted { $0.startDate < $1.startDate }
     }
 
     var body: some View {
@@ -4147,6 +4208,27 @@ struct ShareAuraSheet: View {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    if permission == .edit {
+                        Text("Receiver can modify event details.")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                }
+                Section("Invite Preview") {
+                    ForEach(sortedEvents.prefix(4)) { event in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title)
+                                .font(.system(size: 14, weight: .semibold))
+                            Text(inviteDateLabel(event))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    if sortedEvents.count > 4 {
+                        Text("+\(sortedEvents.count - 4) more events")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 Section {
                     if let u = shareURL {
@@ -4154,6 +4236,18 @@ struct ShareAuraSheet: View {
                             Label("Share via AirDrop / Messages", systemImage: "square.and.arrow.up")
                                 .font(.system(size: 16, weight: .semibold))
                         }
+                        Button {
+                            UIPasteboard.general.url = u
+                            store.logShareInvite(events: sortedEvents, permission: permission, via: "Copied Link")
+                            shareNotice = "Invite link copied."
+                        } label: {
+                            Label("Copy Invite Link", systemImage: "link")
+                        }
+                    }
+                    if !shareNotice.isEmpty {
+                        Text(shareNotice)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -4173,6 +4267,7 @@ struct ShareAuraSheet: View {
                 } else {
                     AuraHaptics.tap(.light)
                 }
+                shareNotice = ""
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -4180,6 +4275,13 @@ struct ShareAuraSheet: View {
                 }
             }
         }
+    }
+
+    private func inviteDateLabel(_ event: CalendarEvent) -> String {
+        if event.isAllDay {
+            return "\(event.startDate.formatted(date: .abbreviated, time: .omitted)) · All day"
+        }
+        return event.startDate.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -6642,6 +6744,9 @@ struct EditCategoryView: View {
 struct SharedEventsManagerView: View {
     @EnvironmentObject var store: EventStore
     @Environment(\.dismiss) var dismiss
+    @State private var searchText = ""
+    @State private var showConflictsOnly = false
+    @State private var infoMessage = ""
 
     var grouped: [(sender: String, events: [CalendarEvent])] {
         let items = store.events.filter { $0.sharedBy != nil }
@@ -6651,18 +6756,48 @@ struct SharedEventsManagerView: View {
             .sorted { $0.sender.localizedCaseInsensitiveCompare($1.sender) == .orderedAscending }
     }
 
+    var conflictIds: Set<UUID> {
+        Set(store.events
+            .filter { $0.sharedBy != nil }
+            .filter { !store.conflictsForSharedEvent($0).isEmpty }
+            .map(\.id)
+        )
+    }
+
+    var filteredGrouped: [(sender: String, events: [CalendarEvent])] {
+        grouped.compactMap { group in
+            let filteredEvents = group.events.filter { event in
+                let matchesText = searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                    event.title.localizedCaseInsensitiveContains(searchText) ||
+                    (event.sharedBy ?? "").localizedCaseInsensitiveContains(searchText)
+                let passesConflict = !showConflictsOnly || conflictIds.contains(event.id)
+                return matchesText && passesConflict
+            }
+            return filteredEvents.isEmpty ? nil : (group.sender, filteredEvents)
+        }
+    }
+
     var body: some View {
         NavigationView {
             List {
+                Section {
+                    Toggle("Show conflicts only", isOn: $showConflictsOnly)
+                    if !infoMessage.isEmpty {
+                        Text(infoMessage)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 if store.isBootstrapping {
                     SharedSkeletonListView()
                         .transition(.opacity)
-                } else if grouped.isEmpty {
+                } else if filteredGrouped.isEmpty {
                     Text("No shared events")
                         .foregroundColor(.secondary)
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 }
-                ForEach(grouped, id: \.sender) { group in
+                ForEach(filteredGrouped, id: \.sender) { group in
                     Section {
                         ForEach(group.events) { e in
                             VStack(alignment: .leading, spacing: 8) {
@@ -6670,6 +6805,14 @@ struct SharedEventsManagerView: View {
                                     Text(e.title)
                                         .font(.system(size: 15, weight: .semibold))
                                     Spacer()
+                                    if conflictIds.contains(e.id) {
+                                        Label("Conflict", systemImage: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.orange)
+                                            .padding(.horizontal, 7)
+                                            .padding(.vertical, 4)
+                                            .background(Color.orange.opacity(0.12), in: Capsule())
+                                    }
                                     Menu {
                                         Button("View") {
                                             AuraHaptics.tap(.light)
@@ -6684,6 +6827,17 @@ struct SharedEventsManagerView: View {
                                             store.revokeSharedEvent(id: e.id)
                                         } label: {
                                             Label("Revoke", systemImage: "trash")
+                                        }
+                                        if conflictIds.contains(e.id) && e.sharePermission == .edit {
+                                            Button("Resolve Conflict") {
+                                                if store.resolveSharedEventConflict(id: e.id) {
+                                                    AuraHaptics.success()
+                                                    infoMessage = "Moved \(e.title) to the next free slot."
+                                                } else {
+                                                    AuraHaptics.warning()
+                                                    infoMessage = "Could not auto-resolve conflict for \(e.title)."
+                                                }
+                                            }
                                         }
                                     } label: {
                                         Text(e.sharePermission.rawValue)
@@ -6706,7 +6860,8 @@ struct SharedEventsManagerView: View {
                 }
             }
             .animation(AuraMotion.smooth, value: store.isBootstrapping)
-            .animation(AuraMotion.smooth, value: grouped.isEmpty)
+            .animation(AuraMotion.smooth, value: filteredGrouped.isEmpty)
+            .searchable(text: $searchText, prompt: "Search sender or event")
             .navigationTitle("Shared Events")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -6728,19 +6883,43 @@ struct SharedEventsManagerView: View {
 struct SharedActivityLogView: View {
     @EnvironmentObject var store: EventStore
     @Environment(\.dismiss) var dismiss
+    @State private var searchText = ""
+    @State private var selectedAction: SharedActivityAction? = nil
+
+    var filteredEntries: [SharedActivityEntry] {
+        store.sharedActivity.filter { entry in
+            let text = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let matchesText = text.isEmpty ||
+                entry.eventTitle.localizedCaseInsensitiveContains(text) ||
+                entry.sender.localizedCaseInsensitiveContains(text) ||
+                entry.details.localizedCaseInsensitiveContains(text)
+            let matchesAction = selectedAction == nil || entry.action == selectedAction
+            return matchesText && matchesAction
+        }
+    }
 
     var body: some View {
         NavigationView {
             List {
+                Section("Filters") {
+                    Picker("Action", selection: $selectedAction) {
+                        Text("All").tag(Optional<SharedActivityAction>.none)
+                        ForEach(SharedActivityAction.allCases, id: \.self) { action in
+                            Text(action.rawValue).tag(Optional(action))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 if store.isBootstrapping {
                     SharedSkeletonListView()
                         .transition(.opacity)
-                } else if store.sharedActivity.isEmpty {
+                } else if filteredEntries.isEmpty {
                     Text("No shared activity yet")
                         .foregroundColor(.secondary)
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 } else {
-                    ForEach(store.sharedActivity) { entry in
+                    ForEach(filteredEntries) { entry in
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text(entry.action.rawValue)
@@ -6765,10 +6944,18 @@ struct SharedActivityLogView: View {
                 }
             }
             .animation(AuraMotion.smooth, value: store.isBootstrapping)
-            .animation(AuraMotion.smooth, value: store.sharedActivity.isEmpty)
+            .animation(AuraMotion.smooth, value: filteredEntries.isEmpty)
+            .searchable(text: $searchText, prompt: "Search activity")
             .navigationTitle("Shared Activity Log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !store.sharedActivity.isEmpty {
+                        Button("Clear") {
+                            store.clearSharedActivity()
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                 }
