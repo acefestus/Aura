@@ -2616,6 +2616,7 @@ struct HomeView: View {
     @State private var showQuickAddItem = false
     @State private var showQuickEventTemplates = false
     @State private var showRoutineTemplates = false
+    @State private var showWeekPlanner = false
     @State private var showOnlyShared = true
     @State private var editingActivity: FamilyActivity? = nil
 
@@ -2802,6 +2803,11 @@ struct HomeView: View {
                     HomeQuickActionButton(label: "Use Routine Template", icon: "wand.and.stars") {
                         AuraHaptics.tap(.medium)
                         showRoutineTemplates = true
+                    }
+
+                    HomeQuickActionButton(label: "Plan My Week", icon: "calendar.day.timeline.leading") {
+                        AuraHaptics.tap(.medium)
+                        showWeekPlanner = true
                     }
 
                     if let session = store.activeActivitySession {
@@ -3022,6 +3028,10 @@ struct HomeView: View {
             AddActivityView(isPresented: .constant(true), editingActivity: activity)
                 .environmentObject(store)
         }
+        .sheet(isPresented: $showWeekPlanner) {
+            WeekPlanningAssistantSheet(isPresented: $showWeekPlanner)
+                .environmentObject(store)
+        }
         .confirmationDialog("Schedule Event", isPresented: $showQuickEventTemplates, titleVisibility: .visible) {
             ForEach(HomeEventQuickTemplate.allCases, id: \.self) { template in
                 Button(template.label) {
@@ -3220,6 +3230,275 @@ struct HomeMemberLoadRow: View {
                 }
             }
             .frame(height: 8)
+        }
+    }
+}
+
+struct WeekPlanDraft: Identifiable {
+    var id = UUID()
+    var title: String
+    var notes: String
+    var start: Date
+    var end: Date
+    var categoryId: UUID
+    var recurrence: Recurrence
+    var assignedMemberIds: [UUID]
+    var reason: String
+}
+
+struct WeekPlanningAssistantSheet: View {
+    @EnvironmentObject var store: EventStore
+    @Binding var isPresented: Bool
+
+    @State private var drafts: [WeekPlanDraft] = []
+    @State private var selectedIds: Set<UUID> = []
+    @State private var plannerMessage = ""
+
+    var selectedCount: Int {
+        drafts.filter { selectedIds.contains($0.id) }.count
+    }
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section("Assistant") {
+                    Text("Aura generated a weekly plan from your current workload, routines, and pending family needs.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                    if !plannerMessage.isEmpty {
+                        Text(plannerMessage)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                    Button {
+                        regeneratePlan()
+                    } label: {
+                        Label("Regenerate Plan", systemImage: "arrow.clockwise")
+                    }
+                }
+
+                if drafts.isEmpty {
+                    Section {
+                        Text("No suggestions yet. Tap Regenerate Plan to create draft events.")
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section("Weekly Drafts") {
+                        ForEach(drafts) { draft in
+                            Button {
+                                if selectedIds.contains(draft.id) {
+                                    selectedIds.remove(draft.id)
+                                } else {
+                                    selectedIds.insert(draft.id)
+                                }
+                            } label: {
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: selectedIds.contains(draft.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedIds.contains(draft.id) ? AuraThemePalette.current.accentStart : .secondary)
+                                        .padding(.top, 2)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(draft.title)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                        Text(draft.start.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.secondary)
+                                        Text(draft.reason)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                        if draft.recurrence != .none {
+                                            Text(draft.recurrence.rawValue)
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(AuraThemePalette.current.accentStart)
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 3)
+                                                .background(AuraThemePalette.current.accentStart.opacity(0.12), in: Capsule())
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Plan My Week")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { isPresented = false }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Apply (\(selectedCount))") {
+                        applySelectedDrafts()
+                    }
+                    .disabled(selectedCount == 0)
+                    .fontWeight(.bold)
+                }
+            }
+            .onAppear {
+                if drafts.isEmpty {
+                    regeneratePlan()
+                }
+            }
+        }
+    }
+
+    private func regeneratePlan() {
+        let generated = buildDrafts()
+        drafts = generated
+        selectedIds = Set(generated.map(\.id))
+        plannerMessage = generated.isEmpty ? "No safe suggestions found for the next 7 days." : "Generated \(generated.count) draft events. Review and apply what you want."
+    }
+
+    private func applySelectedDrafts() {
+        let toApply = drafts
+            .filter { selectedIds.contains($0.id) }
+            .sorted { $0.start < $1.start }
+        guard !toApply.isEmpty else { return }
+
+        var applied = 0
+        for draft in toApply {
+            let duration = max(900, draft.end.timeIntervalSince(draft.start))
+            var event = CalendarEvent(
+                title: draft.title,
+                notes: draft.notes,
+                startDate: draft.start,
+                endDate: draft.end,
+                isAllDay: false,
+                categoryId: draft.categoryId,
+                location: "",
+                alarmMins: 15,
+                hasAlarm: true,
+                url: "",
+                attachments: [],
+                recurrence: draft.recurrence,
+                soundOverride: nil,
+                sharedBy: nil,
+                sharePermission: .edit,
+                ownerName: store.activeProfileName,
+                visibility: .family,
+                sharedWithNames: [],
+                assignedMemberIds: draft.assignedMemberIds
+            )
+
+            if let nextStart = store.nextAvailableStart(for: event, excluding: nil, searchHours: 168) {
+                event.startDate = nextStart
+                event.endDate = nextStart.addingTimeInterval(duration)
+            }
+            store.addEvent(event)
+            applied += 1
+        }
+
+        AuraHaptics.success()
+        plannerMessage = "Applied \(applied) planned event\(applied == 1 ? "" : "s")."
+        drafts.removeAll { selectedIds.contains($0.id) }
+        selectedIds.removeAll()
+    }
+
+    private func buildDrafts() -> [WeekPlanDraft] {
+        let cal = Calendar.current
+        let now = Date()
+        var workload: [UUID: Int] = Dictionary(uniqueKeysWithValues: store.members.map { ($0.id, 0) })
+
+        for event in store.visibleEvents {
+            guard event.startDate >= now,
+                  event.startDate <= (cal.date(byAdding: .day, value: 7, to: now) ?? now)
+            else { continue }
+            for memberId in event.assignedMemberIds {
+                workload[memberId, default: 0] += 1
+            }
+        }
+
+        func leastLoadedMemberId() -> UUID? {
+            workload.min(by: { $0.value < $1.value })?.key
+        }
+
+        func categoryId(for hint: String) -> UUID {
+            store.categories.first(where: { $0.name.caseInsensitiveCompare(hint) == .orderedSame })?.id
+                ?? store.categories.first?.id
+                ?? EventCategory.defaults.first!.id
+        }
+
+        func nextDate(dayOffset: Int, hour: Int) -> Date {
+            let baseDay = cal.startOfDay(for: cal.date(byAdding: .day, value: dayOffset, to: now) ?? now)
+            return baseDay.addingTimeInterval(TimeInterval(hour * 3600))
+        }
+
+        var plan: [WeekPlanDraft] = []
+        let templates: [(RoutineAutomationTemplate, Int, String)] = [
+            (.schoolMorning, 1, "Morning structure improves school-day consistency."),
+            (.weeklyGrocery, 2, "Shopping batch prevents mid-week rush."),
+            (.familyDevotion, 3, "Dedicated family reflection strengthens weekly rhythm.")
+        ]
+
+        for (template, dayOffset, reason) in templates {
+            guard let memberId = leastLoadedMemberId() ?? store.members.first?.id else { continue }
+            let start = nextDate(dayOffset: dayOffset, hour: template.preferredHour)
+            let end = start.addingTimeInterval(Double(template.durationMinutes) * 60)
+            let draft = WeekPlanDraft(
+                title: template.label,
+                notes: template.notes,
+                start: start,
+                end: end,
+                categoryId: categoryId(for: template.categoryHint),
+                recurrence: template.recurrence,
+                assignedMemberIds: [memberId],
+                reason: reason
+            )
+            plan.append(draft)
+            workload[memberId, default: 0] += 1
+        }
+
+        if store.visibleFamilyActivities.count < 3,
+           let memberId = leastLoadedMemberId() ?? store.members.first?.id {
+            let start = nextDate(dayOffset: 4, hour: 18)
+            plan.append(.init(
+                title: "Family Walk Session",
+                notes: "Light movement and catch-up time.",
+                start: start,
+                end: start.addingTimeInterval(45 * 60),
+                categoryId: categoryId(for: "Family"),
+                recurrence: .none,
+                assignedMemberIds: [memberId],
+                reason: "Low recent activity detected."
+            ))
+            workload[memberId, default: 0] += 1
+        }
+
+        return plan.prefix(5).map { draft in
+            var event = CalendarEvent(
+                title: draft.title,
+                notes: draft.notes,
+                startDate: draft.start,
+                endDate: draft.end,
+                isAllDay: false,
+                categoryId: draft.categoryId,
+                location: "",
+                alarmMins: 15,
+                hasAlarm: true,
+                url: "",
+                attachments: [],
+                recurrence: draft.recurrence,
+                soundOverride: nil,
+                sharedBy: nil,
+                sharePermission: .edit,
+                ownerName: store.activeProfileName,
+                visibility: .family,
+                sharedWithNames: [],
+                assignedMemberIds: draft.assignedMemberIds
+            )
+            if let safeStart = store.nextAvailableStart(for: event, excluding: nil, searchHours: 168) {
+                let duration = max(900, draft.end.timeIntervalSince(draft.start))
+                event.startDate = safeStart
+                event.endDate = safeStart.addingTimeInterval(duration)
+                var updated = draft
+                updated.start = event.startDate
+                updated.end = event.endDate
+                return updated
+            }
+            return draft
         }
     }
 }
