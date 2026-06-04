@@ -1474,6 +1474,38 @@ class EventStore: ObservableObject {
         .sorted { $0.startDate < $1.startDate }
     }
 
+    func nextAvailableStart(for candidate: CalendarEvent, excluding eventId: UUID? = nil, searchHours: Int = 72) -> Date? {
+        guard !candidate.assignedMemberIds.isEmpty else { return candidate.startDate }
+        let duration = max(900, candidate.endDate.timeIntervalSince(candidate.startDate))
+        var proposedStart = roundedToNextQuarter(candidate.startDate)
+
+        for _ in 0..<(searchHours * 4) {
+            var probe = candidate
+            probe.startDate = proposedStart
+            probe.endDate = proposedStart.addingTimeInterval(duration)
+            let clashes = conflictingEvents(for: probe, excluding: eventId)
+            if clashes.isEmpty {
+                return proposedStart
+            }
+            if let latestConflictEnd = clashes.map(\.endDate).max() {
+                proposedStart = roundedToNextQuarter(latestConflictEnd.addingTimeInterval(60))
+            } else {
+                proposedStart = proposedStart.addingTimeInterval(15 * 60)
+            }
+        }
+        return nil
+    }
+
+    private func roundedToNextQuarter(_ date: Date) -> Date {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let minute = comps.minute ?? 0
+        let remainder = minute % 15
+        comps.minute = remainder == 0 ? minute : (minute + (15 - remainder))
+        comps.second = 0
+        return cal.date(from: comps) ?? date
+    }
+
     @discardableResult
     func importSharedEnvelope(_ env: AuraShareEnvelope) -> Int {
         var imported = 0
@@ -2583,6 +2615,7 @@ struct HomeView: View {
     @State private var showStartLiveActivity = false
     @State private var showQuickAddItem = false
     @State private var showQuickEventTemplates = false
+    @State private var showRoutineTemplates = false
     @State private var showOnlyShared = true
     @State private var editingActivity: FamilyActivity? = nil
 
@@ -2694,6 +2727,11 @@ struct HomeView: View {
                             AuraHaptics.tap(.light)
                             showStartLiveActivity = true
                         }
+                    }
+
+                    HomeQuickActionButton(label: "Use Routine Template", icon: "wand.and.stars") {
+                        AuraHaptics.tap(.medium)
+                        showRoutineTemplates = true
                     }
 
                     if let session = store.activeActivitySession {
@@ -2884,6 +2922,15 @@ struct HomeView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .confirmationDialog("Routine Templates", isPresented: $showRoutineTemplates, titleVisibility: .visible) {
+            ForEach(RoutineAutomationTemplate.allCases, id: \.self) { template in
+                Button(template.label) {
+                    eventDraftPreset = template.preset(in: store)
+                    showCreate = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private func timeLabel(_ e: CalendarEvent) -> String {
@@ -3044,6 +3091,82 @@ enum HomeEventQuickTemplate: CaseIterable {
         case .choirPractice: return "Choir · Church"
         }
     }
+
+    var recurrence: Recurrence {
+        .none
+    }
+}
+
+enum RoutineAutomationTemplate: CaseIterable {
+    case schoolMorning
+    case medicationCheck
+    case weeklyGrocery
+    case familyDevotion
+
+    var label: String {
+        switch self {
+        case .schoolMorning: return "School Morning Routine"
+        case .medicationCheck: return "Medication Check"
+        case .weeklyGrocery: return "Weekly Grocery Run"
+        case .familyDevotion: return "Family Devotion Time"
+        }
+    }
+
+    var durationMinutes: Int {
+        switch self {
+        case .schoolMorning: return 45
+        case .medicationCheck: return 15
+        case .weeklyGrocery: return 90
+        case .familyDevotion: return 40
+        }
+    }
+
+    var categoryHint: String {
+        switch self {
+        case .schoolMorning: return "Kindergarten"
+        case .medicationCheck: return "Doctor · Children"
+        case .weeklyGrocery: return "Family"
+        case .familyDevotion: return "Sunday Service"
+        }
+    }
+
+    var recurrence: Recurrence {
+        switch self {
+        case .medicationCheck: return .daily
+        case .weeklyGrocery, .familyDevotion: return .weekly
+        case .schoolMorning: return .weekly
+        }
+    }
+
+    var notes: String {
+        switch self {
+        case .schoolMorning: return "Prep clothes, bags, and quick breakfast checklist."
+        case .medicationCheck: return "Confirm medication taken and log any notes."
+        case .weeklyGrocery: return "Top-up core pantry items and produce for the week."
+        case .familyDevotion: return "Shared prayer, reflection, and weekly gratitude."
+        }
+    }
+
+    var preferredHour: Int {
+        switch self {
+        case .schoolMorning: return 7
+        case .medicationCheck: return 20
+        case .weeklyGrocery: return 17
+        case .familyDevotion: return 19
+        }
+    }
+
+    func preset(in store: EventStore) -> EventDraftPreset {
+        var base = EventDraftPreset.defaultForActiveMember(in: store)
+        let start = EventDraftPreset.scheduledDate(hour: preferredHour, minute: 0)
+        base.title = label
+        base.notes = notes
+        base.start = start
+        base.end = start.addingTimeInterval(Double(durationMinutes) * 60)
+        base.recurrence = recurrence
+        base.categoryId = store.categories.first(where: { $0.name.caseInsensitiveCompare(categoryHint) == .orderedSame })?.id ?? base.categoryId
+        return base
+    }
 }
 
 struct EventDraftPreset {
@@ -3058,6 +3181,7 @@ struct EventDraftPreset {
     var assignedMemberIds: [UUID]
     var hasAlarm: Bool
     var alarmMins: Int
+    var recurrence: Recurrence
 
     static func defaultForActiveMember(in store: EventStore) -> EventDraftPreset {
         let roundedStart = roundedToHalfHour(from: Date().addingTimeInterval(1800))
@@ -3073,7 +3197,8 @@ struct EventDraftPreset {
             sharedWithNames: [],
             assignedMemberIds: memberIds,
             hasAlarm: true,
-            alarmMins: 15
+            alarmMins: 15,
+            recurrence: .none
         )
     }
 
@@ -3084,10 +3209,11 @@ struct EventDraftPreset {
         base.start = start
         base.end = start.addingTimeInterval(Double(template.durationMinutes) * 60)
         base.categoryId = store.categories.first(where: { $0.name.caseInsensitiveCompare(template.categoryHint) == .orderedSame })?.id ?? base.categoryId
+        base.recurrence = template.recurrence
         return base
     }
 
-    private static func roundedToHalfHour(from date: Date) -> Date {
+    static func roundedToHalfHour(from date: Date) -> Date {
         let cal = Calendar.current
         var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
         let minute = comps.minute ?? 0
@@ -3097,6 +3223,19 @@ struct EventDraftPreset {
         }
         comps.second = 0
         return cal.date(from: comps) ?? date
+    }
+
+    static func scheduledDate(hour: Int, minute: Int) -> Date {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = hour
+        comps.minute = minute
+        comps.second = 0
+        let todayTarget = cal.date(from: comps) ?? Date()
+        if todayTarget > Date() {
+            return roundedToHalfHour(from: todayTarget)
+        }
+        return roundedToHalfHour(from: cal.date(byAdding: .day, value: 1, to: todayTarget) ?? todayTarget)
     }
 }
 
@@ -5298,6 +5437,7 @@ struct CreateEventView: View {
     @State private var visibility: VisibilityScope = .family
     @State private var sharedWithNames: Set<String> = []
     @State private var assignedMemberIds: Set<UUID> = []
+    @State private var automationMessage = ""
 
     let alarmOpts = [0, 5, 10, 15, 30, 60, 120, 1440]
 
@@ -5482,6 +5622,35 @@ struct CreateEventView: View {
             }
             .buttonStyle(.plain)
         }
+        Section("Smart Scheduling") {
+            Button {
+                applyNextAvailableSlot()
+            } label: {
+                Label("Find Next Free Family Slot", systemImage: "sparkles")
+            }
+            .disabled(assignedMemberIds.isEmpty || allDay)
+
+            if recurrence == .none {
+                Button {
+                    recurrence = .weekly
+                    automationMessage = "Set to weekly recurrence."
+                } label: {
+                    Label("Suggest Weekly Routine", systemImage: "repeat")
+                }
+            }
+
+            if assignedMemberIds.isEmpty {
+                Text("Assign at least one family member to enable collision-aware scheduling.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+            if !automationMessage.isEmpty {
+                Text(automationMessage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+        }
         Section("Reminder") {
             Toggle("Enable Alarm", isOn: $hasAlarm)
             if hasAlarm {
@@ -5525,6 +5694,12 @@ struct CreateEventView: View {
                 Text("These family members are already booked during this time. You can still save if this overlap is intentional.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                Button {
+                    applyNextAvailableSlot()
+                } label: {
+                    Label("Auto Resolve With Next Available Slot", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(allDay || assignedMemberIds.isEmpty)
             }
         }
         Section("Details") {
@@ -5567,6 +5742,7 @@ struct CreateEventView: View {
                 assignedMemberIds = Set(preset.assignedMemberIds)
                 hasAlarm = preset.hasAlarm
                 alarmMins = preset.alarmMins
+                recurrence = preset.recurrence
             } else if let activeMember = store.activeMember {
                 assignedMemberIds = [activeMember.id]
             }
@@ -5594,6 +5770,30 @@ struct CreateEventView: View {
         AuraHaptics.success()
         editing == nil ? store.addEvent(draftEvent) : store.updateEvent(draftEvent)
         isPresented = false
+    }
+
+    func applyNextAvailableSlot() {
+        guard !allDay else {
+            automationMessage = "Smart scheduling is disabled for all-day events."
+            return
+        }
+        var candidate = draftEvent
+        let duration = max(900, end.timeIntervalSince(start))
+        candidate.startDate = start
+        candidate.endDate = start.addingTimeInterval(duration)
+        candidate.assignedMemberIds = Array(assignedMemberIds)
+
+        guard let suggestedStart = store.nextAvailableStart(for: candidate, excluding: editing?.id) else {
+            automationMessage = "No free slot found in the next 72 hours."
+            return
+        }
+        if suggestedStart == start {
+            automationMessage = "Current slot is already conflict-free."
+            return
+        }
+        start = suggestedStart
+        end = suggestedStart.addingTimeInterval(duration)
+        automationMessage = "Moved to \(suggestedStart.formatted(date: .abbreviated, time: .shortened))."
     }
 
     func conflictTimeLabel(_ event: CalendarEvent) -> String {
