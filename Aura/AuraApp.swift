@@ -442,53 +442,99 @@ struct AuraAuthGatewayView: View {
 
 private struct AuraAuthHeroCard: View {
     let mode: String
+    @State private var slideIndex = 0
+
+    private let slides: [(asset: String, icon: String, label: String)] = [
+        ("family_all", "person.3.fill", "Family time"),
+        ("family_dad", "person.fill", "Dad"),
+        ("family_mom", "person.fill", "Mom"),
+        ("family_kid", "figure.2.and.child.holdinghands", "Child")
+    ]
+
+    private var visibleSlides: [(asset: String, icon: String, label: String)] {
+        mode == "single" ? [slides[0]] : slides
+    }
 
     var body: some View {
         let p = AuraThemePalette.current
-        RoundedRectangle(cornerRadius: 30, style: .continuous)
-            .fill(.white.opacity(0.08))
-            .overlay(
+        ZStack {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.black.opacity(0.18))
+
+            ForEach(Array(visibleSlides.enumerated()), id: \.offset) { index, slide in
                 ZStack {
-                    LinearGradient(colors: [p.accentStart.opacity(0.28), p.accentEnd.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    if mode == "collage" {
-                        AuraAuthHeroCollage()
-                    } else {
-                        AuraHeroFamilyImage(assetName: "family_all", fallbackIcon: "person.3.fill")
-                            .padding(12)
+                    AuraHeroFamilyImage(assetName: slide.asset, fallbackIcon: slide.icon)
+                        .overlay(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.06), Color.black.opacity(0.28)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .opacity(index == slideIndex ? 1 : 0)
+                        .scaleEffect(index == slideIndex ? 1.05 : 1.12)
+
+                    LinearGradient(
+                        colors: [p.accentStart.opacity(0.22), p.accentEnd.opacity(0.08), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .opacity(index == slideIndex ? 1 : 0)
+                }
+                .animation(.easeInOut(duration: 1.0), value: slideIndex)
+            }
+
+            LinearGradient(
+                colors: [Color.black.opacity(0.24), Color.clear, Color.black.opacity(0.3)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Family focus")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.92))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.24), in: Capsule())
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ForEach(visibleSlides.indices, id: \.self) { index in
+                            Capsule()
+                                .fill(index == slideIndex ? .white : .white.opacity(0.35))
+                                .frame(width: index == slideIndex ? 18 : 6, height: 6)
+                                .animation(.easeInOut(duration: 0.35), value: slideIndex)
+                        }
                     }
                 }
-            )
-            .frame(height: 220)
-            .overlay(alignment: .topLeading) {
-                Text("Family focus")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.9))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.black.opacity(0.24), in: Capsule())
-                    .padding(14)
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(visibleSlides[slideIndex].label)
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                    Text("A cinematic backdrop for the family planner.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                }
             }
-            .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(.white.opacity(0.14), lineWidth: 1))
-            .shadow(color: .black.opacity(0.18), radius: 24, y: 14)
-    }
-}
-
-private struct AuraAuthHeroCollage: View {
-    var body: some View {
-        let tiles: [(String, String)] = [
-            ("family_dad", "person.fill"),
-            ("family_mom", "person.fill"),
-            ("family_kid", "figure.2.and.child.holdinghands"),
-            ("family_all", "person.3.fill")
-        ]
-
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-            ForEach(Array(tiles.enumerated()), id: \.offset) { index, tile in
-                AuraHeroFamilyImage(assetName: tile.0, fallbackIcon: tile.1)
-                    .frame(height: index == 3 ? 80 : 88)
+            .padding(14)
+        }
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(.white.opacity(0.14), lineWidth: 1))
+        .shadow(color: .black.opacity(0.18), radius: 24, y: 14)
+        .onAppear {
+            slideIndex = 0
+        }
+        .onReceive(Timer.publish(every: 3.5, on: .main, in: .common).autoconnect()) { _ in
+            guard mode != "single", visibleSlides.count > 1 else { return }
+            withAnimation(.easeInOut(duration: 1.0)) {
+                slideIndex = (slideIndex + 1) % visibleSlides.count
             }
         }
-        .padding(14)
     }
 }
 
