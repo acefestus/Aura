@@ -199,11 +199,14 @@ struct AuraAuthGatewayView: View {
         case create = "Create Account"
     }
 
+    private let defaultBackendBaseURL = "https://aura-family-backend-production.up.railway.app"
+
     @EnvironmentObject var store: EventStore
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
     @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
+    @AppStorage("authHeroMode") private var authHeroMode = "collage"
     @State private var mode: Mode = .signIn
     @State private var email = ""
     @State private var password = ""
@@ -212,6 +215,7 @@ struct AuraAuthGatewayView: View {
     @State private var householdCode = ""
     @State private var message = ""
     @State private var isWorking = false
+    @State private var showAdvancedSync = false
 
     var body: some View {
         let p = AuraThemePalette.current
@@ -261,12 +265,7 @@ struct AuraAuthGatewayView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                            HStack(spacing: 10) {
-                                AuraHeroFamilyImage(assetName: "family_dad", fallbackIcon: "person.fill")
-                                AuraHeroFamilyImage(assetName: "family_mom", fallbackIcon: "person.fill")
-                                AuraHeroFamilyImage(assetName: "family_kid", fallbackIcon: "figure.2.and.child.holdinghands")
-                            }
-                            .frame(height: 172)
+                            AuraAuthHeroCard(mode: authHeroMode)
 
                             HStack(spacing: 10) {
                                 authMetric(title: "Secure", value: "JWT", symbol: "lock.shield")
@@ -275,17 +274,6 @@ struct AuraAuthGatewayView: View {
                             }
 
                             VStack(spacing: 12) {
-                                TextField("Backend URL", text: Binding(
-                                    get: { backendBaseURL },
-                                    set: {
-                                        backendBaseURL = $0
-                                        store.updateBackendBaseURL($0)
-                                    }
-                                ))
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .keyboardType(.URL)
-
                                 Picker("Mode", selection: $mode) {
                                     ForEach(Mode.allCases, id: \.self) { m in
                                         Text(m.rawValue).tag(m)
@@ -334,6 +322,34 @@ struct AuraAuthGatewayView: View {
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+
+                                DisclosureGroup(isExpanded: $showAdvancedSync) {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        TextField("Backend URL", text: Binding(
+                                            get: { backendBaseURL },
+                                            set: {
+                                                backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                                                store.updateBackendBaseURL(backendBaseURL)
+                                            }
+                                        ))
+                                        .textInputAutocapitalization(.never)
+                                        .autocorrectionDisabled(true)
+                                        .keyboardType(.URL)
+
+                                        Picker("Hero layout", selection: $authHeroMode) {
+                                            Text("Collage").tag("collage")
+                                            Text("Single image").tag("single")
+                                        }
+                                        .pickerStyle(.segmented)
+
+                                        Text("Advanced sync settings live here. Most people can leave this alone.")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.top, 8)
+                                } label: {
+                                    Label("Advanced Sync Settings", systemImage: "server.rack")
+                                }
 
                                 if store.hasServerSession {
                                     Divider().padding(.vertical, 6)
@@ -414,12 +430,67 @@ struct AuraAuthGatewayView: View {
                 .onAppear {
                     email = backendAccountEmail
                     displayName = profileDisplayName
+                    if backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        backendBaseURL = defaultBackendBaseURL
+                    }
                     store.updateBackendBaseURL(backendBaseURL)
                 }
             }
         }
     }
     }
+
+private struct AuraAuthHeroCard: View {
+    let mode: String
+
+    var body: some View {
+        let p = AuraThemePalette.current
+        RoundedRectangle(cornerRadius: 30, style: .continuous)
+            .fill(.white.opacity(0.08))
+            .overlay(
+                ZStack {
+                    LinearGradient(colors: [p.accentStart.opacity(0.28), p.accentEnd.opacity(0.16), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    if mode == "collage" {
+                        AuraAuthHeroCollage()
+                    } else {
+                        AuraHeroFamilyImage(assetName: "family_all", fallbackIcon: "person.3.fill")
+                            .padding(12)
+                    }
+                }
+            )
+            .frame(height: 220)
+            .overlay(alignment: .topLeading) {
+                Text("Family focus")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.24), in: Capsule())
+                    .padding(14)
+            }
+            .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(.white.opacity(0.14), lineWidth: 1))
+            .shadow(color: .black.opacity(0.18), radius: 24, y: 14)
+    }
+}
+
+private struct AuraAuthHeroCollage: View {
+    var body: some View {
+        let tiles: [(String, String)] = [
+            ("family_dad", "person.fill"),
+            ("family_mom", "person.fill"),
+            ("family_kid", "figure.2.and.child.holdinghands"),
+            ("family_all", "person.3.fill")
+        ]
+
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ForEach(Array(tiles.enumerated()), id: \.offset) { index, tile in
+                AuraHeroFamilyImage(assetName: tile.0, fallbackIcon: tile.1)
+                    .frame(height: index == 3 ? 80 : 88)
+            }
+        }
+        .padding(14)
+    }
+}
 
 // MARK: - App Delegate  (shows banner even when app is open)
 private extension AuraAuthGatewayView {
@@ -3199,7 +3270,14 @@ struct HomeHeroCard: View {
     var onRefresh: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TODAY")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.72))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.white.opacity(0.12), in: Capsule())
+
             Text(title)
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
@@ -3223,7 +3301,7 @@ struct HomeHeroCard: View {
                 .padding(.vertical, 6)
                 .background(Color.black.opacity(0.2), in: Capsule())
             }
-            .padding(.top, 6)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -3234,6 +3312,13 @@ struct HomeHeroCard: View {
                 endPoint: .bottomTrailing
             ),
             in: RoundedRectangle(cornerRadius: 18)
+        )
+        .overlay(
+            Circle()
+                .fill(.white.opacity(0.1))
+                .frame(width: 110, height: 110)
+                .blur(radius: 14)
+                .offset(x: 130, y: -24)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
@@ -6103,25 +6188,30 @@ struct CreateEventView: View {
             .pickerStyle(.menu)
         }
         Section("Who Is This For?") {
-            ForEach(store.members) { member in
-                Button {
-                    if assignedMemberIds.contains(member.id) {
-                        assignedMemberIds.remove(member.id)
-                    } else {
-                        assignedMemberIds.insert(member.id)
-                    }
-                } label: {
-                    HStack {
-                        Circle().fill(member.color).frame(width: 10, height: 10)
-                        Text(member.name).foregroundColor(.primary)
-                        Spacer()
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
+                ForEach(store.members) { member in
+                    Button {
                         if assignedMemberIds.contains(member.id) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(AuraThemePalette.current.accentStart)
+                            assignedMemberIds.remove(member.id)
+                        } else {
+                            assignedMemberIds.insert(member.id)
                         }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Circle().fill(member.color).frame(width: 12, height: 12)
+                            Text(member.name).foregroundColor(.primary)
+                            Spacer()
+                            if assignedMemberIds.contains(member.id) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(AuraThemePalette.current.accentStart)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(assignedMemberIds.contains(member.id) ? AuraThemePalette.current.accentStart.opacity(0.12) : Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         Section("Visibility") {
@@ -6570,6 +6660,7 @@ struct SettingsView: View {
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
     @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
+    @AppStorage("authHeroMode") private var authHeroMode = "collage"
     @AppStorage("householdCode") private var householdCode = ""
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
@@ -6659,6 +6750,47 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Setup Progress")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("A quick snapshot of the release-ready setup state.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("\(releaseReadyCount)/\(readinessChecks.count)")
+                                .font(.system(size: 22, weight: .black, design: .rounded))
+                                .foregroundColor(AuraThemePalette.current.accentStart)
+                            Text("ready")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    ProgressView(value: Double(releaseReadyCount), total: Double(readinessChecks.count))
+                        .tint(AuraThemePalette.current.accentStart)
+
+                    ForEach(readinessChecks, id: \ .title) { check in
+                        HStack {
+                            Image(systemName: check.isReady ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                .foregroundColor(check.isReady ? .green : .orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(check.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(check.isReady ? "Ready" : check.detail)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                } header: {
+                    Text("Setup Snapshot")
+                }
+
+                Section {
                     HStack(spacing: 8) {
                         Image(systemName: "externaldrive.badge.icloud")
                             .foregroundColor(AuraThemePalette.current.accentStart)
@@ -6674,6 +6806,12 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Allow Offline Mode", isOn: $allowOfflineMode)
+
+                    Picker("Auth Hero Style", selection: $authHeroMode) {
+                        Text("Collage").tag("collage")
+                        Text("Single").tag("single")
+                    }
+                    .pickerStyle(.segmented)
 
                     Button {
                         hasSeenOnboarding = false
