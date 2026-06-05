@@ -27,7 +27,7 @@ Validated archive path:
 
 - Run the functional QA sections in `docs/RELEASE_QA_CHECKLIST.md`
 - Verify visual QA on target devices/simulator sizes
-- Archive/sign from Xcode with the correct Development Team and provisioning
+- Follow `docs/SIGNED_DISTRIBUTION.md` to archive/sign from Xcode with the correct Development Team and provisioning
 - Confirm no open release-blocking issues
 
 ## Release note
