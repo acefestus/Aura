@@ -7147,7 +7147,7 @@ struct SettingsView: View {
                 // ── About ─────────────────────────────────────
                 Section("About") {
                     LabeledContent("App",     value: "Aura")
-                    LabeledContent("Version", value: "1.1.0-rc.1")
+                    LabeledContent("Version", value: "1.1.0")
                     LabeledContent("Build",   value: "SwiftUI · iOS 16+")
                 }
             }

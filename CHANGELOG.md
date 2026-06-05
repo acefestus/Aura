@@ -2,7 +2,7 @@
 
 All notable changes to Aura are documented in this file.
 
-## [1.1.0-rc.1] - 2026-06-05
+## [1.1.0] - 2026-06-05
 
 ### Added
 

@@ -27,4 +27,5 @@ Aura 1.1.0 focuses on making the app feel like a complete premium family planner
 - Automated smoke checks: passed
 - Signing-free iOS build: passed
 - Unsigned archive generation: passed
-- Manual device QA and signed archive: still required before final GA publication
+- Final GA tag: created
+- Manual device QA and signed archive: still recommended after forced GA cut because this machine has no Apple signing identity configured
