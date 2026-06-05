@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f6cbd" />
+  <title>Aura Family Web App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div>
+      <h1>Aura Family</h1>
+      <p>Installable web app powered by your live backend.</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="installBtn" class="ghost" hidden>Install App</button>
+      <button id="logoutBtn" class="ghost" hidden>Logout</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel" id="authPanel">
+      <h2>Sign in</h2>
+      <form id="loginForm" class="stack">
+        <input id="loginEmail" type="email" placeholder="Email" required />
+        <input id="loginPassword" type="password" placeholder="Password" required />
+        <button type="submit">Login</button>
+      </form>
+
+      <h3>Create account</h3>
+      <form id="registerForm" class="stack">
+        <input id="registerName" type="text" placeholder="Display name" required />
+        <input id="registerEmail" type="email" placeholder="Email" required />
+        <input id="registerPassword" type="password" placeholder="Password (min 8)" minlength="8" required />
+        <button type="submit">Register</button>
+      </form>
+    </section>
+
+    <section class="panel" id="accountPanel" hidden>
+      <h2>Account</h2>
+      <p id="accountInfo">Signed out</p>
+
+      <form id="profileForm" class="stack mini">
+        <label for="displayName">Display name</label>
+        <input id="displayName" type="text" required />
+        <button type="submit">Update profile</button>
+      </form>
+
+      <form id="passwordForm" class="stack mini">
+        <label for="currentPassword">Current password</label>
+        <input id="currentPassword" type="password" required />
+        <label for="newPassword">New password</label>
+        <input id="newPassword" type="password" minlength="8" required />
+        <button type="submit">Change password</button>
+      </form>
+    </section>
+
+    <section class="panel" id="householdPanel" hidden>
+      <h2>Household</h2>
+      <p id="householdInfo">No household loaded</p>
+
+      <form id="createHouseholdForm" class="stack mini">
+        <label for="householdName">Create household</label>
+        <input id="householdName" type="text" placeholder="Household name" required />
+        <button type="submit">Create</button>
+      </form>
+
+      <form id="joinHouseholdForm" class="stack mini">
+        <label for="joinCode">Join with code</label>
+        <input id="joinCode" type="text" placeholder="AB12CD" required />
+        <button type="submit">Join</button>
+      </form>
+    </section>
+
+    <section class="panel wide" id="syncPanel" hidden>
+      <h2>Snapshot Sync</h2>
+      <div class="inline-actions">
+        <button id="loadSnapshotBtn" type="button" class="ghost">Load snapshot</button>
+        <button id="saveSnapshotBtn" type="button">Save snapshot</button>
+      </div>
+      <textarea id="snapshotText" spellcheck="false"></textarea>
+      <small>Paste JSON payload for your household sync object.</small>
+    </section>
+  </main>
+
+  <p id="status" class="status">Ready.</p>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

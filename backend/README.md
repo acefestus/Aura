@@ -79,4 +79,22 @@ Notes:
 
 The iOS app is already wired to this backend for account auth, household linking, sync snapshots, and owner admin actions.
 
+## Web PWA on the same domain
+
+This backend now serves an installable web app at the root URL:
+
+- `https://aura-family-backend-production.up.railway.app/`
+
+Capabilities in the web app:
+
+- Register and login
+- Update profile and password
+- Create or join household
+- Load and save household sync snapshot JSON
+
+Install to home screen:
+
+- iPhone/iPad (Safari): Share -> Add to Home Screen
+- Android (Chrome): use the browser install prompt or the in-app Install button
+
 Remaining limitation: persistence is JSON-file based and best for early-stage deployment. For production scale, migrate to a managed database with proper backups and migration flow.

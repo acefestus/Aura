@@ -1,0 +1,18 @@
+{
+  "name": "Aura Family",
+  "short_name": "Aura",
+  "description": "Aura Family web app for login, household management, and sync.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f4ec",
+  "theme_color": "#0f6cbd",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

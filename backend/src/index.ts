@@ -1,4 +1,5 @@
 import "dotenv/config";
+import path from "node:path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -16,6 +17,7 @@ const jwtSecret = process.env.JWT_SECRET ?? "";
 const jwtIssuer = process.env.JWT_ISSUER ?? "aura-family-backend";
 const jwtAudience = process.env.JWT_AUDIENCE ?? "aura-family-clients";
 const dataFile = process.env.DATA_FILE ?? "./data/db.json";
+const webRoot = path.resolve(process.cwd(), "public");
 const allowedOrigins = new Set(
   (process.env.CORS_ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -65,6 +67,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: "2mb" }));
+app.use(express.static(webRoot));
 
 const authLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? 15 * 60 * 1000),
@@ -673,6 +676,10 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
 
   await store.write(db);
   res.json({ snapshot });
+});
+
+app.get(/^\/(?!auth|admin|sync|households|me|health).*/, (_req, res) => {
+  res.sendFile(path.join(webRoot, "index.html"));
 });
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
