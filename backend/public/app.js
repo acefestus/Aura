@@ -29,6 +29,8 @@ const kpiUpcoming = document.getElementById("kpiUpcoming");
 const kpiToday = document.getElementById("kpiToday");
 const kpiOverdue = document.getElementById("kpiOverdue");
 const nextEvent = document.getElementById("nextEvent");
+const homeUpcomingList = document.getElementById("homeUpcomingList");
+const homeHouseholdBadge = document.getElementById("homeHouseholdBadge");
 
 const modeSignIn = document.getElementById("modeSignIn");
 const modeCreate = document.getElementById("modeCreate");
@@ -192,6 +194,25 @@ function renderHome() {
   nextEvent.textContent = nearest
     ? `${nearest.event.title} - ${formatDateLabel(nearest.event.startDate)}`
     : "No upcoming events yet.";
+
+  const upcomingItems = events
+    .filter((event) => {
+      if (!event.startDate) {
+        return false;
+      }
+      const when = new Date(event.startDate).getTime();
+      return !Number.isNaN(when) && when >= now;
+    })
+    .slice(0, 4);
+
+  if (upcomingItems.length === 0) {
+    homeUpcomingList.innerHTML = '<li class="event-item"><strong>No upcoming events</strong><span>Create one from iOS Aura app or load snapshot data.</span></li>';
+    return;
+  }
+
+  homeUpcomingList.innerHTML = upcomingItems
+    .map((event) => `<li class="event-item"><strong>${event.title}</strong><span>${formatDateLabel(event.startDate)}</span></li>`)
+    .join("");
 }
 
 function renderAgenda() {
@@ -316,6 +337,7 @@ function setSignedOut() {
   accountInfo.textContent = "Signed out";
   householdInfo.textContent = "No household loaded";
   welcomeText.textContent = "Welcome";
+  homeHouseholdBadge.textContent = "No household connected";
   snapshotText.value = "";
   switchTab("home");
   setAuthMode("signin");
@@ -342,8 +364,10 @@ async function refreshState() {
       const role = current.membership?.role ?? "Member";
       const code = current.household?.code ? ` | code: ${current.household.code}` : "";
       householdInfo.textContent = `${householdName} (${role})${code}`;
+      homeHouseholdBadge.textContent = `${householdName} · ${role}`;
     } catch {
       householdInfo.textContent = "No household yet. Create or join in Settings.";
+      homeHouseholdBadge.textContent = "No household connected";
     }
 
     try {

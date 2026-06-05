@@ -10,6 +10,7 @@
   --warn: #b6511f;
   --danger: #b03039;
   --shadow: 0 24px 48px rgba(17, 35, 53, 0.14);
+  --shadow-soft: 0 12px 24px rgba(17, 35, 53, 0.1);
 }
 
 * {
@@ -231,6 +232,17 @@ h2 {
   color: var(--ink-soft);
 }
 
+.household-badge {
+  margin-top: 0.45rem;
+  display: inline-block;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.76);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
 .topbar-actions {
   display: flex;
   gap: 0.55rem;
@@ -274,6 +286,11 @@ h2 {
   animation: rise 420ms ease both;
 }
 
+.panel h2 {
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  letter-spacing: 0.01em;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -296,6 +313,7 @@ h2 {
   padding: 0.7rem;
   display: grid;
   gap: 0.2rem;
+  box-shadow: var(--shadow-soft);
 }
 
 .kpi span {
@@ -312,6 +330,13 @@ h2 {
   border-radius: 14px;
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-soft);
+}
+
+.subhead {
+  margin: 0.85rem 0 0.45rem;
+  font-size: 1.02rem;
+  color: var(--ink-soft);
 }
 
 .stack {
@@ -392,11 +417,16 @@ button.ghost {
   gap: 0.6rem;
 }
 
+.event-list.compact {
+  gap: 0.45rem;
+}
+
 .event-item {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.74);
   padding: 0.72rem;
+  box-shadow: var(--shadow-soft);
 }
 
 .event-item strong {
