@@ -15,12 +15,24 @@
 <body>
   <div class="ambient ambient-a"></div>
   <div class="ambient ambient-b"></div>
+  <div id="authBackdrop" class="auth-backdrop" aria-hidden="true">
+    <div class="auth-slide active" data-slide="0"></div>
+    <div class="auth-slide" data-slide="1"></div>
+    <div class="auth-slide" data-slide="2"></div>
+    <div class="auth-slide" data-slide="3"></div>
+    <div class="auth-overlay"></div>
+  </div>
 
   <section id="authScreen" class="auth-shell">
     <aside class="onboarding-card">
       <div class="onboarding-visual" id="onboardingVisual"></div>
       <h1 id="onboardingTitle">Built For Your Family</h1>
       <p id="onboardingText">Events, lists, routines, and memories in one premium daily hub.</p>
+      <div class="metric-row">
+        <article class="metric-pill"><span>Secure</span><strong>JWT</strong></article>
+        <article class="metric-pill"><span>Family</span><strong>Sync</strong></article>
+        <article class="metric-pill"><span>Fallback</span><strong>Local</strong></article>
+      </div>
       <div class="onboarding-controls">
         <button id="onboardingNextBtn" class="ghost" type="button">Next</button>
         <div id="onboardingDots" class="dots" aria-label="Onboarding pages"></div>
@@ -60,6 +72,19 @@
       </form>
 
       <p class="auth-hint">Install after login: Safari Share -> Add to Home Screen.</p>
+
+      <details class="advanced-sync" id="advancedSync">
+        <summary>Advanced Sync Settings</summary>
+        <div class="stack mini">
+          <label for="backendBaseURL">Backend URL</label>
+          <input id="backendBaseURL" type="url" placeholder="https://aura-family-backend-production.up.railway.app" />
+          <label for="heroMode">Hero layout</label>
+          <select id="heroMode">
+            <option value="collage">Collage</option>
+            <option value="single">Single image</option>
+          </select>
+        </div>
+      </details>
     </section>
   </section>
 
@@ -163,6 +188,8 @@
       </section>
     </main>
   </section>
+
+  <button id="fabBtn" class="fab" type="button" hidden aria-label="Quick add">+</button>
 
   <p id="status" class="status">Ready.</p>
 

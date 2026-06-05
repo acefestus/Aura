@@ -39,15 +39,21 @@ const onboardingVisual = document.getElementById("onboardingVisual");
 const onboardingTitle = document.getElementById("onboardingTitle");
 const onboardingText = document.getElementById("onboardingText");
 const onboardingDots = document.getElementById("onboardingDots");
+const authSlides = Array.from(document.querySelectorAll(".auth-slide"));
+const advancedSync = document.getElementById("advancedSync");
+const backendBaseURLInput = document.getElementById("backendBaseURL");
+const heroModeSelect = document.getElementById("heroMode");
 
 const logoutBtn = document.getElementById("logoutBtn");
 const installBtn = document.getElementById("installBtn");
+const fabBtn = document.getElementById("fabBtn");
 
 const tabButtons = Array.from(document.querySelectorAll(".tab"));
 const pages = Array.from(document.querySelectorAll("[data-page]"));
 
-const API_BASE = window.location.origin;
 const TOKEN_KEY = "aura.web.token";
+const BASE_URL_KEY = "aura.web.baseUrl";
+const HERO_MODE_KEY = "aura.web.heroMode";
 
 const onboardingPages = [
   {
@@ -75,6 +81,8 @@ let currentTab = "home";
 let snapshotPayload = {};
 let events = [];
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let activeSlide = 0;
+let apiBase = localStorage.getItem(BASE_URL_KEY) || window.location.origin;
 
 function setStatus(message, type = "") {
   statusEl.textContent = message;
@@ -110,7 +118,28 @@ function startOnboardingAuto() {
   onboardingTimer = setInterval(() => {
     onboardingIndex = (onboardingIndex + 1) % onboardingPages.length;
     renderOnboarding(onboardingIndex);
+    setActiveSlide((activeSlide + 1) % authSlides.length);
   }, 5000);
+}
+
+function setActiveSlide(index) {
+  activeSlide = index;
+  authSlides.forEach((slide, slideIndex) => {
+    slide.classList.toggle("active", slideIndex === index);
+  });
+}
+
+function applyHeroMode(mode) {
+  if (mode === "single") {
+    setActiveSlide(0);
+    authSlides.forEach((slide, index) => {
+      slide.style.display = index === 0 ? "block" : "none";
+    });
+    return;
+  }
+  authSlides.forEach((slide) => {
+    slide.style.display = "block";
+  });
 }
 
 function formatDateLabel(input) {
@@ -310,7 +339,7 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers
   });
@@ -334,6 +363,7 @@ function setSignedOut() {
   localStorage.removeItem(TOKEN_KEY);
   authScreen.hidden = false;
   appShell.hidden = true;
+  fabBtn.hidden = true;
   accountInfo.textContent = "Signed out";
   householdInfo.textContent = "No household loaded";
   welcomeText.textContent = "Welcome";
@@ -351,6 +381,7 @@ async function refreshState() {
 
   authScreen.hidden = true;
   appShell.hidden = false;
+  fabBtn.hidden = false;
 
   try {
     const me = await api("/me");
@@ -396,6 +427,20 @@ modeCreate.addEventListener("click", () => setAuthMode("create"));
 onboardingNextBtn.addEventListener("click", () => {
   onboardingIndex = (onboardingIndex + 1) % onboardingPages.length;
   renderOnboarding(onboardingIndex);
+  setActiveSlide((activeSlide + 1) % authSlides.length);
+});
+
+backendBaseURLInput.addEventListener("change", () => {
+  const value = backendBaseURLInput.value.trim();
+  apiBase = value || window.location.origin;
+  localStorage.setItem(BASE_URL_KEY, apiBase);
+  setStatus("Backend URL updated.", "ok");
+});
+
+heroModeSelect.addEventListener("change", () => {
+  const mode = heroModeSelect.value;
+  localStorage.setItem(HERO_MODE_KEY, mode);
+  applyHeroMode(mode);
 });
 
 loginForm.addEventListener("submit", async (event) => {
@@ -553,6 +598,11 @@ logoutBtn.addEventListener("click", () => {
   setStatus("Logged out.");
 });
 
+fabBtn.addEventListener("click", () => {
+  switchTab("settings");
+  snapshotText.focus();
+});
+
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredPrompt = event;
@@ -578,6 +628,11 @@ if ("serviceWorker" in navigator) {
 }
 
 setAuthMode("signin");
+backendBaseURLInput.value = apiBase;
+const savedHeroMode = localStorage.getItem(HERO_MODE_KEY) || "collage";
+heroModeSelect.value = savedHeroMode;
+applyHeroMode(savedHeroMode);
+setActiveSlide(0);
 renderOnboarding(0);
 startOnboardingAuto();
 refreshState();
