@@ -11,6 +11,12 @@
   --danger: #b03039;
   --shadow: 0 24px 48px rgba(17, 35, 53, 0.14);
   --shadow-soft: 0 12px 24px rgba(17, 35, 53, 0.1);
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 12px;
+  --space-1: 0.45rem;
+  --space-2: 0.72rem;
+  --space-3: 1rem;
 }
 
 * {
@@ -27,6 +33,7 @@ body {
     radial-gradient(circle at 80% 5%, rgba(15, 108, 189, 0.16), transparent 30%),
     linear-gradient(180deg, var(--paper), var(--paper-2));
   padding: 1rem;
+  line-height: 1.35;
 }
 
 .ambient {
@@ -107,7 +114,7 @@ body {
 
 .onboarding-card,
 .auth-card {
-  border-radius: 24px;
+  border-radius: 26px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -117,7 +124,7 @@ body {
 .onboarding-card {
   display: grid;
   grid-template-rows: 1fr auto auto auto;
-  padding: 1rem;
+  padding: 1.1rem;
   background: linear-gradient(130deg, #113c67, #0f6cbd);
   color: #fff;
 }
@@ -198,7 +205,7 @@ body {
 }
 
 .auth-card {
-  padding: 1rem;
+  padding: 1.12rem;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(8px);
   display: flex;
@@ -288,7 +295,7 @@ select {
 }
 
 .topbar {
-  margin: 0 auto 0.9rem;
+  margin: 0 auto 1rem;
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -333,17 +340,17 @@ h2 {
 .tabbar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.45rem;
-  margin-bottom: 0.9rem;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .tab {
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.66);
   color: var(--ink-soft);
   font-weight: 700;
-  padding: 0.65rem;
+  padding: 0.7rem;
 }
 
 .tab.active {
@@ -355,21 +362,21 @@ h2 {
 .grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 1.05rem;
 }
 
 .panel {
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(10px);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 1rem 1rem 1.1rem;
+  padding: 1.05rem 1.05rem 1.15rem;
   animation: rise 420ms ease both;
 }
 
 .panel h2 {
-  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-size: clamp(1.42rem, 2.2vw, 1.82rem);
   letter-spacing: 0.01em;
 }
 
@@ -383,8 +390,8 @@ h2 {
 
 .quick-actions {
   display: flex;
-  gap: 0.45rem;
-  margin-bottom: 0.7rem;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
   flex-wrap: wrap;
 }
 
@@ -397,51 +404,58 @@ h2 {
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin: 0.8rem 0 0.9rem;
+  gap: 0.62rem;
+  margin: 0.86rem 0 0.98rem;
 }
 
 .kpi {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.7rem;
+  border-radius: var(--radius-md);
+  padding: 0.76rem;
   display: grid;
   gap: 0.2rem;
   box-shadow: var(--shadow-soft);
 }
 
 .kpi span {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--ink-soft);
+  letter-spacing: 0.01em;
 }
 
 .kpi strong {
-  font-size: 1.35rem;
+  font-size: 1.42rem;
 }
 
 .next-event {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  padding: 0.8rem;
   background: rgba(255, 255, 255, 0.7);
   box-shadow: var(--shadow-soft);
 }
 
 .subhead {
-  margin: 0.85rem 0 0.45rem;
+  margin: 0.92rem 0 0.5rem;
   font-size: 1.02rem;
   color: var(--ink-soft);
 }
 
 .stack {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 0.7rem;
+  gap: 0.58rem;
+  margin-top: 0.75rem;
 }
 
 .stack.mini {
-  margin-top: 1rem;
+  margin-top: 0.9rem;
+}
+
+label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 
 input,
@@ -454,8 +468,8 @@ button {
 input,
 textarea {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0.64rem 0.7rem;
+  border-radius: var(--radius-sm);
+  padding: 0.68rem 0.76rem;
   background: rgba(255, 255, 255, 0.92);
 }
 
@@ -468,18 +482,24 @@ textarea {
 
 button {
   border: none;
-  border-radius: 12px;
-  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  padding: 0.73rem 0.9rem;
   font-weight: 700;
   background: linear-gradient(120deg, var(--brand), #2f87d3);
   color: #fff;
   cursor: pointer;
-  transition: transform 120ms ease, filter 120ms ease;
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 8px 20px rgba(15, 108, 189, 0.22);
 }
 
 button:hover {
   transform: translateY(-1px);
   filter: saturate(1.1);
+}
+
+button:active {
+  transform: translateY(0);
+  filter: saturate(0.98);
 }
 
 button:disabled {
@@ -492,12 +512,21 @@ button.ghost {
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid var(--line);
   color: var(--ink);
+  box-shadow: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(15, 108, 189, 0.35);
+  outline-offset: 1px;
 }
 
 .inline-actions {
   display: flex;
-  gap: 0.6rem;
-  margin: 0.4rem 0 0.7rem;
+  gap: 0.62rem;
+  margin: 0.45rem 0 0.75rem;
 }
 
 .inline-actions.compact {
@@ -509,7 +538,7 @@ button.ghost {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.64rem;
 }
 
 .event-list.compact {
@@ -518,9 +547,9 @@ button.ghost {
 
 .event-item {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.74);
-  padding: 0.72rem;
+  padding: 0.76rem;
   box-shadow: var(--shadow-soft);
   position: relative;
 }
@@ -566,15 +595,15 @@ button.ghost {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .calendar-cell {
-  min-height: 74px;
+  min-height: 80px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.72);
-  padding: 0.45rem;
+  padding: 0.5rem;
 }
 
 .calendar-cell.muted {
@@ -598,10 +627,10 @@ button.ghost {
 
 .settings-group {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.72rem;
+  border-radius: var(--radius-md);
+  padding: 0.8rem;
   background: rgba(255, 255, 255, 0.68);
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.72rem;
 }
 
 .settings-group h3 {
@@ -619,8 +648,8 @@ button.ghost {
   margin: 1rem auto 0;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.84rem;
   color: var(--ink-soft);
 }
 
@@ -636,8 +665,8 @@ button.ghost {
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   border-radius: 999px;
   border: none;
   font-size: 1.9rem;
@@ -646,6 +675,17 @@ button.ghost {
   color: #fff;
   box-shadow: 0 18px 30px rgba(17, 35, 53, 0.24);
   z-index: 8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes float {
