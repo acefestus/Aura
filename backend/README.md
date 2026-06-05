@@ -45,6 +45,36 @@ Any configured admin email is treated as an Owner membership automatically.
 5. Start command: `npm run start`
 6. Build command: `npm run build`
 
+## Security hardening
+
+Set these for production:
+
+```bash
+# Required
+JWT_SECRET=<random-32-plus-char-secret>
+
+# Recommended JWT policy
+JWT_ISSUER=aura-family-backend
+JWT_AUDIENCE=aura-family-clients
+
+# Browser CORS allowlist (comma-separated)
+CORS_ALLOWED_ORIGINS=https://your-frontend-domain.example
+CORS_DISABLE_ORIGIN_CHECK=false
+
+# Rate limits
+RATE_LIMIT_AUTH_WINDOW_MS=900000
+RATE_LIMIT_AUTH_MAX=10
+RATE_LIMIT_WRITE_WINDOW_MS=60000
+RATE_LIMIT_WRITE_MAX=120
+RATE_LIMIT_ADMIN_WINDOW_MS=60000
+RATE_LIMIT_ADMIN_MAX=60
+```
+
+Notes:
+
+- If `CORS_DISABLE_ORIGIN_CHECK=false`, `CORS_ALLOWED_ORIGINS` must be configured.
+- Native iOS requests do not send browser origins, so CORS checks mainly protect browser clients.
+
 ## Current limitation
 
 The iOS app is already wired to this backend for account auth, household linking, sync snapshots, and owner admin actions.

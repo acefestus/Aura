@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
@@ -10,8 +12,17 @@ import type { DatabaseShape, HouseholdAuditEntry, HouseholdSnapshot, Membership,
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
-const jwtSecret = process.env.JWT_SECRET ?? "change-me";
+const jwtSecret = process.env.JWT_SECRET ?? "";
+const jwtIssuer = process.env.JWT_ISSUER ?? "aura-family-backend";
+const jwtAudience = process.env.JWT_AUDIENCE ?? "aura-family-clients";
 const dataFile = process.env.DATA_FILE ?? "./data/db.json";
+const allowedOrigins = new Set(
+  (process.env.CORS_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+);
+const disableOriginCheck = process.env.CORS_DISABLE_ORIGIN_CHECK === "true";
 const adminEmails = new Set(
   (process.env.ADMIN_EMAILS ?? process.env.ADMIN_EMAIL ?? "")
     .split(",")
@@ -20,8 +31,68 @@ const adminEmails = new Set(
 );
 const store = new JsonStore(dataFile);
 
-app.use(cors());
+if (jwtSecret.length < 32 || jwtSecret.toLowerCase() === "change-me") {
+  throw new Error("JWT_SECRET must be set and at least 32 characters long.");
+}
+
+if (!disableOriginCheck && allowedOrigins.size === 0) {
+  throw new Error("CORS_ALLOWED_ORIGINS must be set when CORS_DISABLE_ORIGIN_CHECK is not true.");
+}
+
+app.set("trust proxy", 1);
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (disableOriginCheck || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin not allowed by CORS policy"));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: false,
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
 app.use(express.json({ limit: "2mb" }));
+
+const authLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? 15 * 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many authentication attempts. Try again later." }
+});
+
+const writeLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WRITE_WINDOW_MS ?? 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_WRITE_MAX ?? 120),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Slow down and try again." }
+});
+
+const adminLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_ADMIN_WINDOW_MS ?? 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_ADMIN_MAX ?? 60),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin requests. Try again shortly." }
+});
+
+app.use("/auth", authLimiter);
+app.use("/admin", adminLimiter);
+app.use(["/sync", "/households", "/me"], writeLimiter);
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -131,7 +202,11 @@ async function getOwnerContext(req: AuthRequest, res: express.Response) {
 }
 
 function signToken(userId: string) {
-  return jwt.sign({ sub: userId }, jwtSecret, { expiresIn: "30d" });
+  return jwt.sign({ sub: userId }, jwtSecret, {
+    expiresIn: "30d",
+    issuer: jwtIssuer,
+    audience: jwtAudience
+  });
 }
 
 function requireAuth(req: AuthRequest, res: express.Response, next: express.NextFunction) {
@@ -142,7 +217,10 @@ function requireAuth(req: AuthRequest, res: express.Response, next: express.Next
     return;
   }
   try {
-    const decoded = jwt.verify(token, jwtSecret) as { sub: string };
+    const decoded = jwt.verify(token, jwtSecret, {
+      issuer: jwtIssuer,
+      audience: jwtAudience
+    }) as { sub: string };
     req.userId = decoded.sub;
     next();
   } catch {
@@ -191,7 +269,12 @@ app.post("/auth/login", async (req, res) => {
   const { email, password } = parsed.data;
   const db = await store.read();
   const user = db.users.find((candidate) => candidate.email.toLowerCase() === email.toLowerCase());
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (!user) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+  const matches = await bcrypt.compare(password, user.passwordHash);
+  if (!matches) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
@@ -590,6 +673,15 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
 
   await store.write(db);
   res.json({ snapshot });
+});
+
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof Error && err.message.includes("CORS")) {
+    res.status(403).json({ error: "Origin is not allowed." });
+    return;
+  }
+  console.error("Unhandled server error", err);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 app.listen(port, () => {
