@@ -111,6 +111,11 @@
     <main class="grid">
       <section class="panel" data-page="home">
         <h2>Today</h2>
+        <div class="quick-actions" id="homeQuickActions">
+          <button class="ghost quick-action" data-quick="plan" type="button">Plan My Week</button>
+          <button class="ghost quick-action" data-quick="sync" type="button">Sync Now</button>
+          <button class="ghost quick-action" data-quick="rebuild" type="button">Rebuild Notifications</button>
+        </div>
         <div class="kpi-grid">
           <article class="kpi">
             <span>Upcoming 7 days</span>
@@ -145,6 +150,9 @@
             <button id="prevMonthBtn" class="ghost" type="button">Prev</button>
             <button id="nextMonthBtn" class="ghost" type="button">Next</button>
           </div>
+        </div>
+        <div class="weekday-row" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
         <div id="calendarGrid" class="calendar-grid"></div>
       </section>

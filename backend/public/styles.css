@@ -381,6 +381,19 @@ h2 {
   margin-bottom: 0.5rem;
 }
 
+.quick-actions {
+  display: flex;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.quick-action {
+  width: auto;
+  font-size: 0.84rem;
+  padding: 0.5rem 0.7rem;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -509,16 +522,45 @@ button.ghost {
   background: rgba(255, 255, 255, 0.74);
   padding: 0.72rem;
   box-shadow: var(--shadow-soft);
+  position: relative;
+}
+
+.event-item::before {
+  content: "";
+  position: absolute;
+  left: 0.52rem;
+  top: 0.62rem;
+  bottom: 0.62rem;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brand), var(--brand-alt));
 }
 
 .event-item strong {
   display: block;
   margin-bottom: 0.1rem;
+  padding-left: 0.52rem;
 }
 
 .event-item span {
   color: var(--ink-soft);
   font-size: 0.9rem;
+  display: block;
+  padding-left: 0.52rem;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.1rem 0 0.45rem;
+}
+
+.weekday-row span {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .calendar-grid {
@@ -547,6 +589,11 @@ button.ghost {
   margin-top: 0.25rem;
   color: var(--ink-soft);
   font-size: 0.8rem;
+}
+
+.calendar-cell.today {
+  border-color: rgba(15, 108, 189, 0.55);
+  box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.18) inset;
 }
 
 .status {

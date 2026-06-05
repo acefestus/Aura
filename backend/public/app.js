@@ -19,6 +19,7 @@ const saveSnapshotBtn = document.getElementById("saveSnapshotBtn");
 const snapshotText = document.getElementById("snapshotText");
 const agendaSearch = document.getElementById("agendaSearch");
 const agendaList = document.getElementById("agendaList");
+const homeQuickActions = Array.from(document.querySelectorAll(".quick-action"));
 
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarLabel = document.getElementById("calendarLabel");
@@ -158,6 +159,20 @@ function formatDateLabel(input) {
   });
 }
 
+function formatDateTimeParts(input) {
+  if (!input) {
+    return { day: "No date", time: "" };
+  }
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) {
+    return { day: "No date", time: "" };
+  }
+  return {
+    day: date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+    time: date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+  };
+}
+
 function normalizeEvent(raw, index) {
   const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : `Event ${index + 1}`;
   const startDate = raw.startDate ?? raw.date ?? raw.start ?? null;
@@ -261,7 +276,8 @@ function renderAgenda() {
   agendaList.innerHTML = filtered
     .map((event) => {
       const note = event.notes ? event.notes : "No notes";
-      return `<li class="event-item"><strong>${event.title}</strong><span>${formatDateLabel(event.startDate)}</span><span>${note}</span></li>`;
+      const parts = formatDateTimeParts(event.startDate);
+      return `<li class="event-item"><strong>${event.title}</strong><span>${parts.day}${parts.time ? ` · ${parts.time}` : ""}</span><span>${note}</span></li>`;
     })
     .join("");
 }
@@ -309,7 +325,12 @@ function renderCalendar() {
       const key = new Date(cell.keyDate.getFullYear(), cell.keyDate.getMonth(), cell.keyDate.getDate()).toISOString();
       const count = countByDay.get(key) ?? 0;
       const countLabel = count > 0 ? `${count} event${count > 1 ? "s" : ""}` : "";
-      return `<article class="calendar-cell ${cell.inMonth ? "" : "muted"}"><div class="day">${cell.day}</div><div class="count">${countLabel}</div></article>`;
+      const today = new Date();
+      const isToday =
+        cell.keyDate.getFullYear() === today.getFullYear() &&
+        cell.keyDate.getMonth() === today.getMonth() &&
+        cell.keyDate.getDate() === today.getDate();
+      return `<article class="calendar-cell ${cell.inMonth ? "" : "muted"} ${isToday ? "today" : ""}"><div class="day">${cell.day}</div><div class="count">${countLabel}</div></article>`;
     })
     .join("");
 }
@@ -601,6 +622,24 @@ logoutBtn.addEventListener("click", () => {
 fabBtn.addEventListener("click", () => {
   switchTab("settings");
   snapshotText.focus();
+});
+
+homeQuickActions.forEach((button) => {
+  button.addEventListener("click", () => {
+    const action = button.dataset.quick;
+    if (action === "plan") {
+      switchTab("agenda");
+      setStatus("Plan My Week: reviewing upcoming agenda.", "ok");
+      return;
+    }
+    if (action === "sync") {
+      loadSnapshotBtn.click();
+      return;
+    }
+    if (action === "rebuild") {
+      setStatus("Notification rebuild is available in iOS Aura app; web data is up to date.", "ok");
+    }
+  });
 });
 
 window.addEventListener("beforeinstallprompt", (event) => {
