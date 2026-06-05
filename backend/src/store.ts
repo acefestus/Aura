@@ -6,7 +6,8 @@ const fallbackDb: DatabaseShape = {
   users: [],
   memberships: [],
   households: [],
-  snapshots: []
+  snapshots: [],
+  audits: []
 };
 
 export class JsonStore {
@@ -26,7 +27,14 @@ export class JsonStore {
   async read(): Promise<DatabaseShape> {
     const abs = await this.ensureFile();
     const raw = await readFile(abs, "utf8");
-    return JSON.parse(raw) as DatabaseShape;
+    const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
+    return {
+      users: parsed.users ?? [],
+      memberships: parsed.memberships ?? [],
+      households: parsed.households ?? [],
+      snapshots: parsed.snapshots ?? [],
+      audits: parsed.audits ?? []
+    };
   }
 
   async write(next: DatabaseShape) {

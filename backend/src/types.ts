@@ -30,9 +30,20 @@ export interface HouseholdSnapshot {
   payload: Record<string, unknown>;
 }
 
+export interface HouseholdAuditEntry {
+  id: string;
+  householdId: string;
+  actorUserId: string;
+  action: string;
+  targetUserId?: string;
+  details?: string;
+  createdAt: string;
+}
+
 export interface DatabaseShape {
   users: User[];
   memberships: Membership[];
   households: Household[];
   snapshots: HouseholdSnapshot[];
+  audits: HouseholdAuditEntry[];
 }

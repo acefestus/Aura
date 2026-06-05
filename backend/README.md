@@ -26,14 +26,27 @@ cp .env.example .env
 npm run dev
 ```
 
+To make your account the admin/owner, set one of these in `.env`:
+
+```bash
+ADMIN_EMAIL=you@example.com
+# or
+ADMIN_EMAILS=you@example.com,coowner@example.com
+```
+
+Any configured admin email is treated as an Owner membership automatically.
+
 ## Deploy on Railway
 
 1. Create a new Railway service from the `backend` folder.
 2. Set `JWT_SECRET`.
-3. Mount a persistent volume if you want JSON file persistence to survive redeploys.
-4. Start command: `npm run start`
-5. Build command: `npm run build`
+3. Set `ADMIN_EMAIL` (or `ADMIN_EMAILS`) to your account email.
+4. Mount a persistent volume if you want JSON file persistence to survive redeploys.
+5. Start command: `npm run start`
+6. Build command: `npm run build`
 
 ## Current limitation
 
-This backend is scaffolded and functional on its own, but the iOS app is not yet wired to it. The app still uses the current on-device/CloudKit-style sync path.
+The iOS app is already wired to this backend for account auth, household linking, sync snapshots, and owner admin actions.
+
+Remaining limitation: persistence is JSON-file based and best for early-stage deployment. For production scale, migrate to a managed database with proper backups and migration flow.
