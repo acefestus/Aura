@@ -222,36 +222,29 @@ struct AuraAuthGatewayView: View {
             AuraAuthBackgroundSlideshow(mode: authHeroMode)
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 18) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Aura")
-                            .font(.system(size: 42, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
-                        Text("A premium family planner with a cinematic sign-in experience, private sync, and polished onboarding.")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.white.opacity(0.88))
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        HStack(spacing: 8) {
-                            Label("Premium sync", systemImage: "sparkles")
-                            Label("Household ready", systemImage: "person.3.fill")
-                            Label("Offline fallback", systemImage: "wifi.slash")
+            GeometryReader { geo in
+                ScrollView {
+                    VStack(spacing: 18) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Aura")
+                                .font(.system(size: 42, weight: .black, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("A premium family planner with a cinematic sign-in experience, private sync, and polished onboarding.")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HStack(spacing: 10) {
-                        authMetric(title: "Secure", value: "JWT", symbol: "lock.shield")
-                        authMetric(title: "Family", value: "Sync", symbol: "person.3.sequence.fill")
-                        authMetric(title: "Fallback", value: "Local", symbol: "internaldrive")
-                    }
+                        HStack(spacing: 10) {
+                            authMetric(title: "Secure", value: "JWT", symbol: "lock.shield")
+                            authMetric(title: "Family", value: "Sync", symbol: "person.3.sequence.fill")
+                            authMetric(title: "Fallback", value: "Local", symbol: "internaldrive")
+                        }
 
-                    VStack(spacing: 12) {
+                        Spacer(minLength: max(120, geo.size.height * 0.22))
+
+                        VStack(spacing: 12) {
                         Picker("Mode", selection: $mode) {
                             ForEach(Mode.allCases, id: \.self) { m in
                                 Text(m.rawValue).tag(m)
@@ -260,17 +253,29 @@ struct AuraAuthGatewayView: View {
                         .pickerStyle(.segmented)
                         .tint(.white)
 
-                        TextField("Email", text: $email)
+                        TextField(
+                            "",
+                            text: $email,
+                            prompt: Text("Email").foregroundColor(.white.opacity(0.9))
+                        )
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
                             .keyboardType(.emailAddress)
                             .authInputStyle()
 
-                        SecureField("Password", text: $password)
+                        SecureField(
+                            "",
+                            text: $password,
+                            prompt: Text("Password").foregroundColor(.white.opacity(0.9))
+                        )
                             .authInputStyle()
 
                         if mode == .create {
-                            TextField("Display name", text: $displayName)
+                            TextField(
+                                "",
+                                text: $displayName,
+                                prompt: Text("Display name").foregroundColor(.white.opacity(0.9))
+                            )
                                 .authInputStyle()
                         }
 
@@ -310,13 +315,17 @@ struct AuraAuthGatewayView: View {
 
                         DisclosureGroup(isExpanded: $showAdvancedSync) {
                             VStack(alignment: .leading, spacing: 10) {
-                                TextField("Backend URL", text: Binding(
-                                    get: { backendBaseURL },
-                                    set: {
-                                        backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        store.updateBackendBaseURL(backendBaseURL)
-                                    }
-                                ))
+                                TextField(
+                                    "",
+                                    text: Binding(
+                                        get: { backendBaseURL },
+                                        set: {
+                                            backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                                            store.updateBackendBaseURL(backendBaseURL)
+                                        }
+                                    ),
+                                    prompt: Text("Backend URL").foregroundColor(.white.opacity(0.9))
+                                )
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
                                 .keyboardType(.URL)
@@ -342,7 +351,11 @@ struct AuraAuthGatewayView: View {
                         if store.hasServerSession {
                             Divider().padding(.vertical, 6)
 
-                            TextField("Household name", text: $householdName)
+                            TextField(
+                                "",
+                                text: $householdName,
+                                prompt: Text("Household name").foregroundColor(.white.opacity(0.9))
+                            )
                                 .authInputStyle()
 
                             Button {
@@ -368,7 +381,11 @@ struct AuraAuthGatewayView: View {
                             .buttonStyle(.bordered)
                             .tint(.white)
 
-                            TextField("Join code", text: $householdCode)
+                            TextField(
+                                "",
+                                text: $householdCode,
+                                prompt: Text("Join code").foregroundColor(.white.opacity(0.9))
+                            )
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
                                 .authInputStyle()
@@ -414,14 +431,17 @@ struct AuraAuthGatewayView: View {
                                 .foregroundColor(.white.opacity(0.9))
                         }
                     }
-                    .padding(18)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.24), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.28), radius: 24, y: 14)
+                        .padding(18)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.35), radius: 24, y: 14)
+                        .environment(\.colorScheme, .dark)
+                    }
+                    .frame(minHeight: geo.size.height)
+                    .padding(20)
                 }
-                .padding(20)
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
         .onAppear {
             email = backendAccountEmail
@@ -474,7 +494,7 @@ private struct AuraAuthBackgroundSlideshow: View {
                     .clipped()
                     .overlay(
                         LinearGradient(
-                            colors: [Color.black.opacity(0.08), Color.black.opacity(0.34)],
+                            colors: [Color.black.opacity(0.22), Color.black.opacity(0.55)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -485,7 +505,7 @@ private struct AuraAuthBackgroundSlideshow: View {
                 }
 
                 LinearGradient(
-                    colors: [Color.black.opacity(0.34), Color.clear, Color.black.opacity(0.46)],
+                    colors: [Color.black.opacity(0.5), Color.black.opacity(0.2), Color.black.opacity(0.64)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
