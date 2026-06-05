@@ -29,3 +29,4 @@ Aura 1.1.0 focuses on making the app feel like a complete premium family planner
 - Unsigned archive generation: passed
 - Final GA tag: created
 - Manual device QA and signed archive: still recommended after forced GA cut because this machine has no Apple signing identity configured
+- Signed distribution handoff: documented in `docs/SIGNED_DISTRIBUTION.md`
