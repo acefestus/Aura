@@ -596,6 +596,25 @@ button.ghost {
   box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.18) inset;
 }
 
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.72rem;
+  background: rgba(255, 255, 255, 0.68);
+  margin-bottom: 0.65rem;
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+}
+
+.settings-group p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+}
+
 .status {
   margin: 1rem auto 0;
   background: rgba(255, 255, 255, 0.78);

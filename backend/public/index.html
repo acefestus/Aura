@@ -159,40 +159,55 @@
 
       <section class="panel" data-page="settings" hidden>
         <h2>Settings</h2>
-        <p id="accountInfo">Signed out</p>
-        <p id="householdInfo">No household loaded</p>
+        <section class="settings-group">
+          <h3>Account & Server</h3>
+          <p id="accountInfo">Signed out</p>
+          <p id="householdInfo">No household loaded</p>
+        </section>
 
-        <form id="profileForm" class="stack mini">
-          <label for="displayName">Display name</label>
-          <input id="displayName" type="text" required />
-          <button type="submit">Update profile</button>
-        </form>
+        <section class="settings-group">
+          <h3>Profile</h3>
+          <form id="profileForm" class="stack mini">
+            <label for="displayName">Display name</label>
+            <input id="displayName" type="text" required />
+            <button type="submit">Update profile</button>
+          </form>
+        </section>
 
-        <form id="passwordForm" class="stack mini">
-          <label for="currentPassword">Current password</label>
-          <input id="currentPassword" type="password" required />
-          <label for="newPassword">New password</label>
-          <input id="newPassword" type="password" minlength="8" required />
-          <button type="submit">Change password</button>
-        </form>
+        <section class="settings-group">
+          <h3>Security</h3>
+          <form id="passwordForm" class="stack mini">
+            <label for="currentPassword">Current password</label>
+            <input id="currentPassword" type="password" required />
+            <label for="newPassword">New password</label>
+            <input id="newPassword" type="password" minlength="8" required />
+            <button type="submit">Change password</button>
+          </form>
+        </section>
 
-        <form id="createHouseholdForm" class="stack mini">
-          <label for="householdName">Create household</label>
-          <input id="householdName" type="text" placeholder="Our Family" required />
-          <button type="submit">Create household</button>
-        </form>
+        <section class="settings-group">
+          <h3>Household</h3>
+          <form id="createHouseholdForm" class="stack mini">
+            <label for="householdName">Create household</label>
+            <input id="householdName" type="text" placeholder="Our Family" required />
+            <button type="submit">Create household</button>
+          </form>
 
-        <form id="joinHouseholdForm" class="stack mini">
-          <label for="joinCode">Join with code</label>
-          <input id="joinCode" type="text" placeholder="AB12CD" required />
-          <button type="submit">Join household</button>
-        </form>
+          <form id="joinHouseholdForm" class="stack mini">
+            <label for="joinCode">Join with code</label>
+            <input id="joinCode" type="text" placeholder="AB12CD" required />
+            <button type="submit">Join household</button>
+          </form>
+        </section>
 
-        <div class="inline-actions">
-          <button id="loadSnapshotBtn" class="ghost" type="button">Load snapshot</button>
-          <button id="saveSnapshotBtn" type="button">Save snapshot</button>
-        </div>
-        <textarea id="snapshotText" spellcheck="false" placeholder="Household sync payload JSON"></textarea>
+        <section class="settings-group">
+          <h3>Sync Snapshot</h3>
+          <div class="inline-actions">
+            <button id="loadSnapshotBtn" class="ghost" type="button">Load snapshot</button>
+            <button id="saveSnapshotBtn" type="button">Save snapshot</button>
+          </div>
+          <textarea id="snapshotText" spellcheck="false" placeholder="Household sync payload JSON"></textarea>
+        </section>
       </section>
     </main>
   </section>
