@@ -219,168 +219,230 @@ struct AuraAuthGatewayView: View {
             VStack(spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Welcome to Aura")
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                    Text("Set up your family account first for the full premium sync experience.")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    ZStack {
+                        LinearGradient(
+                            colors: [p.backgroundStart.opacity(0.95), p.backgroundEnd, Color(hex: "07111F")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .ignoresSafeArea()
 
-                HStack(spacing: 10) {
-                    AuraHeroFamilyImage(assetName: "family_dad", fallbackIcon: "person.fill")
-                    AuraHeroFamilyImage(assetName: "family_mom", fallbackIcon: "person.fill")
-                    AuraHeroFamilyImage(assetName: "family_kid", fallbackIcon: "figure.2.and.child.holdinghands")
-                }
-                .frame(height: 160)
+                        Circle()
+                            .fill(p.accentStart.opacity(0.18))
+                            .frame(width: 290, height: 290)
+                            .blur(radius: 34)
+                            .offset(x: -130, y: -260)
 
-                VStack(spacing: 12) {
-                    TextField("Backend URL", text: Binding(
-                        get: { backendBaseURL },
-                        set: {
-                            backendBaseURL = $0
-                            store.updateBackendBaseURL($0)
-                        }
-                    ))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .keyboardType(.URL)
+                        Circle()
+                            .fill(p.accentEnd.opacity(0.14))
+                            .frame(width: 220, height: 220)
+                            .blur(radius: 30)
+                            .offset(x: 150, y: 180)
 
-                    Picker("Mode", selection: $mode) {
-                        ForEach(Mode.allCases, id: \.self) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                        VStack(spacing: 18) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("Aura")
+                                    .font(.system(size: 42, weight: .black, design: .rounded))
+                                    .foregroundColor(.white)
+                                Text("A premium family planner with a cinematic sign-in experience, private sync, and polished onboarding.")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.82))
+                                    .fixedSize(horizontal: false, vertical: true)
 
-                    TextField("Email", text: $email)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .keyboardType(.emailAddress)
-                    SecureField("Password", text: $password)
-
-                    if mode == .create {
-                        TextField("Display name", text: $displayName)
-                    }
-
-                    Button {
-                        isWorking = true
-                        message = ""
-                        Task {
-                            let result: Result<Void, Error>
-                            if mode == .create {
-                                result = await store.registerServerAccount(email: email, password: password, displayName: displayName)
-                            } else {
-                                result = await store.loginServerAccount(email: email, password: password)
-                            }
-                            await MainActor.run {
-                                isWorking = false
-                                switch result {
-                                case .success:
-                                    password = ""
-                                    backendAccountEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                        profileDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    }
-                                    message = mode == .create ? "Account created. Continue with household setup." : "Signed in successfully."
-                                case .failure(let error):
-                                    message = error.localizedDescription
+                                HStack(spacing: 8) {
+                                    Label("Premium sync", systemImage: "sparkles")
+                                    Label("Household ready", systemImage: "person.3.fill")
+                                    Label("Offline fallback", systemImage: "wifi.slash")
                                 }
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.86))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                             }
-                        }
-                    } label: {
-                        Label(mode == .create ? "Create Account" : "Sign In", systemImage: "person.crop.circle.badge.checkmark")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if store.hasServerSession {
-                        Divider().padding(.vertical, 6)
+                            HStack(spacing: 10) {
+                                AuraHeroFamilyImage(assetName: "family_dad", fallbackIcon: "person.fill")
+                                AuraHeroFamilyImage(assetName: "family_mom", fallbackIcon: "person.fill")
+                                AuraHeroFamilyImage(assetName: "family_kid", fallbackIcon: "figure.2.and.child.holdinghands")
+                            }
+                            .frame(height: 172)
 
-                        TextField("Household name", text: $householdName)
-                        Button {
-                            isWorking = true
-                            message = ""
-                            Task {
-                                let result = await store.createServerHousehold(name: householdName)
-                                await MainActor.run {
-                                    isWorking = false
-                                    switch result {
-                                    case .success(let code):
-                                        householdCode = code
-                                        message = "Household created. Code: \(code)"
-                                    case .failure(let error):
-                                        message = error.localizedDescription
+                            HStack(spacing: 10) {
+                                authMetric(title: "Secure", value: "JWT", symbol: "lock.shield")
+                                authMetric(title: "Family", value: "Sync", symbol: "person.3.sequence.fill")
+                                authMetric(title: "Fallback", value: "Local", symbol: "internaldrive")
+                            }
+
+                            VStack(spacing: 12) {
+                                TextField("Backend URL", text: Binding(
+                                    get: { backendBaseURL },
+                                    set: {
+                                        backendBaseURL = $0
+                                        store.updateBackendBaseURL($0)
+                                    }
+                                ))
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .keyboardType(.URL)
+
+                                Picker("Mode", selection: $mode) {
+                                    ForEach(Mode.allCases, id: \.self) { m in
+                                        Text(m.rawValue).tag(m)
                                     }
                                 }
-                            }
-                        } label: {
-                            Label("Create Household", systemImage: "person.3.sequence.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
+                                .pickerStyle(.segmented)
 
-                        TextField("Join code", text: $householdCode)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                        Button {
-                            isWorking = true
-                            message = ""
-                            Task {
-                                let result = await store.joinServerHousehold(code: householdCode)
-                                await MainActor.run {
-                                    isWorking = false
-                                    switch result {
-                                    case .success:
-                                        message = "Joined household successfully."
-                                    case .failure(let error):
-                                        message = error.localizedDescription
+                                TextField("Email", text: $email)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
+                                    .keyboardType(.emailAddress)
+                                SecureField("Password", text: $password)
+
+                                if mode == .create {
+                                    TextField("Display name", text: $displayName)
+                                }
+
+                                Button {
+                                    isWorking = true
+                                    message = ""
+                                    Task {
+                                        let result: Result<Void, Error>
+                                        if mode == .create {
+                                            result = await store.registerServerAccount(email: email, password: password, displayName: displayName)
+                                        } else {
+                                            result = await store.loginServerAccount(email: email, password: password)
+                                        }
+                                        await MainActor.run {
+                                            isWorking = false
+                                            switch result {
+                                            case .success:
+                                                password = ""
+                                                backendAccountEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+                                                if !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                                    profileDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                                }
+                                                message = mode == .create ? "Account created. Continue with household setup." : "Signed in successfully."
+                                            case .failure(let error):
+                                                message = error.localizedDescription
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    Label(mode == .create ? "Create Account" : "Sign In", systemImage: "person.crop.circle.badge.checkmark")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+
+                                if store.hasServerSession {
+                                    Divider().padding(.vertical, 6)
+
+                                    TextField("Household name", text: $householdName)
+                                    Button {
+                                        isWorking = true
+                                        message = ""
+                                        Task {
+                                            let result = await store.createServerHousehold(name: householdName)
+                                            await MainActor.run {
+                                                isWorking = false
+                                                switch result {
+                                                case .success(let code):
+                                                    householdCode = code
+                                                    message = "Household created. Code: \(code)"
+                                                case .failure(let error):
+                                                    message = error.localizedDescription
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        Label("Create Household", systemImage: "person.3.sequence.fill")
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    TextField("Join code", text: $householdCode)
+                                        .textInputAutocapitalization(.never)
+                                        .autocorrectionDisabled(true)
+                                    Button {
+                                        isWorking = true
+                                        message = ""
+                                        Task {
+                                            let result = await store.joinServerHousehold(code: householdCode)
+                                            await MainActor.run {
+                                                isWorking = false
+                                                switch result {
+                                                case .success:
+                                                    message = "Joined household successfully."
+                                                case .failure(let error):
+                                                    message = error.localizedDescription
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        Label("Join Household", systemImage: "person.2.badge.plus")
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                                    Button {
+                                        allowOfflineMode = true
+                                        message = "You can continue offline and set up account later in Settings."
+                                    } label: {
+                                        Text("Continue Offline")
+                                            .font(.system(size: 13, weight: .semibold))
                                     }
                                 }
+
+                                if isWorking { ProgressView() }
+                                if !message.isEmpty {
+                                    Text(message)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                }
                             }
-                        } label: {
-                            Label("Join Household", systemImage: "person.2.badge.plus")
-                                .frame(maxWidth: .infinity)
+                            .padding(18)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.18), lineWidth: 1))
+                            .shadow(color: .black.opacity(0.18), radius: 24, y: 14)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                        Button {
-                            allowOfflineMode = true
-                            message = "You can continue offline and set up account later in Settings."
-                        } label: {
-                            Text("Continue Offline")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                    }
-
-                    if isWorking { ProgressView() }
-                    if !message.isEmpty {
-                        Text(message)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.secondary)
+                        .padding(20)
                     }
                 }
-                .padding(16)
-                .background(LinearGradient(colors: [Color.white, Color.white.opacity(0.96)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(p.accentStart.opacity(0.22), lineWidth: 1))
+                .scrollIndicators(.hidden)
+                .onAppear {
+                    email = backendAccountEmail
+                    displayName = profileDisplayName
+                    store.updateBackendBaseURL(backendBaseURL)
+                }
             }
-            .padding(20)
-        }
-        .background(
-            LinearGradient(colors: [p.backgroundStart.opacity(0.2), p.backgroundEnd.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
-        )
-        .onAppear {
-            email = backendAccountEmail
-            displayName = profileDisplayName
-            store.updateBackendBaseURL(backendBaseURL)
         }
     }
-}
+    }
 
 // MARK: - App Delegate  (shows banner even when app is open)
+private extension AuraAuthGatewayView {
+    func authMetric(title: String, value: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+            }
+            .foregroundColor(.white.opacity(0.72))
 
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.1), lineWidth: 1))
+    }
+}
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -6506,6 +6568,8 @@ struct SettingsView: View {
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
+    @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
     @AppStorage("householdCode") private var householdCode = ""
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
@@ -6606,6 +6670,36 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 } header: {
                     Text("Account & Server (Railway Sync)")
+                }
+
+                Section {
+                    Toggle("Allow Offline Mode", isOn: $allowOfflineMode)
+
+                    Button {
+                        hasSeenOnboarding = false
+                    } label: {
+                        Label("Replay Onboarding", systemImage: "sparkles.rectangle.stack")
+                    }
+
+                    Button {
+                        allowOfflineMode = false
+                        store.clearServerSession()
+                        serverMessage = "Auth flow reset. The sign-in screen will appear on next launch."
+                    } label: {
+                        Label("Reset Auth Flow", systemImage: "arrow.counterclockwise.circle")
+                    }
+
+                    Button(role: .destructive) {
+                        backendBaseURL = ""
+                        store.updateBackendBaseURL("")
+                        serverMessage = "Backend URL cleared."
+                    } label: {
+                        Label("Clear Backend URL", systemImage: "server.rack")
+                    }
+                } header: {
+                    Text("Admin & Change Management")
+                } footer: {
+                    Text("Use this panel to change onboarding, offline behavior, or sign-in state without editing code.")
                 }
 
                 Section("Family Member") {
