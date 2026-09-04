@@ -2,15 +2,43 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { DatabaseShape } from "./types.js";
 
-const fallbackDb: DatabaseShape = {
+export const fallbackDb: DatabaseShape = {
   users: [],
   memberships: [],
   households: [],
+  groups: [],
+  groupMemberships: [],
+  groupEvents: [],
+  groupLists: [],
+  groupPlans: [],
+  groupRoutines: [],
   snapshots: [],
   audits: []
 };
 
-export class JsonStore {
+export function normalizeDb(parsed: Partial<DatabaseShape>): DatabaseShape {
+  return {
+    users: parsed.users ?? [],
+    memberships: parsed.memberships ?? [],
+    households: parsed.households ?? [],
+    groups: parsed.groups ?? [],
+    groupMemberships: parsed.groupMemberships ?? [],
+    groupEvents: parsed.groupEvents ?? [],
+    groupLists: parsed.groupLists ?? [],
+    groupPlans: parsed.groupPlans ?? [],
+    groupRoutines: parsed.groupRoutines ?? [],
+    snapshots: parsed.snapshots ?? [],
+    audits: parsed.audits ?? []
+  };
+}
+
+export interface DataStore {
+  read(): Promise<DatabaseShape>;
+  write(next: DatabaseShape): Promise<void>;
+  update(mutator: (db: DatabaseShape) => void | DatabaseShape): Promise<void>;
+}
+
+export class JsonStore implements DataStore {
   constructor(private readonly filePath: string) {}
 
   private async ensureFile() {
@@ -27,14 +55,7 @@ export class JsonStore {
   async read(): Promise<DatabaseShape> {
     const abs = await this.ensureFile();
     const raw = await readFile(abs, "utf8");
-    const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
-    return {
-      users: parsed.users ?? [],
-      memberships: parsed.memberships ?? [],
-      households: parsed.households ?? [],
-      snapshots: parsed.snapshots ?? [],
-      audits: parsed.audits ?? []
-    };
+    return normalizeDb(JSON.parse(raw) as Partial<DatabaseShape>);
   }
 
   async write(next: DatabaseShape) {

@@ -7,7 +7,7 @@ Railway-ready backend scaffold for Aura family accounts and household sync.
 - Email/password registration and login
 - Household creation and join by code
 - Authenticated household snapshot sync for events, lists, activities, and steps
-- Simple JSON persistence for early-stage deployment
+- Postgres persistence in production (falls back to a local JSON file when `DATABASE_URL` is unset, for local dev)
 
 ## Why Railway
 
@@ -39,11 +39,14 @@ Any configured admin email is treated as an Owner membership automatically.
 ## Deploy on Railway
 
 1. Create a new Railway service from the `backend` folder.
-2. Set `JWT_SECRET`.
-3. Set `ADMIN_EMAIL` (or `ADMIN_EMAILS`) to your account email.
-4. Mount a persistent volume if you want JSON file persistence to survive redeploys.
+2. Add a Railway Postgres service to the project. Railway injects `DATABASE_URL` into the backend service automatically when they're linked; the server uses Postgres whenever `DATABASE_URL` is set.
+3. Set `JWT_SECRET`.
+4. Set `ADMIN_EMAIL` (or `ADMIN_EMAILS`) to your account email.
 5. Start command: `npm run start`
 6. Build command: `npm run build`
+7. If you have existing data in `backend/data/db.json`, run `npm run migrate:pg` once (with `DATABASE_URL` set) to import it into Postgres.
+
+Without `DATABASE_URL`, the server falls back to the local JSON file — fine for local dev, but on Railway that file lives on an ephemeral filesystem and is wiped on every redeploy, so production should always have `DATABASE_URL` set.
 
 ## Security hardening
 
@@ -97,4 +100,4 @@ Install to home screen:
 - iPhone/iPad (Safari): Share -> Add to Home Screen
 - Android (Chrome): use the browser install prompt or the in-app Install button
 
-Remaining limitation: persistence is JSON-file based and best for early-stage deployment. For production scale, migrate to a managed database with proper backups and migration flow.
+Persistence: Postgres in production (set `DATABASE_URL`), JSON file for local dev.
