@@ -6,6 +6,7 @@
 // ============================================================
 
 import SwiftUI
+import WidgetKit
 import UserNotifications
 import PhotosUI
 import UniformTypeIdentifiers
@@ -2351,11 +2352,21 @@ class EventStore: ObservableObject {
         householdCode = selected.group.code
         serverMembershipRole = selected.membership.role
         syncStatus = "Active group: \(selected.group.name)"
+        syncActiveGroupNameToWidget(selected.group.name)
         if hasServerSession && isServerOwner {
             Task { @MainActor [weak self] in
                 await self?.refreshServerAdminData()
             }
         }
+    }
+
+    /// Widgets can't hold a live server session or make network calls on their
+    /// own timeline schedule, so the only way they can be V2-group-aware at
+    /// all is if the main app writes the active group's name into shared App
+    /// Group storage whenever it changes.
+    private func syncActiveGroupNameToWidget(_ name: String) {
+        shared.set(name, forKey: "aura.activeGroupName")
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     init() {
@@ -3317,6 +3328,7 @@ class EventStore: ObservableObject {
                 backendStoredGroupName = active.group.name
                 serverGroupName = active.group.name
                 householdCode = active.group.code
+                syncActiveGroupNameToWidget(active.group.name)
             } else if let first = response.groups.first {
                 activeGroupId = first.group.id
                 serverMembershipRole = first.membership.role
@@ -3324,9 +3336,11 @@ class EventStore: ObservableObject {
                 backendStoredGroupName = first.group.name
                 serverGroupName = first.group.name
                 householdCode = first.group.code
+                syncActiveGroupNameToWidget(first.group.name)
             } else {
                 activeGroupId = ""
                 serverMembershipRole = ""
+                syncActiveGroupNameToWidget("")
             }
         } catch {
             _ = mapServerError(error, fallbackStatus: "Group refresh failed")

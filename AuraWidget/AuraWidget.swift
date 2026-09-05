@@ -49,6 +49,7 @@ struct WidgetData {
     var upcomingEvents: [WEvent]      // next 3 after nextUp
     var upcomingCats:   [WCategory?]
     var theme:         WGradientTheme
+    var activeGroupName: String?      // which V2 group workspace this data belongs to, if any
 }
 
 func loadWidgetData() -> WidgetData {
@@ -101,6 +102,9 @@ func loadWidgetData() -> WidgetData {
     let upcoming = Array(future.dropFirst().prefix(3))
     let upcomingCats: [WCategory?] = upcoming.map { cat($0.categoryId) }
 
+    // ── Active group (V2) ───────────────────────────────────
+    let activeGroupName = defaults.string(forKey: "aura.activeGroupName").flatMap { $0.isEmpty ? nil : $0 }
+
     return WidgetData(
         countdown:       countdown,
         nextUp:          nextUp,
@@ -110,7 +114,8 @@ func loadWidgetData() -> WidgetData {
         todayCount:      todayCount,
         upcomingEvents:  upcoming,
         upcomingCats:    upcomingCats,
-        theme:           theme
+        theme:           theme,
+        activeGroupName: activeGroupName
     )
 }
 
@@ -154,7 +159,8 @@ struct AuraProvider: TimelineProvider {
             todayCount:      4,
             upcomingEvents:  [e3],
             upcomingCats:    [c3],
-            theme:           WGradientTheme(c1:"1E1B4B",c2:"4C1D95",n1:"6366F1",n2:"A78BFA",name:"Indigo Night")
+            theme:           WGradientTheme(c1:"1E1B4B",c2:"4C1D95",n1:"6366F1",n2:"A78BFA",name:"Indigo Night"),
+            activeGroupName: "Family"
         )
     }
 }
@@ -174,6 +180,20 @@ private extension Color {
 }
 
 // MARK: - Shared Sub-views
+
+private struct GroupBadge: View {
+    let name: String
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "square.stack.3d.up.fill")
+                .font(.system(size: 8, weight: .bold))
+            Text(name)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .lineLimit(1)
+        }
+        .foregroundColor(.white.opacity(0.55))
+    }
+}
 
 private struct CategoryPill: View {
     let name: String
@@ -255,9 +275,13 @@ struct SmallWidgetView: View {
     private var numG: (Color, Color) { (Color(hex: d.theme.n1), Color(hex: d.theme.n2)) }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             LinearGradient(colors: [bg.0, bg.1],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
+            if let groupName = d.activeGroupName {
+                GroupBadge(name: groupName)
+                    .padding(14)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 // category pill
                 if let cat = d.nextCategory ?? d.countCategory {
@@ -303,9 +327,13 @@ struct MediumWidgetView: View {
     private var numG: (Color, Color) { (Color(hex: d.theme.n1), Color(hex: d.theme.n2)) }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             LinearGradient(colors: [bg.0, bg.1],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
+            if let groupName = d.activeGroupName {
+                GroupBadge(name: groupName)
+                    .padding(14)
+            }
             HStack(spacing: 0) {
                 // left: countdown
                 VStack(alignment: .center, spacing: 4) {
@@ -374,6 +402,9 @@ struct LargeWidgetView: View {
                         size:  56)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 6) {
+                        if let groupName = d.activeGroupName {
+                            GroupBadge(name: groupName)
+                        }
                         if let cat = d.nextCategory {
                             CategoryPill(name: cat.name, icon: cat.icon)
                         }
