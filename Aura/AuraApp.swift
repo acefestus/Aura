@@ -9,7 +9,6 @@ import SwiftUI
 import UserNotifications
 import PhotosUI
 import UniformTypeIdentifiers
-import CloudKit
 import HealthKit
 import LocalAuthentication
 
@@ -1375,6 +1374,27 @@ struct AuraRemoteGroupsResponse: Codable {
     var groups: [AuraRemoteGroupRecord]
 }
 
+struct AuraRemoteGroupMemberRecord: Codable, Identifiable {
+    var membership: AuraRemoteGroupMembership
+    var user: AuraRemoteUser?
+
+    var id: String { membership.userId }
+}
+
+struct AuraRemoteGroupMembersResponse: Codable {
+    var group: AuraRemoteGroup
+    var currentUserId: String
+    var members: [AuraRemoteGroupMemberRecord]
+}
+
+struct AuraRemoteGroupMembershipEnvelope: Codable {
+    var membership: AuraRemoteGroupMembership
+}
+
+struct AuraRemoteGroupEnvelope: Codable {
+    var group: AuraRemoteGroup
+}
+
 struct AuraRemoteGroupPayloadRecord: Codable, Identifiable {
     var id: String
     var groupId: String
@@ -1520,7 +1540,8 @@ struct AuraRemoteAdminMembersResponse: Codable {
 
 struct AuraRemoteAuditEntry: Codable, Identifiable {
     var id: String
-    var householdId: String
+    var householdId: String?
+    var groupId: String?
     var actorUserId: String
     var action: String
     var targetUserId: String?
@@ -1600,45 +1621,6 @@ final class StepTrackingManager {
                 continuation.resume(returning: Int(steps))
             }
             healthStore.execute(query)
-        }
-    }
-}
-
-actor HouseholdSyncEngine {
-    static let shared = HouseholdSyncEngine()
-
-    private let container = CKContainer.default()
-    private var db: CKDatabase { container.publicCloudDatabase }
-
-    private func recordId(for householdCode: String) -> CKRecord.ID {
-        CKRecord.ID(recordName: "household-\(householdCode.lowercased())")
-    }
-
-    func upload(householdCode: String, payload: HouseholdSyncPayload) async throws {
-        let rid = recordId(for: householdCode)
-        let rec: CKRecord
-        do {
-            rec = try await db.record(for: rid)
-        } catch {
-            rec = CKRecord(recordType: "AuraHousehold", recordID: rid)
-        }
-        rec["payload"] = String(data: try JSONEncoder().encode(payload), encoding: .utf8) as CKRecordValue?
-        rec["updatedAt"] = payload.updatedAt as CKRecordValue
-        rec["updatedBy"] = payload.updatedBy as CKRecordValue
-        _ = try await db.save(rec)
-    }
-
-    func download(householdCode: String) async throws -> HouseholdSyncPayload? {
-        let rid = recordId(for: householdCode)
-        do {
-            let rec = try await db.record(for: rid)
-            guard let raw = rec["payload"] as? String,
-                  let d = raw.data(using: .utf8),
-                  let payload = try? JSONDecoder().decode(HouseholdSyncPayload.self, from: d)
-            else { return nil }
-            return payload
-        } catch {
-            return nil
         }
     }
 }
@@ -1983,6 +1965,42 @@ actor AuraServerSyncEngine {
     func groupConflictHistory(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupConflictHistoryResponse {
         try await request(baseURL: baseURL, path: "/groups/\(groupId)/conflicts/history", token: token)
     }
+
+    func groupMembers(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupMembersResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/members", token: token)
+    }
+
+    func groupUpdateMemberRole(baseURL: String, token: String, groupId: String, userId: String, role: String) async throws -> AuraRemoteGroupMembershipEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/members/\(userId)/role",
+            method: "PATCH",
+            token: token,
+            payload: ["role": role]
+        )
+    }
+
+    func groupRemoveMember(baseURL: String, token: String, groupId: String, userId: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/members/\(userId)", method: "DELETE", token: token)
+    }
+
+    func groupTransferOwner(baseURL: String, token: String, groupId: String, userId: String) async throws -> AuraRemoteGroupMembershipEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/transfer-owner",
+            method: "POST",
+            token: token,
+            payload: ["userId": userId]
+        )
+    }
+
+    func groupRegenerateCode(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupEnvelope {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/regenerate-code", method: "POST", token: token, payload: EmptyPayload())
+    }
+
+    func groupAudit(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteAuditResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/audit", token: token)
+    }
 }
 
 private struct EmptyPayload: Encodable {}
@@ -2170,6 +2188,9 @@ class EventStore: ObservableObject {
     @Published var serverGroups: [AuraRemoteGroupRecord] = []
     @Published var serverGroupMembers: [AuraRemoteHouseholdMemberRecord] = []
     @Published var serverAuditEntries: [AuraRemoteAuditEntry] = []
+    @Published var activeGroupMemberRecords: [AuraRemoteGroupMemberRecord] = []
+    @Published var activeGroupAuditEntries: [AuraRemoteAuditEntry] = []
+    @Published var isLoadingActiveGroupAdmin = false
     @Published var serverGroupConflictHistoryEntries: [AuraRemoteGroupConflictHistoryEntry] = []
     @Published var personalMasterCalendarItems: [AuraRemotePersonalAggregateItem] = []
     @Published var personalTaskItems: [AuraRemotePersonalAggregateItem] = []
@@ -2279,6 +2300,10 @@ class EventStore: ObservableObject {
 
     var isServerOwner: Bool {
         serverMembershipRole.caseInsensitiveCompare("Owner") == .orderedSame
+    }
+
+    var isActiveGroupOwner: Bool {
+        (activeServerGroup?.membership.role ?? "").caseInsensitiveCompare("Owner") == .orderedSame
     }
 
     func setActiveServerGroup(id: String) {
@@ -3308,6 +3333,84 @@ class EventStore: ObservableObject {
         }
     }
 
+    func refreshActiveGroupAdminData() async {
+        guard hasServerSession, !activeServerGroupId.isEmpty else {
+            activeGroupMemberRecords = []
+            activeGroupAuditEntries = []
+            return
+        }
+        let groupId = activeServerGroupId
+        isLoadingActiveGroupAdmin = true
+        defer { isLoadingActiveGroupAdmin = false }
+        do {
+            let members = try await AuraServerSyncEngine.shared.groupMembers(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId)
+            activeGroupMemberRecords = members.members
+            let audit = try await AuraServerSyncEngine.shared.groupAudit(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId)
+            activeGroupAuditEntries = audit.entries
+        } catch {
+            _ = mapServerError(error, fallbackStatus: "Group admin refresh failed")
+        }
+    }
+
+    func updateActiveGroupMemberRole(userId: String, role: String) async -> Result<Void, Error> {
+        guard hasServerSession, isActiveGroupOwner else {
+            return .failure(AuraServerError.requestFailed("Owner access required."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.groupUpdateMemberRole(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId, userId: userId, role: role)
+            await refreshActiveGroupAdminData()
+            syncStatus = "Member role updated"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Role update failed"))
+        }
+    }
+
+    func removeActiveGroupMember(userId: String) async -> Result<Void, Error> {
+        guard hasServerSession, isActiveGroupOwner else {
+            return .failure(AuraServerError.requestFailed("Owner access required."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.groupRemoveMember(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId, userId: userId)
+            await refreshActiveGroupAdminData()
+            syncStatus = "Member removed"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Remove member failed"))
+        }
+    }
+
+    func transferActiveGroupOwnership(to userId: String) async -> Result<Void, Error> {
+        guard hasServerSession, isActiveGroupOwner else {
+            return .failure(AuraServerError.requestFailed("Owner access required."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.groupTransferOwner(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId, userId: userId)
+            await refreshServerGroups()
+            await refreshActiveGroupAdminData()
+            syncStatus = "Ownership transferred"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Transfer owner failed"))
+        }
+    }
+
+    func regenerateActiveGroupCode() async -> Result<String, Error> {
+        guard hasServerSession, isActiveGroupOwner else {
+            return .failure(AuraServerError.requestFailed("Owner access required."))
+        }
+        do {
+            let response = try await AuraServerSyncEngine.shared.groupRegenerateCode(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId)
+            householdCode = response.group.code
+            await refreshServerGroups()
+            await refreshActiveGroupAdminData()
+            syncStatus = "Join code regenerated"
+            return .success(response.group.code)
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Regenerate code failed"))
+        }
+    }
+
     func createServerHousehold(name: String) async -> Result<String, Error> {
         return await createServerGroup(name: name, type: "Family")
     }
@@ -3465,9 +3568,10 @@ class EventStore: ObservableObject {
             if hasServerGroup {
                 _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, payload: snapshotPayload())
             } else {
-                let code = currentGroupCode
-                guard !code.isEmpty else { return }
-                try await HouseholdSyncEngine.shared.upload(householdCode: code, payload: snapshotPayload())
+                // CloudKit fallback disabled: the app ships with no iCloud/CloudKit
+                // entitlement, so CKContainer.default() traps immediately. Server
+                // sync is the only supported path until that's provisioned.
+                return
             }
             groupLastSnapshot = Date().timeIntervalSince1970
             syncStatus = hasServerGroup ? "Server synced just now" : "Synced just now"
@@ -3483,9 +3587,8 @@ class EventStore: ObservableObject {
             if hasServerGroup {
                 incoming = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken)
             } else {
-                let code = currentGroupCode
-                guard !code.isEmpty else { return }
-                incoming = try await HouseholdSyncEngine.shared.download(householdCode: code)
+                // CloudKit fallback disabled: see pushSnapshot().
+                return
             }
             guard let incoming else { return }
             guard incoming.updatedAt.timeIntervalSince1970 > groupLastSnapshot + 0.5 else { return }
@@ -3741,6 +3844,7 @@ struct ContentView: View {
     @State private var showStartLiveActivity = false
     @State private var showQuickGrocery = false
     @State private var showAddMember = false
+    @State private var showGroupMembers = false
     @State private var eventDraftPreset: EventDraftPreset? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
@@ -3807,6 +3911,13 @@ struct ContentView: View {
                             .foregroundStyle(.white)
                         }
                         Spacer()
+                        Button {
+                            showGroupMembers = true
+                        } label: {
+                            Image(systemName: "person.2.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, bannerPayload == nil ? 8 : 0)
@@ -3815,6 +3926,10 @@ struct ContentView: View {
                 Spacer()
             }
             .animation(AuraMotion.banner, value: bannerPayload)
+            .sheet(isPresented: $showGroupMembers) {
+                GroupMembersView()
+                    .environmentObject(store)
+            }
 
             // ── Floating Action Button ──────────────────────
             Button {
@@ -8177,6 +8292,190 @@ struct WidgetGradientTheme: Codable, Identifiable, Equatable {
         .init(id: UUID(uuidString: "A1000000-0000-0000-0000-000000000005")!, name: "Amber Ember",   c1:"1C0A00", c2:"78350F", n1:"FB923C", n2:"FCD34D", isPreset:true),
         .init(id: UUID(uuidString: "A1000000-0000-0000-0000-000000000006")!, name: "Midnight Grey", c1:"0F0F0F", c2:"1A1A1A", n1:"E5E5E5", n2:"FFFFFF", isPreset:true),
     ]
+}
+
+// MARK: - Group Members
+
+struct GroupMembersView: View {
+    @EnvironmentObject var store: EventStore
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("householdCode") private var householdCode = ""
+    @State private var isWorking = false
+    @State private var message = ""
+    @State private var pendingRemoval: AuraRemoteGroupMemberRecord?
+    @State private var pendingTransfer: AuraRemoteGroupMemberRecord?
+
+    var body: some View {
+        NavigationView {
+            List {
+                joinCodeSection
+                membersSection
+                if store.isActiveGroupOwner {
+                    activitySection
+                }
+            }
+            .navigationTitle(store.activeServerGroupName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task { await store.refreshActiveGroupAdminData() }
+            .refreshable { await store.refreshActiveGroupAdminData() }
+            .alert("Remove member?", isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } })) {
+                Button("Cancel", role: .cancel) {}
+                Button("Remove", role: .destructive) {
+                    guard let record = pendingRemoval else { return }
+                    Task {
+                        isWorking = true
+                        _ = await store.removeActiveGroupMember(userId: record.membership.userId)
+                        isWorking = false
+                    }
+                }
+            } message: {
+                Text("\(pendingRemoval?.user?.displayName ?? "This member") will lose access to this group.")
+            }
+            .alert("Transfer ownership?", isPresented: Binding(get: { pendingTransfer != nil }, set: { if !$0 { pendingTransfer = nil } })) {
+                Button("Cancel", role: .cancel) {}
+                Button("Transfer", role: .destructive) {
+                    guard let record = pendingTransfer else { return }
+                    Task {
+                        isWorking = true
+                        _ = await store.transferActiveGroupOwnership(to: record.membership.userId)
+                        isWorking = false
+                    }
+                }
+            } message: {
+                Text("\(pendingTransfer?.user?.displayName ?? "This member") becomes the new owner. You'll be moved to Admin.")
+            }
+        }
+    }
+
+    private var joinCodeSection: some View {
+        Section("Join Code") {
+            HStack {
+                Text(householdCode.isEmpty ? "——————" : householdCode)
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .tracking(2)
+                Spacer()
+                if store.isActiveGroupOwner {
+                    Button {
+                        Task {
+                            isWorking = true
+                            _ = await store.regenerateActiveGroupCode()
+                            isWorking = false
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isWorking)
+                }
+                Button {
+                    UIPasteboard.general.string = householdCode
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                ShareLink(item: "Join my Aura group \"\(store.activeServerGroupName)\" — use code \(householdCode) in the app.") {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+
+    private var membersSection: some View {
+        Section("Members") {
+            if store.isLoadingActiveGroupAdmin && store.activeGroupMemberRecords.isEmpty {
+                ProgressView()
+            } else if store.activeGroupMemberRecords.isEmpty {
+                Text("No members yet.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(store.activeGroupMemberRecords) { record in
+                    memberRow(record)
+                }
+            }
+        }
+    }
+
+    private func memberRow(_ record: AuraRemoteGroupMemberRecord) -> some View {
+        let isSelf = record.membership.userId == store.serverUserId
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.user?.displayName.isEmpty == false ? record.user!.displayName : "Member")
+                    .font(.system(size: 14, weight: .semibold))
+                if let email = record.user?.email {
+                    Text(email)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            roleMenu(for: record, isSelf: isSelf)
+        }
+        .swipeActions(edge: .trailing) {
+            if store.isActiveGroupOwner && !isSelf {
+                Button(role: .destructive) { pendingRemoval = record } label: {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func roleMenu(for record: AuraRemoteGroupMemberRecord, isSelf: Bool) -> some View {
+        if store.isActiveGroupOwner && !isSelf {
+            Menu {
+                ForEach(["Owner", "Admin", "Member", "Junior"], id: \.self) { role in
+                    Button(role) {
+                        Task {
+                            if role == "Owner" {
+                                pendingTransfer = record
+                            } else {
+                                isWorking = true
+                                _ = await store.updateActiveGroupMemberRole(userId: record.membership.userId, role: role)
+                                isWorking = false
+                            }
+                        }
+                    }
+                }
+            } label: {
+                roleBadge(record.membership.role)
+            }
+        } else {
+            roleBadge(record.membership.role)
+        }
+    }
+
+    private func roleBadge(_ role: String) -> some View {
+        Text(role)
+            .font(.system(size: 11, weight: .bold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.15), in: Capsule())
+    }
+
+    private var activitySection: some View {
+        Section("Activity Log") {
+            if store.activeGroupAuditEntries.isEmpty {
+                Text("No activity yet.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(store.activeGroupAuditEntries.prefix(20)) { entry in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.action.replacingOccurrences(of: "_", with: " ").capitalized)
+                            .font(.system(size: 13, weight: .semibold))
+                        if let details = entry.details, !details.isEmpty {
+                            Text(details)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Settings View
