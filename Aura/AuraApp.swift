@@ -119,19 +119,68 @@ private struct AuraHeroGroupImage: View {
                 .blur(radius: 26)
                 .offset(x: 116, y: 82)
 
-            Circle()
-                .fill(.white.opacity(0.1))
-                .frame(width: 108, height: 108)
-                .overlay(Circle().stroke(.white.opacity(0.22), lineWidth: 1))
+            fannedCard(rotation: -14, offsetX: -34)
+            fannedCard(rotation: 14, offsetX: 34)
 
-            Image(systemName: fallbackIcon)
-                .font(.system(size: 42, weight: .bold))
-                .foregroundColor(.white.opacity(0.96))
-                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+            // Center hero card carries the concept-specific glyph.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                        .fill(Color.black.opacity(0.4))
+                        .frame(width: 44, height: 7)
+                    Spacer()
+                }
+                HStack {
+                    RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                        .fill(Color.black.opacity(0.24))
+                        .frame(width: 64, height: 7)
+                    Spacer()
+                }
+                Spacer()
+                HStack {
+                    Spacer()
+                    ZStack {
+                        Circle().fill(Color.black.opacity(0.4)).frame(width: 30, height: 30)
+                        Image(systemName: fallbackIcon)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(14)
+            .frame(width: 128, height: 104)
+            .background(
+                LinearGradient(
+                    colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .shadow(color: AuraThemePalette.current.accentStart.opacity(0.5), radius: 14, y: 6)
         }
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+    }
+
+    private func fannedCard(rotation: Double, offsetX: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(.white.opacity(0.55))
+                .frame(width: 30, height: 6)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(.white.opacity(0.32))
+                .frame(width: 44, height: 6)
+            Spacer()
+        }
+        .padding(12)
+        .frame(width: 112, height: 92)
+        .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.26), lineWidth: 1))
+        .rotationEffect(.degrees(rotation), anchor: .bottom)
+        .offset(x: offsetX, y: 6)
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 5)
     }
 }
 
@@ -173,7 +222,7 @@ struct AuraOnboardingView: View {
                 .frame(maxHeight: 520)
 
                 HStack(spacing: 10) {
-                    Button(page == 2 ? "Start V2 Setup" : "Next") {
+                    Button(page == 2 ? "Get Started" : "Next") {
                         AuraHaptics.tap(.medium)
                         if page == 2 {
                             allowOfflineMode = false
