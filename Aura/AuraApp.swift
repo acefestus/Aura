@@ -1281,6 +1281,27 @@ struct GroupList: Identifiable, Codable, Equatable {
     var sharedWithNames: [String] = []
 }
 
+/// A multi-step project with a target date -- distinct from a CalendarEvent
+/// (one dated occurrence) and a routine (a recurring event). Reuses
+/// GroupListItem for its checklist steps rather than inventing a parallel
+/// item type.
+struct GroupPlan: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var title: String
+    var targetDate: Date
+    var notes: String = ""
+    var createdAt: Date
+    var items: [GroupListItem]
+    var ownerName: String = ""
+    var visibility: VisibilityScope = .family
+    var sharedWithNames: [String] = []
+
+    var progress: Double {
+        guard !items.isEmpty else { return 0 }
+        return Double(items.filter(\.isDone).count) / Double(items.count)
+    }
+}
+
 struct GroupStepSnapshot: Identifiable, Codable, Equatable {
     var id = UUID()
     var ownerName: String
@@ -1526,6 +1547,7 @@ struct AuraRemoteConflictInterceptResponse: Codable {
     var afterStart: String?
     var afterEnd: String?
     var remainingConflicts: Int?
+    var updatedEvent: AuraRemoteGroupPayloadRecord?
 }
 
 struct AuraRemoteAuthResponse: Codable {
@@ -1542,17 +1564,6 @@ struct AuraRemoteMeResponse: Codable {
 struct AuraRemoteCurrentHouseholdResponse: Codable {
     var household: AuraRemoteHousehold?
     var membership: AuraRemoteMembership?
-}
-
-struct AuraRemoteCreateHouseholdResponse: Codable {
-    var householdId: String
-    var code: String
-    var membership: AuraRemoteMembership
-}
-
-struct AuraRemoteJoinHouseholdResponse: Codable {
-    var household: AuraRemoteHousehold
-    var membership: AuraRemoteMembership
 }
 
 struct AuraRemoteSnapshotRecord: Codable {
@@ -1785,26 +1796,6 @@ actor AuraServerSyncEngine {
 
     func currentHousehold(baseURL: String, token: String) async throws -> AuraRemoteCurrentHouseholdResponse {
         try await request(baseURL: baseURL, path: "/households/current", token: token)
-    }
-
-    func createHousehold(baseURL: String, token: String, name: String) async throws -> AuraRemoteCreateHouseholdResponse {
-        try await request(
-            baseURL: baseURL,
-            path: "/households",
-            method: "POST",
-            token: token,
-            payload: ["name": name]
-        )
-    }
-
-    func joinHousehold(baseURL: String, token: String, code: String) async throws -> AuraRemoteJoinHouseholdResponse {
-        try await request(
-            baseURL: baseURL,
-            path: "/households/join",
-            method: "POST",
-            token: token,
-            payload: ["code": code]
-        )
     }
 
     func groups(baseURL: String, token: String) async throws -> AuraRemoteGroupsResponse {
@@ -2224,6 +2215,7 @@ class EventStore: ObservableObject {
     @Published var sharedActivity: [SharedActivityEntry] = []
     @Published var members: [GroupMember] = []
     @Published var groupLists: [GroupList] = []
+    @Published var groupPlans: [GroupPlan] = []
     @Published var groupActivities: [GroupActivity] = []
     @Published var groupStepSnapshots: [GroupStepSnapshot] = []
     @Published var activeActivitySession: LiveGroupActivitySession? = nil
@@ -2268,6 +2260,7 @@ class EventStore: ObservableObject {
     private let aKey = "aura.sharedActivity"
     private let mKey = "aura.familyMembers"
     private let lKey = "aura.familyLists"
+    private let pKey = "aura.familyPlans"
     private let fKey = "aura.familyActivities"
     private let sKey = "aura.familyStepSnapshots"
     private let liveActivityKey = "aura.liveFamilyActivity"
@@ -2338,13 +2331,7 @@ class EventStore: ObservableObject {
     }
 
     var currentSyncBackendLabel: String {
-        if hasServerGroup {
-            return "Aura Server"
-        }
-        if !currentGroupCode.isEmpty {
-            return "CloudKit"
-        }
-        return "Local only"
+        hasServerGroup ? "Aura Server" : "Local only"
     }
 
     var isServerOwner: Bool {
@@ -2377,6 +2364,7 @@ class EventStore: ObservableObject {
         loadSharedActivity()
         loadMembers()
         loadGroupLists()
+        loadGroupPlans()
         loadGroupActivities()
         loadGroupStepSnapshots()
         loadLiveActivitySession()
@@ -2598,6 +2586,26 @@ class EventStore: ObservableObject {
         }
 
         return events.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame })
+    }
+
+    /// Reconciles a server-side conflict "fix" back into the local event the
+    /// user actually sees. Without this, /conflicts/intercept only moves the
+    /// backend's copy of the event (groupEvents) -- the app would report
+    /// success while Calendar/Agenda kept showing the old, conflicting time.
+    func applyResolvedConflict(_ response: AuraRemoteConflictInterceptResponse) {
+        guard let updated = response.updatedEvent,
+              let localEvent = eventFromPayload(updated.payload) else { return }
+        let iso = ISO8601DateFormatter()
+        guard
+            let startRaw = updated.payload["startDate"] ?? response.afterStart,
+            let endRaw = updated.payload["endDate"] ?? response.afterEnd,
+            let newStart = iso.date(from: startRaw),
+            let newEnd = iso.date(from: endRaw)
+        else { return }
+        var next = localEvent
+        next.startDate = newStart
+        next.endDate = newEnd
+        updateEvent(next)
     }
 
     func groupListFromPayload(_ payload: [String: String]) -> GroupList? {
@@ -2965,6 +2973,97 @@ class EventStore: ObservableObject {
         guard let i = groupLists.firstIndex(where: { $0.id == listId }) else { return }
         groupLists[i].items.removeAll { $0.id == itemId }
         saveGroupLists()
+    }
+
+    // ── Group Plans ─────────────────────────────────────────
+    func loadGroupPlans() {
+        if let d = shared.data(forKey: pKey),
+           let v = try? JSONDecoder().decode([GroupPlan].self, from: d) {
+            groupPlans = v.sorted { $0.targetDate < $1.targetDate }
+        } else {
+            groupPlans = []
+        }
+    }
+
+    func saveGroupPlans() {
+        if let d = try? JSONEncoder().encode(groupPlans) {
+            shared.set(d, forKey: pKey)
+        }
+        if !applyingRemoteSnapshot { queueSyncPush() }
+    }
+
+    func addGroupPlan(title: String, targetDate: Date, notes: String = "") {
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+        let plan = GroupPlan(title: clean, targetDate: targetDate, notes: notes, createdAt: Date(), items: [], ownerName: activeProfileName)
+        groupPlans.insert(plan, at: 0)
+        groupPlans.sort { $0.targetDate < $1.targetDate }
+        saveGroupPlans()
+        pushPlanToActiveGroup(plan)
+    }
+
+    /// Mirrors a locally-created plan into the active group's shared plans so
+    /// the Personal tab has real data to read (it only reads group-scoped
+    /// records, never local plans).
+    private func pushPlanToActiveGroup(_ plan: GroupPlan) {
+        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
+        let groupId = activeServerGroupId
+        let baseURL = currentBackendBaseURL
+        let token = backendAuthToken
+        let iso = ISO8601DateFormatter()
+        let payload: [String: String] = [
+            "id": plan.id.uuidString,
+            "title": plan.title,
+            "targetDate": iso.string(from: plan.targetDate)
+        ]
+        Task {
+            _ = try? await AuraServerSyncEngine.shared.createGroupPlan(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
+        }
+    }
+
+    func deleteGroupPlan(id: UUID) {
+        groupPlans.removeAll { $0.id == id }
+        saveGroupPlans()
+    }
+
+    func addPlanItem(to planId: UUID, item: GroupListItem) {
+        guard let i = groupPlans.firstIndex(where: { $0.id == planId }) else { return }
+        groupPlans[i].items.append(item)
+        saveGroupPlans()
+    }
+
+    func updatePlanItem(planId: UUID, item: GroupListItem) {
+        guard let i = groupPlans.firstIndex(where: { $0.id == planId }),
+              let j = groupPlans[i].items.firstIndex(where: { $0.id == item.id })
+        else { return }
+        groupPlans[i].items[j] = item
+        saveGroupPlans()
+    }
+
+    func togglePlanItem(planId: UUID, itemId: UUID) {
+        guard let i = groupPlans.firstIndex(where: { $0.id == planId }),
+              let j = groupPlans[i].items.firstIndex(where: { $0.id == itemId })
+        else { return }
+        groupPlans[i].items[j].isDone.toggle()
+        groupPlans[i].items[j].completedByName = groupPlans[i].items[j].isDone ? activeProfileName : nil
+        saveGroupPlans()
+    }
+
+    func deletePlanItem(planId: UUID, itemId: UUID) {
+        guard let i = groupPlans.firstIndex(where: { $0.id == planId }) else { return }
+        groupPlans[i].items.removeAll { $0.id == itemId }
+        saveGroupPlans()
+    }
+
+    func planFromPayload(_ payload: [String: String]) -> GroupPlan? {
+        if let rawId = payload["id"],
+           let id = UUID(uuidString: rawId),
+           let exact = groupPlans.first(where: { $0.id == id }) {
+            return exact
+        }
+        let title = payload["title"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if title.isEmpty { return nil }
+        return groupPlans.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame })
     }
 
     // ── Group Activities ───────────────────────────────────
@@ -4588,6 +4687,8 @@ struct PersonalHubView: View {
     @EnvironmentObject var shareManager: ShareManager
     @State private var selectedEvent: CalendarEvent? = nil
     @State private var selectedList: GroupList? = nil
+    @State private var selectedPlan: GroupPlan? = nil
+    @State private var showAddPlan = false
     @State private var statusMessage = ""
     @State private var showStatusMessage = false
     @State private var dismissedConflictIds: Set<String> = []
@@ -4655,20 +4756,28 @@ struct PersonalHubView: View {
                     }
 
                     HomeSectionCard(title: "My Plans") {
+                        Button {
+                            showAddPlan = true
+                        } label: {
+                            Label("New Plan", systemImage: "plus.circle.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .padding(.bottom, 2)
+
                         if store.isLoadingPersonalLayer {
                             HomeLoadingRows()
                         } else if store.personalPlanItems.isEmpty {
-                            Text("No plan steps assigned yet.")
+                            Text("No plans yet. Tap New Plan to start one.")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
                                 ForEach(store.personalPlanItems.prefix(5)) { item in
                                     PersonalAggregateRow(item: item, fallbackIcon: "list.bullet.rectangle") {
-                                        if let event = store.eventFromPayload(item.payload) {
-                                            selectedEvent = event
+                                        if let plan = store.planFromPayload(item.payload) {
+                                            selectedPlan = plan
                                         } else {
-                                            statusMessage = "Plan source detail opening will expand in the next chunk."
+                                            statusMessage = "Source plan not found locally yet."
                                             showStatusMessage = true
                                         }
                                     }
@@ -4780,6 +4889,14 @@ struct PersonalHubView: View {
                 GroupListDetailView(listId: list.id)
                     .environmentObject(store)
             }
+            .sheet(item: $selectedPlan) { plan in
+                GroupPlanDetailView(planId: plan.id)
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showAddPlan) {
+                AddGroupPlanView(isPresented: $showAddPlan)
+                    .environmentObject(store)
+            }
             .alert("Personal Layer", isPresented: $showStatusMessage) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -4848,6 +4965,7 @@ struct PersonalHubView: View {
                         let afterDate = ISO8601DateFormatter().date(from: afterISO)
                     {
                         let title = response.eventTitle ?? "Event"
+                        store.applyResolvedConflict(response)
                         if let remaining = response.remainingConflicts {
                             statusMessage = "\(title) moved to \(afterDate.formatted(date: .abbreviated, time: .shortened)). Remaining overlaps: \(remaining)."
                         } else {
@@ -6015,6 +6133,250 @@ struct AddGroupListItemView: View {
                 note = editingItem.note
                 assignedMemberId = editingItem.assignedMemberId
                 preferredStore = editingItem.preferredStore ?? .others
+                if let due = editingItem.dueDate {
+                    dueDate = due
+                    hasDueDate = true
+                }
+            }
+        }
+    }
+}
+
+struct AddGroupPlanView: View {
+    @EnvironmentObject var store: EventStore
+    @Binding var isPresented: Bool
+    @State private var title = ""
+    @State private var targetDate = Date().addingTimeInterval(7 * 86400)
+    @State private var notes = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Plan") {
+                    TextField("e.g. Mom's Birthday Party", text: $title)
+                    DatePicker("Target Date", selection: $targetDate, displayedComponents: [.date])
+                }
+                Section("Notes") {
+                    TextField("Optional notes", text: $notes)
+                }
+            }
+            .navigationTitle("New Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { isPresented = false }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Create") {
+                        AuraHaptics.success()
+                        store.addGroupPlan(title: title, targetDate: targetDate, notes: notes)
+                        isPresented = false
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+struct GroupPlanDetailView: View {
+    @EnvironmentObject var store: EventStore
+    @Environment(\.dismiss) var dismiss
+    let planId: UUID
+    @State private var showAddItem = false
+    @State private var editItem: GroupListItem? = nil
+
+    var plan: GroupPlan? {
+        store.groupPlans.first(where: { $0.id == planId })
+    }
+
+    var body: some View {
+        NavigationView {
+            List {
+                if let plan {
+                    Section {
+                        HStack {
+                            Text("Target Date")
+                            Spacer()
+                            Text(plan.targetDate.formatted(date: .abbreviated, time: .omitted))
+                                .foregroundColor(.secondary)
+                        }
+                        if !plan.notes.isEmpty {
+                            Text(plan.notes)
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        }
+                        ProgressView(value: plan.progress)
+                            .tint(AuraThemePalette.current.accentStart)
+                    }
+
+                    Section("Steps") {
+                        if plan.items.isEmpty {
+                            Text("No steps yet")
+                                .foregroundColor(.secondary)
+                        } else {
+                            ForEach(plan.items) { item in
+                                itemRow(item)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(plan?.title ?? "Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showAddItem = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAddItem) {
+            AddGroupPlanItemView(isPresented: $showAddItem, planId: planId)
+                .environmentObject(store)
+        }
+        .sheet(item: $editItem) { item in
+            AddGroupPlanItemView(isPresented: .constant(true), planId: planId, editingItem: item)
+                .environmentObject(store)
+        }
+    }
+
+    @ViewBuilder
+    private func itemRow(_ item: GroupListItem) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                AuraHaptics.tap(.light)
+                withAnimation(AuraMotion.quick) {
+                    store.togglePlanItem(planId: planId, itemId: item.id)
+                }
+            } label: {
+                Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(item.isDone ? .green : .secondary)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.name)
+                    .font(.system(size: 15, weight: .semibold))
+                    .strikethrough(item.isDone)
+                    .foregroundColor(item.isDone ? .secondary : .primary)
+                if !item.note.isEmpty {
+                    Text(item.note)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            if let id = item.assignedMemberId,
+               let m = store.members.first(where: { $0.id == id }) {
+                Text(m.name)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(m.color)
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            Button {
+                editItem = item
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            .tint(AuraThemePalette.current.accentStart)
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                store.deletePlanItem(planId: planId, itemId: item.id)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+}
+
+struct AddGroupPlanItemView: View {
+    @EnvironmentObject var store: EventStore
+    @Environment(\.dismiss) var dismiss
+    @Binding var isPresented: Bool
+    let planId: UUID
+    var editingItem: GroupListItem? = nil
+
+    @State private var name = ""
+    @State private var note = ""
+    @State private var assignedMemberId: UUID? = nil
+    @State private var dueDate = Date()
+    @State private var hasDueDate = false
+
+    private func closeView() {
+        if editingItem == nil {
+            isPresented = false
+        } else {
+            dismiss()
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Step") {
+                    TextField("e.g. Book the venue", text: $name)
+                    Toggle("Set date", isOn: $hasDueDate)
+                    if hasDueDate {
+                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date])
+                    }
+                }
+                Section("Assignment") {
+                    Picker("Assigned To", selection: $assignedMemberId) {
+                        Text("Anyone").tag(UUID?.none)
+                        ForEach(store.members) { m in
+                            Text(m.name).tag(Optional(m.id))
+                        }
+                    }
+                }
+                Section("Notes") {
+                    TextField("Optional note", text: $note)
+                }
+            }
+            .navigationTitle("Add Step")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { closeView() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(editingItem == nil ? "Add" : "Save") {
+                        AuraHaptics.success()
+                        let item = GroupListItem(
+                            id: editingItem?.id ?? UUID(),
+                            name: name,
+                            quantity: "",
+                            note: note,
+                            isDone: editingItem?.isDone ?? false,
+                            assignedMemberId: assignedMemberId,
+                            preferredStore: nil,
+                            dueDate: hasDueDate ? dueDate : nil,
+                            boughtAt: editingItem?.boughtAt
+                        )
+                        if editingItem == nil {
+                            store.addPlanItem(to: planId, item: item)
+                        } else {
+                            store.updatePlanItem(planId: planId, item: item)
+                        }
+                        closeView()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear {
+                guard let editingItem else { return }
+                name = editingItem.name
+                note = editingItem.note
+                assignedMemberId = editingItem.assignedMemberId
                 if let due = editingItem.dueDate {
                     dueDate = due
                     hasDueDate = true

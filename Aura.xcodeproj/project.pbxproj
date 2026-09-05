@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000003 /* AuraApp.swift */; };
-		232A7F4C2B5E8A9100000020 /* WidgetDesignPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */; };
 		232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000005 /* Assets.xcassets */; };
 		AW00000001 /* AuraWidget.swift in Sources */    = {isa = PBXBuildFile; fileRef = AW00000101 /* AuraWidget.swift */; };
 		AW00000002 /* Assets.xcassets in Resources */   = {isa = PBXBuildFile; fileRef = AW00000102 /* Assets.xcassets */; };
@@ -43,7 +42,6 @@
 
 /* Begin PBXFileReference section */
 		232A7F4C2B5E8A9100000003 /* AuraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraApp.swift; sourceTree = "<group>"; };
-		232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDesignPreviews.swift; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AW00000107 /* Aura.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Aura.entitlements; sourceTree = "<group>"; };
@@ -91,7 +89,6 @@
 			isa = PBXGroup;
 			children = (
 				232A7F4C2B5E8A9100000003 /* AuraApp.swift */,
-				232A7F4C2B5E8A910000001F /* WidgetDesignPreviews.swift */,
 				232A7F4C2B5E8A9100000005 /* Assets.xcassets */,
 				232A7F4C2B5E8A9100000007 /* Info.plist */,
 				AW00000107 /* Aura.entitlements */,
@@ -229,7 +226,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */,
-				232A7F4C2B5E8A9100000020 /* WidgetDesignPreviews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
