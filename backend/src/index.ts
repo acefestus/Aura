@@ -1,5 +1,6 @@
 import "dotenv/config";
 import path from "node:path";
+import { randomInt } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -234,8 +235,14 @@ function logAuditEntry(
   db.audits.push(entry);
 }
 
+const JOIN_CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 function randomHouseholdCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  let code = "";
+  for (let i = 0; i < 6; i += 1) {
+    code += JOIN_CODE_ALPHABET[randomInt(JOIN_CODE_ALPHABET.length)];
+  }
+  return code;
 }
 
 function logGroupAuditEntry(
