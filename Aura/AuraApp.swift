@@ -8841,8 +8841,8 @@ struct SettingsView: View {
             ),
             (
                 "Connection",
-                store.hasServerGroup || !householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                "Link a server or workspace join code"
+                store.hasServerGroup,
+                "Sign in and create or join a group"
             ),
             (
                 "Notifications",
