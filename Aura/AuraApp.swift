@@ -2446,7 +2446,7 @@ class EventStore: ObservableObject {
         let token = backendAuthToken
         let iso = ISO8601DateFormatter()
         let payload: [String: String] = [
-            "localId": e.id.uuidString,
+            "id": e.id.uuidString,
             "title": e.title,
             "notes": e.notes,
             "startDate": iso.string(from: e.startDate),
@@ -2456,6 +2456,16 @@ class EventStore: ObservableObject {
         ]
         Task {
             _ = try? await AuraServerSyncEngine.shared.createGroupEvent(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
+        }
+
+        guard e.recurrence != .none else { return }
+        let routinePayload: [String: String] = [
+            "id": e.id.uuidString,
+            "title": e.title,
+            "cadence": e.recurrence.rawValue
+        ]
+        Task {
+            _ = try? await AuraServerSyncEngine.shared.createGroupRoutine(baseURL: baseURL, token: token, groupId: groupId, payload: routinePayload)
         }
     }
     func deleteEvent(id: UUID) {
