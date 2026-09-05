@@ -3084,16 +3084,6 @@ class EventStore: ObservableObject {
         groupStepSnapshots.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
     }
 
-    func updateHouseholdCode(_ code: String) {
-        householdCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        if householdCode.isEmpty {
-            syncStatus = "Sync disabled"
-        } else {
-            syncStatus = hasServerGroup ? "Group code ready" : "Group linked"
-            queueSyncPush()
-        }
-    }
-
     func updateBackendBaseURL(_ value: String) {
         backendBaseURL = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if backendBaseURL.isEmpty && backendAuthToken.isEmpty {
@@ -9398,24 +9388,21 @@ struct SettingsView: View {
 
                 // ── Group Sync ─────────────────────────────
                 Section {
-                    TextField("Group Code", text: $householdCode)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-
                     if store.hasServerSession {
+                        TextField("Group Code", text: $householdCode)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
                         TextField("Server group name", text: $householdNameDraft)
-                    }
 
-                    HStack {
-                        Label("Status", systemImage: "arrow.triangle.2.circlepath")
-                        Spacer()
-                        Text(store.syncStatus)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.secondary)
-                    }
+                        HStack {
+                            Label("Status", systemImage: "arrow.triangle.2.circlepath")
+                            Spacer()
+                            Text(store.syncStatus)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
 
-                    Button {
-                        if store.hasServerSession {
+                        Button {
                             isServerWorking = true
                             serverMessage = ""
                             Task {
@@ -9432,18 +9419,10 @@ struct SettingsView: View {
                                     }
                                 }
                             }
-                        } else {
-                            if householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                householdCode = String(UUID().uuidString.prefix(8)).lowercased()
-                            }
-                            store.updateHouseholdCode(householdCode)
-                            store.forceSyncNow()
+                        } label: {
+                            Label("Create Server Group", systemImage: "person.3.sequence.fill")
                         }
-                    } label: {
-                        Label(store.hasServerSession ? "Create Server Group" : "Link / Create Group", systemImage: "person.3.sequence.fill")
-                    }
 
-                    if store.hasServerSession {
                         Button {
                             isServerWorking = true
                             serverMessage = ""
@@ -9467,18 +9446,22 @@ struct SettingsView: View {
                         if !backendStoredGroupName.isEmpty || !store.serverGroupName.isEmpty {
                             LabeledContent("Current group", value: store.serverGroupName.isEmpty ? backendStoredGroupName : store.serverGroupName)
                         }
-                    }
 
-                    Button {
-                        store.forceSyncNow()
-                    } label: {
-                        Label("Sync Now", systemImage: "arrow.clockwise")
+                        Button {
+                            store.forceSyncNow()
+                        } label: {
+                            Label("Sync Now", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    } else {
+                        Label("Sign in to sync groups across devices.", systemImage: "person.crop.circle.badge.exclamationmark")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
-                    .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } header: {
                     Text("Group Sync")
                 } footer: {
-                    Text(store.hasServerSession ? "Invite members by sharing the group code after they create or sign in to an account." : "Use the same group code on each device to sync lists and activities.")
+                    Text(store.hasServerSession ? "Invite members by sharing the group code after they create or sign in to an account." : "Group sync requires a signed-in account -- there's no offline sync path.")
                 }
 
                 // ── Profile ─────────────────────────────
