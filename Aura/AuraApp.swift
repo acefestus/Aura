@@ -1586,18 +1586,6 @@ struct AuraRemoteOkEnvelope: Codable {
     var ok: Bool
 }
 
-struct AuraRemoteHouseholdMemberRecord: Codable, Identifiable {
-    var membership: AuraRemoteMembership
-    var user: AuraRemoteUser?
-
-    var id: String { membership.userId }
-}
-
-struct AuraRemoteAdminMembersResponse: Codable {
-    var household: AuraRemoteHousehold
-    var currentUserId: String
-    var members: [AuraRemoteHouseholdMemberRecord]
-}
 
 struct AuraRemoteAuditEntry: Codable, Identifiable {
     var id: String
@@ -1967,42 +1955,6 @@ actor AuraServerSyncEngine {
         )
     }
 
-    func adminMembers(baseURL: String, token: String) async throws -> AuraRemoteAdminMembersResponse {
-        try await request(baseURL: baseURL, path: "/admin/household/members", token: token)
-    }
-
-    func adminUpdateRole(baseURL: String, token: String, userId: String, role: String) async throws -> AuraRemoteMembershipEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/admin/household/members/\(userId)/role",
-            method: "PATCH",
-            token: token,
-            payload: ["role": role]
-        )
-    }
-
-    func adminRemoveMember(baseURL: String, token: String, userId: String) async throws -> AuraRemoteOkEnvelope {
-        try await request(baseURL: baseURL, path: "/admin/household/members/\(userId)", method: "DELETE", token: token)
-    }
-
-    func adminTransferOwner(baseURL: String, token: String, userId: String) async throws -> AuraRemoteMembershipEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/admin/household/transfer-owner",
-            method: "POST",
-            token: token,
-            payload: ["userId": userId]
-        )
-    }
-
-    func adminRegenerateCode(baseURL: String, token: String) async throws -> AuraRemoteHouseholdEnvelope {
-        try await request(baseURL: baseURL, path: "/admin/household/regenerate-code", method: "POST", token: token, payload: EmptyPayload())
-    }
-
-    func adminAudit(baseURL: String, token: String) async throws -> AuraRemoteAuditResponse {
-        try await request(baseURL: baseURL, path: "/admin/household/audit", token: token)
-    }
-
     func groupConflictHistory(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupConflictHistoryResponse {
         try await request(baseURL: baseURL, path: "/groups/\(groupId)/conflicts/history", token: token)
     }
@@ -2045,14 +1997,6 @@ actor AuraServerSyncEngine {
 }
 
 private struct EmptyPayload: Encodable {}
-
-struct AuraRemoteMembershipEnvelope: Codable {
-    var membership: AuraRemoteMembership
-}
-
-struct AuraRemoteHouseholdEnvelope: Codable {
-    var household: AuraRemoteHousehold
-}
 
 @MainActor
 final class ShareManager: ObservableObject {
@@ -2228,8 +2172,6 @@ class EventStore: ObservableObject {
     @Published var serverIsAdmin = false
     @Published var serverUserId = ""
     @Published var serverGroups: [AuraRemoteGroupRecord] = []
-    @Published var serverGroupMembers: [AuraRemoteHouseholdMemberRecord] = []
-    @Published var serverAuditEntries: [AuraRemoteAuditEntry] = []
     @Published var activeGroupMemberRecords: [AuraRemoteGroupMemberRecord] = []
     @Published var activeGroupAuditEntries: [AuraRemoteAuditEntry] = []
     @Published var isLoadingActiveGroupAdmin = false
@@ -3214,8 +3156,6 @@ class EventStore: ObservableObject {
         serverIsAdmin = false
         serverUserId = ""
         serverGroups = []
-        serverGroupMembers = []
-        serverAuditEntries = []
         serverGroupConflictHistoryEntries = []
         personalMasterCalendarItems = []
         personalTaskItems = []
@@ -3299,12 +3239,7 @@ class EventStore: ObservableObject {
                 }
             }
             await refreshServerGroups()
-            if isServerOwner {
-                await refreshServerAdminData()
-            } else {
-                serverGroupMembers = []
-                serverAuditEntries = []
-            }
+            await refreshServerAdminData()
             syncStatus = hasServerGroup ? "Server workspace connected" : "Signed in · no active group yet"
         } catch {
             _ = mapServerError(error, fallbackStatus: "Server refresh failed")
@@ -3409,19 +3344,10 @@ class EventStore: ObservableObject {
 
     func refreshServerAdminData() async {
         guard hasServerSession, isServerOwner else {
-            serverGroupMembers = []
-            serverAuditEntries = []
             serverGroupConflictHistoryEntries = []
             return
         }
         do {
-            let members = try await AuraServerSyncEngine.shared.adminMembers(baseURL: currentBackendBaseURL, token: backendAuthToken)
-            serverGroupMembers = members.members
-            if let code = Optional(members.household.code), !code.isEmpty {
-                householdCode = code
-            }
-            let audit = try await AuraServerSyncEngine.shared.adminAudit(baseURL: currentBackendBaseURL, token: backendAuthToken)
-            serverAuditEntries = audit.entries
             if !activeServerGroupId.isEmpty {
                 let conflicts = try await AuraServerSyncEngine.shared.groupConflictHistory(
                     baseURL: currentBackendBaseURL,
@@ -3434,64 +3360,6 @@ class EventStore: ObservableObject {
             }
         } catch {
             _ = mapServerError(error, fallbackStatus: "Admin refresh failed")
-        }
-    }
-
-    func updateServerMemberRole(userId: String, role: String) async -> Result<Void, Error> {
-        guard hasServerSession, isServerOwner else {
-            return .failure(AuraServerError.requestFailed("Owner access required."))
-        }
-        do {
-            _ = try await AuraServerSyncEngine.shared.adminUpdateRole(baseURL: currentBackendBaseURL, token: backendAuthToken, userId: userId, role: role)
-            await refreshServerAdminData()
-            syncStatus = "Member role updated"
-            return .success(())
-        } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Role update failed"))
-        }
-    }
-
-    func removeServerMember(userId: String) async -> Result<Void, Error> {
-        guard hasServerSession, isServerOwner else {
-            return .failure(AuraServerError.requestFailed("Owner access required."))
-        }
-        do {
-            _ = try await AuraServerSyncEngine.shared.adminRemoveMember(baseURL: currentBackendBaseURL, token: backendAuthToken, userId: userId)
-            await refreshServerAdminData()
-            syncStatus = "Member removed"
-            return .success(())
-        } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Remove member failed"))
-        }
-    }
-
-    func transferServerOwnership(to userId: String) async -> Result<Void, Error> {
-        guard hasServerSession, isServerOwner else {
-            return .failure(AuraServerError.requestFailed("Owner access required."))
-        }
-        do {
-            _ = try await AuraServerSyncEngine.shared.adminTransferOwner(baseURL: currentBackendBaseURL, token: backendAuthToken, userId: userId)
-            await refreshServerContext()
-            await refreshServerAdminData()
-            syncStatus = "Ownership transferred"
-            return .success(())
-        } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Transfer owner failed"))
-        }
-    }
-
-    func regenerateServerJoinCode() async -> Result<String, Error> {
-        guard hasServerSession, isServerOwner else {
-            return .failure(AuraServerError.requestFailed("Owner access required."))
-        }
-        do {
-            let response = try await AuraServerSyncEngine.shared.adminRegenerateCode(baseURL: currentBackendBaseURL, token: backendAuthToken)
-            householdCode = response.household.code
-            await refreshServerAdminData()
-            syncStatus = "Join code regenerated"
-            return .success(response.household.code)
-        } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Regenerate code failed"))
         }
     }
 
@@ -8945,57 +8813,6 @@ struct SettingsView: View {
     @State private var newPassword = ""
     @State private var serverMessage = ""
     @State private var isServerWorking = false
-    @State private var pendingAdminAction: AdminConfirmationAction? = nil
-
-    private enum AdminConfirmationAction: Identifiable {
-        case transferOwnership(userId: String, memberName: String)
-        case removeMember(userId: String, memberName: String)
-
-        var id: String {
-            switch self {
-            case .transferOwnership(let userId, _):
-                return "transfer-\(userId)"
-            case .removeMember(let userId, _):
-                return "remove-\(userId)"
-            }
-        }
-
-        var title: String {
-            switch self {
-            case .transferOwnership:
-                return "Transfer Ownership?"
-            case .removeMember:
-                return "Remove Member?"
-            }
-        }
-
-        var message: String {
-            switch self {
-            case .transferOwnership(_, let memberName):
-                return "This will make \(memberName) an owner and may demote your account to member."
-            case .removeMember(_, let memberName):
-                return "\(memberName) will be removed from this workspace and lose access to shared data."
-            }
-        }
-
-        var confirmLabel: String {
-            switch self {
-            case .transferOwnership:
-                return "Transfer"
-            case .removeMember:
-                return "Remove"
-            }
-        }
-
-        var isDestructive: Bool {
-            switch self {
-            case .transferOwnership:
-                return false
-            case .removeMember:
-                return true
-            }
-        }
-    }
 
     var allThemes: [WidgetGradientTheme] { WidgetGradientTheme.presets + customThemes }
     var selectedTheme: WidgetGradientTheme? { allThemes.first { $0.id == selectedThemeId } }
@@ -9094,20 +8911,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    HStack(spacing: 8) {
-                        Image(systemName: "externaldrive.badge.icloud")
-                            .foregroundColor(AuraThemePalette.current.accentStart)
-                        Text("Account and connection controls live here.")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    Text("Use this section for connection setup and account operations.")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                } header: {
-                    Text("Account & Server")
-                }
-
-                Section {
                     Toggle("Allow Offline Mode", isOn: $allowOfflineMode)
 
                     Picker("Auth Hero Style", selection: $authHeroMode) {
@@ -9132,7 +8935,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Sync & Backup")
                 } footer: {
-                    Text("Use this panel for backend connection, onboarding replay, and sync-related recovery.")
+                    Text("Use this panel for offline mode, onboarding replay, and sync-related recovery.")
                 }
 
                 Section("Active Member") {
@@ -9359,136 +9162,6 @@ struct SettingsView: View {
 
                 if store.hasServerSession && store.isServerOwner {
                     Section {
-                        Button {
-                            isServerWorking = true
-                            serverMessage = ""
-                            Task {
-                                let result = await store.regenerateServerJoinCode()
-                                await MainActor.run {
-                                    isServerWorking = false
-                                    switch result {
-                                    case .success(let code):
-                                        householdCode = code
-                                        serverMessage = "New group code: \(code)"
-                                    case .failure(let error):
-                                        serverMessage = error.localizedDescription
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label("Regenerate Group Code", systemImage: "qrcode")
-                        }
-
-                        Button {
-                            isServerWorking = true
-                            serverMessage = ""
-                            Task {
-                                await store.refreshServerAdminData()
-                                await MainActor.run {
-                                    isServerWorking = false
-                                    serverMessage = "Admin data refreshed."
-                                }
-                            }
-                        } label: {
-                            Label("Refresh Admin Data", systemImage: "arrow.clockwise")
-                        }
-
-                        ForEach(store.serverGroupMembers) { record in
-                            HStack(spacing: 10) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(record.user?.displayName ?? record.user?.email ?? "Unknown")
-                                        .font(.system(size: 14, weight: .semibold))
-                                    Text(record.user?.email ?? record.membership.userId)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Text(record.membership.role)
-                                    .font(.system(size: 11, weight: .bold))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 5)
-                                    .background(Color(.tertiarySystemFill), in: Capsule())
-
-                                if record.membership.userId != store.serverUserId {
-                                    Menu {
-                                        if record.membership.role == "Owner" {
-                                            Button("Set as Member") {
-                                                isServerWorking = true
-                                                Task {
-                                                    let result = await store.updateServerMemberRole(userId: record.membership.userId, role: "Member")
-                                                    await MainActor.run {
-                                                        isServerWorking = false
-                                                        if case .failure(let error) = result {
-                                                            serverMessage = error.localizedDescription
-                                                        } else {
-                                                            serverMessage = "Member role updated."
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            Button("Promote to Owner") {
-                                                isServerWorking = true
-                                                Task {
-                                                    let result = await store.updateServerMemberRole(userId: record.membership.userId, role: "Owner")
-                                                    await MainActor.run {
-                                                        isServerWorking = false
-                                                        if case .failure(let error) = result {
-                                                            serverMessage = error.localizedDescription
-                                                        } else {
-                                                            serverMessage = "Owner added."
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Button("Transfer Ownership") {
-                                            let memberName = record.user?.displayName ?? record.user?.email ?? "this member"
-                                            pendingAdminAction = .transferOwnership(userId: record.membership.userId, memberName: memberName)
-                                        }
-
-                                        Button("Remove Member", role: .destructive) {
-                                            let memberName = record.user?.displayName ?? record.user?.email ?? "this member"
-                                            pendingAdminAction = .removeMember(userId: record.membership.userId, memberName: memberName)
-                                        }
-                                    } label: {
-                                        Image(systemName: "ellipsis.circle")
-                                            .font(.system(size: 18, weight: .semibold))
-                                    }
-                                }
-                            }
-                        }
-                    } header: {
-                        Text("Workspace Admin")
-                    } footer: {
-                        Text("Owner-only tools for role management, transfers, and workspace security.")
-                    }
-
-                    Section("Admin Audit Log") {
-                        if store.serverAuditEntries.isEmpty {
-                            Text("No audit entries yet.")
-                                .foregroundColor(.secondary)
-                        }
-
-                        ForEach(store.serverAuditEntries.prefix(12)) { entry in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(entry.action.replacingOccurrences(of: "_", with: " ").capitalized)
-                                    .font(.system(size: 13, weight: .semibold))
-                                if let details = entry.details, !details.isEmpty {
-                                    Text(details)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                Text(entry.createdAt)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-
-                    Section {
                         if store.activeServerGroupId.isEmpty {
                             Text("Select an active group to view conflict history.")
                                 .foregroundColor(.secondary)
@@ -9703,21 +9376,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    ForEach(readinessChecks, id: \.title) { check in
-                        HStack {
-                            Image(systemName: check.isReady ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                                .foregroundColor(check.isReady ? .green : .orange)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(check.title)
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text(check.isReady ? "Ready" : check.detail)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                    }
-
                     Button {
                         let report = store.runDataIntegritySweep()
                         serverMessage = report.totalFixes == 0
@@ -9734,9 +9392,9 @@ struct SettingsView: View {
                         Label("Rebuild Event Notifications", systemImage: "bell.and.waveform")
                     }
                 } header: {
-                    Text("Release Readiness")
+                    Text("Maintenance")
                 } footer: {
-                    Text("\(releaseReadyCount)/\(readinessChecks.count) readiness checks passed.")
+                    Text("Data integrity checks and notification rebuilds -- use these if something looks out of sync.")
                 }
 
                 // ── Group Sync ─────────────────────────────
@@ -9893,49 +9551,6 @@ struct SettingsView: View {
                 if let d = widgetThemeJSON.data(using: .utf8),
                    let t = try? JSONDecoder().decode(WidgetGradientTheme.self, from: d) {
                     selectedThemeId = t.id
-                }
-            }
-            .alert(item: $pendingAdminAction) { action in
-                Alert(
-                    title: Text(action.title),
-                    message: Text(action.message),
-                    primaryButton: action.isDestructive
-                        ? .destructive(Text(action.confirmLabel)) {
-                            performConfirmedAdminAction(action)
-                        }
-                        : .default(Text(action.confirmLabel)) {
-                            performConfirmedAdminAction(action)
-                        },
-                    secondaryButton: .cancel()
-                )
-            }
-        }
-    }
-
-    private func performConfirmedAdminAction(_ action: AdminConfirmationAction) {
-        isServerWorking = true
-        serverMessage = ""
-        Task {
-            switch action {
-            case .transferOwnership(let userId, _):
-                let result = await store.transferServerOwnership(to: userId)
-                await MainActor.run {
-                    isServerWorking = false
-                    if case .failure(let error) = result {
-                        serverMessage = error.localizedDescription
-                    } else {
-                        serverMessage = "Ownership transferred."
-                    }
-                }
-            case .removeMember(let userId, _):
-                let result = await store.removeServerMember(userId: userId)
-                await MainActor.run {
-                    isServerWorking = false
-                    if case .failure(let error) = result {
-                        serverMessage = error.localizedDescription
-                    } else {
-                        serverMessage = "Member removed."
-                    }
                 }
             }
         }
