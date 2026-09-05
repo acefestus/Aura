@@ -83,7 +83,8 @@ export interface HouseholdSnapshot {
 
 export interface HouseholdAuditEntry {
   id: string;
-  householdId: string;
+  householdId?: string;
+  groupId?: string;
   actorUserId: string;
   action: string;
   targetUserId?: string;

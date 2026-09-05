@@ -213,6 +213,25 @@ function randomHouseholdCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function logGroupAuditEntry(
+  db: DatabaseShape,
+  actorUserId: string,
+  groupId: string,
+  action: string,
+  options: { targetUserId?: string; details?: string } = {}
+) {
+  const entry: HouseholdAuditEntry = {
+    id: uuidv4(),
+    groupId,
+    actorUserId,
+    action,
+    targetUserId: options.targetUserId,
+    details: options.details,
+    createdAt: new Date().toISOString()
+  };
+  db.audits.push(entry);
+}
+
 function normalizeRole(role: string): GroupRole {
   switch (role) {
     case "Owner":
@@ -1157,8 +1176,117 @@ app.patch("/groups/:groupId/members/:userId/role", requireAuth, async (req: Auth
   }
 
   targetMembership.role = nextRole;
+  logGroupAuditEntry(context.db, context.userId, context.group.id, "member_role_changed", {
+    targetUserId,
+    details: nextRole
+  });
   await store.write(context.db);
   res.json({ membership: targetMembership });
+});
+
+app.delete("/groups/:groupId/members/:userId", requireAuth, async (req: AuthRequest, res) => {
+  const context = await getGroupMemberContext(req, res, ["Owner"]);
+  if (!context) {
+    return;
+  }
+
+  const targetUserParam = req.params.userId;
+  const targetUserId = Array.isArray(targetUserParam) ? targetUserParam[0] : targetUserParam;
+  if (!targetUserId) {
+    res.status(400).json({ error: "Missing user id" });
+    return;
+  }
+
+  if (targetUserId === context.userId) {
+    res.status(400).json({ error: "Owners cannot remove themselves." });
+    return;
+  }
+
+  const targetIndex = context.db.groupMemberships.findIndex(
+    (candidate) => candidate.groupId === context.group.id && candidate.userId === targetUserId
+  );
+  if (targetIndex < 0) {
+    res.status(404).json({ error: "Membership not found" });
+    return;
+  }
+
+  const target = context.db.groupMemberships[targetIndex];
+  if (target.role === "Owner") {
+    const ownerCount = context.db.groupMemberships.filter(
+      (candidate) => candidate.groupId === context.group.id && candidate.role === "Owner"
+    ).length;
+    if (ownerCount <= 1) {
+      res.status(400).json({ error: "A group must have at least one owner." });
+      return;
+    }
+  }
+
+  context.db.groupMemberships.splice(targetIndex, 1);
+  logGroupAuditEntry(context.db, context.userId, context.group.id, "member_removed", { targetUserId });
+  await store.write(context.db);
+  res.json({ ok: true });
+});
+
+app.post("/groups/:groupId/transfer-owner", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = transferOwnerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const context = await getGroupMemberContext(req, res, ["Owner"]);
+  if (!context) {
+    return;
+  }
+
+  if (parsed.data.userId === context.userId) {
+    res.status(400).json({ error: "You already own this group." });
+    return;
+  }
+
+  const targetMembership = context.db.groupMemberships.find(
+    (candidate) => candidate.groupId === context.group.id && candidate.userId === parsed.data.userId
+  );
+  if (!targetMembership) {
+    res.status(404).json({ error: "Target member not found" });
+    return;
+  }
+
+  targetMembership.role = "Owner";
+  context.membership.role = "Admin";
+  logGroupAuditEntry(context.db, context.userId, context.group.id, "owner_transferred", {
+    targetUserId: parsed.data.userId
+  });
+  await store.write(context.db);
+  res.json({ membership: targetMembership });
+});
+
+app.post("/groups/:groupId/regenerate-code", requireAuth, async (req: AuthRequest, res) => {
+  const context = await getGroupMemberContext(req, res, ["Owner"]);
+  if (!context) {
+    return;
+  }
+
+  context.group.code = randomHouseholdCode();
+  logGroupAuditEntry(context.db, context.userId, context.group.id, "join_code_regenerated", {
+    details: context.group.code
+  });
+  await store.write(context.db);
+  res.json({ group: context.group });
+});
+
+app.get("/groups/:groupId/audit", requireAuth, async (req: AuthRequest, res) => {
+  const context = await getGroupMemberContext(req, res, ["Owner"]);
+  if (!context) {
+    return;
+  }
+
+  const entries = context.db.audits
+    .filter((entry) => entry.groupId === context.group.id)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 100);
+
+  res.json({ entries });
 });
 
 app.get("/groups/:groupId/events", requireAuth, async (req: AuthRequest, res) => {
