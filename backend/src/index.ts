@@ -639,7 +639,13 @@ app.post("/conflicts/check", requireAuth, async (req: AuthRequest, res) => {
     .filter((candidate) => context.groupIds.has(candidate.groupId))
     .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
 
-  const conflicts: Array<{ leftEventId: string; rightEventId: string; severity: "Soft" | "Hard" | "Critical" }> = [];
+  const conflicts: Array<{
+    leftEventId: string;
+    rightEventId: string;
+    leftEventTitle: string;
+    rightEventTitle: string;
+    severity: "Soft" | "Hard" | "Critical";
+  }> = [];
   for (let index = 0; index < events.length; index += 1) {
     const current = events[index];
     if (!current) {
@@ -673,7 +679,13 @@ app.post("/conflicts/check", requireAuth, async (req: AuthRequest, res) => {
         severity = "Hard";
       }
 
-      conflicts.push({ leftEventId: current.id, rightEventId: next.id, severity });
+      conflicts.push({
+        leftEventId: current.id,
+        rightEventId: next.id,
+        leftEventTitle: typeof current.payload.title === "string" ? current.payload.title : "Untitled event",
+        rightEventTitle: typeof next.payload.title === "string" ? next.payload.title : "Untitled event",
+        severity
+      });
     }
   }
 

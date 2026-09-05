@@ -11,6 +11,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 import CloudKit
 import HealthKit
+import LocalAuthentication
 
 // MARK: - App Entry
 
@@ -25,7 +26,6 @@ struct AuraApp: App {
             AuraAppShellView()
                 .environmentObject(store)
                 .environmentObject(shareManager)
-                .onAppear { NotificationManager.shared.requestPermission() }
                 .onOpenURL { url in
                     shareManager.handleIncomingURL(url)
                 }
@@ -60,7 +60,12 @@ struct AuraAppShellView: View {
         .animation(AuraMotion.smooth, value: showSplash)
         .task {
             guard showSplash else { return }
-            try? await Task.sleep(nanoseconds: 1_100_000_000)
+            #if DEBUG
+            let splashDelayNs: UInt64 = 250_000_000
+            #else
+            let splashDelayNs: UInt64 = 1_100_000_000
+            #endif
+            try? await Task.sleep(nanoseconds: splashDelayNs)
             withAnimation(AuraMotion.smooth) {
                 showSplash = false
             }
@@ -81,69 +86,49 @@ struct AuraSplashScreen: View {
                 Text("Aura")
                     .font(.system(size: 40, weight: .black, design: .rounded))
                     .foregroundColor(.white)
-                Text("Family Life, Beautifully Orchestrated")
+                Text("Shared Life, Organized")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
+                Text("Multi-Group Planner + Personal Command Center")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
             }
         }
     }
 }
 
-private struct AuraHeroFamilyImage: View {
-    let assetName: String
+private struct AuraHeroGroupImage: View {
     let fallbackIcon: String
-
-    private func focalPoint(for name: String) -> UnitPoint {
-        switch name {
-        case "family_all":
-            return UnitPoint(x: 0.52, y: 0.48)
-        case "family_mom":
-            return UnitPoint(x: 0.50, y: 0.52)
-        case "family_kid":
-            return UnitPoint(x: 0.50, y: 0.50)
-        case "family_dad":
-            return UnitPoint(x: 0.52, y: 0.48)
-        default:
-            return .center
-        }
-    }
-
-    private func zoomScale(for name: String) -> CGFloat {
-        switch name {
-        case "family_all":
-            return 1.01
-        case "family_mom":
-            return 1.0
-        case "family_kid":
-            return 1.0
-        case "family_dad":
-            return 1.01
-        default:
-            return 1.01
-        }
-    }
 
     var body: some View {
         ZStack {
-            if let image = UIImage(named: assetName) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .blur(radius: 20)
-                    .saturation(0.9)
-                    .opacity(0.7)
-                    .scaleEffect(1.2)
+            LinearGradient(
+                colors: [AuraThemePalette.current.backgroundStart.opacity(0.95), AuraThemePalette.current.backgroundEnd.opacity(0.95)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .scaleEffect(zoomScale(for: assetName), anchor: focalPoint(for: assetName))
-            } else {
-                LinearGradient(colors: [Color(hex: "1E293B"), Color(hex: "0F172A")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                Image(systemName: fallbackIcon)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white.opacity(0.8))
-            }
+            Circle()
+                .fill(AuraThemePalette.current.accentStart.opacity(0.28))
+                .frame(width: 220, height: 220)
+                .blur(radius: 22)
+                .offset(x: -92, y: -78)
+
+            Circle()
+                .fill(AuraThemePalette.current.accentEnd.opacity(0.22))
+                .frame(width: 200, height: 200)
+                .blur(radius: 26)
+                .offset(x: 116, y: 82)
+
+            Circle()
+                .fill(.white.opacity(0.1))
+                .frame(width: 108, height: 108)
+                .overlay(Circle().stroke(.white.opacity(0.22), lineWidth: 1))
+
+            Image(systemName: fallbackIcon)
+                .font(.system(size: 42, weight: .bold))
+                .foregroundColor(.white.opacity(0.96))
+                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
         }
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -165,31 +150,31 @@ struct AuraOnboardingView: View {
             VStack(spacing: 18) {
                 TabView(selection: $page) {
                     onboardingCard(
-                        title: "Built For Your Family",
-                        subtitle: "Events, lists, routines, and memories in one premium daily hub.",
-                        imageAsset: "family_all",
-                        fallbackIcon: "person.3.sequence.fill"
+                        title: "One Personal Command Center",
+                        subtitle: "See your calendar, tasks, plans, and routines across every group in one clean personal layer.",
+                        fallbackIcon: "person.crop.circle.badge.checkmark",
+                        badge: "Personal Layer"
                     ).tag(0)
 
                     onboardingCard(
-                        title: "Private By Design",
-                        subtitle: "Choose Personal, Family, or Custom visibility for every activity.",
-                        imageAsset: "family_mom",
-                        fallbackIcon: "lock.shield.fill"
+                        title: "Private Group Workspaces",
+                        subtitle: "Family, roommates, church, travel, study, or custom groups stay isolated by design.",
+                        fallbackIcon: "square.stack.3d.up.fill",
+                        badge: "Boundary Control"
                     ).tag(1)
 
                     onboardingCard(
-                        title: "Real-Time Household Sync",
-                        subtitle: "Stay in sync across phones with your Aura account and household.",
-                        imageAsset: "family_kid",
-                        fallbackIcon: "arrow.triangle.2.circlepath"
+                        title: "Plan Together, Resolve Faster",
+                        subtitle: "Create or join groups, assign roles, and resolve scheduling conflicts before they become chaos.",
+                        fallbackIcon: "bolt.horizontal.circle.fill",
+                        badge: "Conflict Smart"
                     ).tag(2)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .frame(maxHeight: 520)
 
                 HStack(spacing: 10) {
-                    Button(page == 2 ? "Start Setup" : "Next") {
+                    Button(page == 2 ? "Start V2 Setup" : "Next") {
                         AuraHaptics.tap(.medium)
                         if page == 2 {
                             allowOfflineMode = false
@@ -214,20 +199,30 @@ struct AuraOnboardingView: View {
         }
     }
 
-    private func onboardingCard(title: String, subtitle: String, imageAsset: String, fallbackIcon: String) -> some View {
+    private func onboardingCard(title: String, subtitle: String, fallbackIcon: String, badge: String) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            AuraHeroFamilyImage(assetName: imageAsset, fallbackIcon: fallbackIcon)
-                .frame(height: 360)
+            AuraHeroGroupImage(fallbackIcon: fallbackIcon)
+                .frame(height: 260)
+
+            Text(badge.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.85))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.white.opacity(0.12), in: Capsule())
+
             Text(title)
                 .font(.system(size: 28, weight: .black, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
             Text(subtitle)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.white.opacity(0.86))
                 .lineLimit(3)
                 .minimumScaleFactor(0.9)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -253,11 +248,12 @@ struct AuraAuthGatewayView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var displayName = ""
-    @State private var householdName = "Our Family"
-    @State private var householdCode = ""
+    @State private var groupName = "My First Group"
+    @State private var groupType = "Family"
+    @State private var joinCode = ""
     @State private var message = ""
     @State private var isWorking = false
-    @State private var showAdvancedSync = false
+    @State private var biometricLabel = ""
 
     var body: some View {
         ZStack {
@@ -266,167 +262,210 @@ struct AuraAuthGatewayView: View {
 
             GeometryReader { geo in
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 28) {
+                        Spacer(minLength: 0)
+
                         VStack(alignment: .leading, spacing: 14) {
+                            Label("Secure Access", systemImage: "lock.shield.fill")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .tracking(1.4)
+                                .foregroundColor(.white.opacity(0.72))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(0.08), in: Capsule())
+
                             Text("Aura")
                                 .font(.system(size: 42, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
-                            Text("A premium family planner with a cinematic sign-in experience, private sync, and polished onboarding.")
-                                .font(.system(size: 15, weight: .medium))
+                            Text("Your life, beautifully organized. Aura brings every circle into harmony.")
+                                .font(.system(size: 16, weight: .medium))
+                                .lineSpacing(3)
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        HStack(spacing: 10) {
-                            authMetric(title: "Secure", value: "JWT", symbol: "lock.shield")
-                            authMetric(title: "Family", value: "Sync", symbol: "person.3.sequence.fill")
-                            authMetric(title: "Fallback", value: "Local", symbol: "internaldrive")
-                        }
-
-                        Spacer(minLength: max(120, geo.size.height * 0.22))
-
                         VStack(spacing: 12) {
-                        Picker("Mode", selection: $mode) {
-                            ForEach(Mode.allCases, id: \.self) { m in
-                                Text(m.rawValue).tag(m)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .tint(.white)
+                        if !store.hasServerSession {
+                            modeToggle
 
-                        TextField(
-                            "",
-                            text: $email,
-                            prompt: Text("Email").foregroundColor(.white.opacity(0.9))
-                        )
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                            .keyboardType(.emailAddress)
-                            .authInputStyle()
-
-                        SecureField(
-                            "",
-                            text: $password,
-                            prompt: Text("Password").foregroundColor(.white.opacity(0.9))
-                        )
-                            .authInputStyle()
-
-                        if mode == .create {
-                            TextField(
-                                "",
-                                text: $displayName,
-                                prompt: Text("Display name").foregroundColor(.white.opacity(0.9))
-                            )
-                                .authInputStyle()
-                        }
-
-                        Button {
-                            isWorking = true
-                            message = ""
-                            Task {
-                                let result: Result<Void, Error>
-                                if mode == .create {
-                                    result = await store.registerServerAccount(email: email, password: password, displayName: displayName)
-                                } else {
-                                    result = await store.loginServerAccount(email: email, password: password)
-                                }
-                                await MainActor.run {
-                                    isWorking = false
-                                    switch result {
-                                    case .success:
-                                        password = ""
-                                        backendAccountEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        if !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                            profileDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        }
-                                        message = mode == .create ? "Account created. Continue with household setup." : "Signed in successfully."
-                                    case .failure(let error):
-                                        message = error.localizedDescription
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label(mode == .create ? "Create Account" : "Sign In", systemImage: "person.crop.circle.badge.checkmark")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.white)
-                        .foregroundStyle(.black)
-                        .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
-
-                        DisclosureGroup(isExpanded: $showAdvancedSync) {
-                            VStack(alignment: .leading, spacing: 10) {
+                            authField(icon: "envelope.fill") {
                                 TextField(
                                     "",
-                                    text: Binding(
-                                        get: { backendBaseURL },
-                                        set: {
-                                            backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                            store.updateBackendBaseURL(backendBaseURL)
-                                        }
-                                    ),
-                                    prompt: Text("Backend URL").foregroundColor(.white.opacity(0.9))
+                                    text: $email,
+                                    prompt: Text("Email").foregroundColor(.white.opacity(0.9))
                                 )
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .keyboardType(.URL)
-                                .authInputStyle()
-
-                                Picker("Hero layout", selection: $authHeroMode) {
-                                    Text("Collage").tag("collage")
-                                    Text("Single image").tag("single")
-                                }
-                                .pickerStyle(.segmented)
-                                .tint(.white)
-
-                                Text("Advanced sync settings live here. Most people can leave this alone.")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white.opacity(0.85))
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
+                                    .keyboardType(.emailAddress)
                             }
-                            .padding(.top, 8)
-                        } label: {
-                            Label("Advanced Sync Settings", systemImage: "server.rack")
-                                .foregroundColor(.white)
+
+                            authField(icon: "lock.fill") {
+                                SecureField(
+                                    "",
+                                    text: $password,
+                                    prompt: Text("Password").foregroundColor(.white.opacity(0.9))
+                                )
+                            }
+
+                            if mode == .create {
+                                authField(icon: "person.fill") {
+                                    TextField(
+                                        "",
+                                        text: $displayName,
+                                        prompt: Text("Full Name").foregroundColor(.white.opacity(0.9))
+                                    )
+                                }
+                            }
+
+                            Button {
+                                isWorking = true
+                                message = ""
+                                Task {
+                                    let result: Result<Void, Error>
+                                    if mode == .create {
+                                        result = await store.registerServerAccount(email: email, password: password, displayName: displayName)
+                                    } else {
+                                        result = await store.loginServerAccount(email: email, password: password)
+                                    }
+                                    await MainActor.run {
+                                        isWorking = false
+                                        switch result {
+                                        case .success:
+                                            password = ""
+                                            backendAccountEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+                                            if !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                                profileDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                            }
+                                            message = mode == .create ? "Account created. Create or join your first group." : "Welcome back. Select or create a group to continue."
+                                        case .failure(let error):
+                                            message = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label(mode == .create ? "Create Account" : "Enter Aura", systemImage: "person.crop.circle.badge.checkmark")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                    )
+                                    .shadow(color: AuraThemePalette.current.accentStart.opacity(0.35), radius: 18, y: 8)
+                            }
+                            .buttonStyle(AuraSoftPressButtonStyle())
+                            .foregroundStyle(.white)
+                            .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || (mode == .create && displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+
+                            biometricActionRow
+                        } else {
+                            HStack(spacing: 10) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(AuraThemePalette.current.accentStart)
+                                Text("Signed in as \(backendAccountEmail)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.92))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button("Sign Out") {
+                                    store.clearServerSession()
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .tint(.white.opacity(0.85))
+                            }
+                            .padding(.horizontal, 4)
                         }
 
                         if store.hasServerSession {
                             Divider().padding(.vertical, 6)
 
+                            Text("SET UP YOUR GROUP")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .tracking(1.2)
+                                .foregroundColor(.white.opacity(0.6))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if !store.serverGroups.isEmpty {
+                                Picker("Active Group", selection: Binding(
+                                    get: { store.activeServerGroupId },
+                                    set: { store.setActiveServerGroup(id: $0) }
+                                )) {
+                                    ForEach(store.serverGroups) { record in
+                                        Text("\(record.group.name) (\(record.membership.role))")
+                                            .tag(record.group.id)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(.white)
+                            }
+
                             TextField(
                                 "",
-                                text: $householdName,
-                                prompt: Text("Household name").foregroundColor(.white.opacity(0.9))
+                                text: $groupName,
+                                prompt: Text("Group Name").foregroundColor(.white.opacity(0.9))
                             )
                                 .authInputStyle()
+
+                            Picker("Group type", selection: $groupType) {
+                                Text("Family").tag("Family")
+                                Text("Roommates").tag("Roommates")
+                                Text("Couple").tag("Couple")
+                                Text("Church").tag("Church")
+                                Text("Travel").tag("Travel")
+                                Text("Study").tag("Study")
+                                Text("Custom").tag("Custom")
+                            }
+                            .pickerStyle(.menu)
+                            .tint(.white)
 
                             Button {
                                 isWorking = true
                                 message = ""
                                 Task {
-                                    let result = await store.createServerHousehold(name: householdName)
+                                    let result = await store.createServerGroup(name: groupName, type: groupType)
                                     await MainActor.run {
                                         isWorking = false
                                         switch result {
                                         case .success(let code):
-                                            householdCode = code
-                                            message = "Household created. Code: \(code)"
+                                            joinCode = code
+                                            message = "Group created. Code: \(code)"
                                         case .failure(let error):
                                             message = error.localizedDescription
                                         }
                                     }
                                 }
                             } label: {
-                                Label("Create Household", systemImage: "person.3.sequence.fill")
+                                Label("Create Group", systemImage: "person.3.sequence.fill")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
                             .tint(.white)
 
+                            HStack(spacing: 10) {
+                                Rectangle().fill(.white.opacity(0.14)).frame(height: 1)
+                                Text("OR JOIN WITH A CODE")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .tracking(1.0)
+                                    .foregroundColor(.white.opacity(0.5))
+                                    .fixedSize()
+                                Rectangle().fill(.white.opacity(0.14)).frame(height: 1)
+                            }
+                            .padding(.vertical, 4)
+
                             TextField(
                                 "",
-                                text: $householdCode,
-                                prompt: Text("Join code").foregroundColor(.white.opacity(0.9))
+                                text: $joinCode,
+                                prompt: Text("Join Code").foregroundColor(.white.opacity(0.9))
                             )
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
@@ -436,33 +475,24 @@ struct AuraAuthGatewayView: View {
                                 isWorking = true
                                 message = ""
                                 Task {
-                                    let result = await store.joinServerHousehold(code: householdCode)
+                                    let result = await store.joinServerGroup(code: joinCode)
                                     await MainActor.run {
                                         isWorking = false
                                         switch result {
                                         case .success:
-                                            message = "Joined household successfully."
+                                            message = "Joined group successfully."
                                         case .failure(let error):
                                             message = error.localizedDescription
                                         }
                                     }
                                 }
                             } label: {
-                                Label("Join Household", systemImage: "person.2.badge.plus")
+                                Label("Join Group", systemImage: "person.2.badge.plus")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
                             .tint(.white)
-                            .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                            Button {
-                                allowOfflineMode = true
-                                message = "You can continue offline and set up account later in Settings."
-                            } label: {
-                                Text("Continue Offline")
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                            .tint(.white)
+                            .disabled(joinCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
 
                         if isWorking { ProgressView().tint(.white) }
@@ -470,14 +500,21 @@ struct AuraAuthGatewayView: View {
                         if !message.isEmpty {
                             Text(message)
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.9))
+                                .foregroundColor(isMessageError ? Color.red.opacity(0.95) : Color.white.opacity(0.92))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(
+                                    (isMessageError ? Color.red : AuraThemePalette.current.accentStart)
+                                        .opacity(0.16),
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                )
                         }
                     }
                         .padding(18)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.28), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.35), radius: 24, y: 14)
+                        .auraGlassCard(radius: AuraDesignTokens.Radius.xl)
                         .environment(\.colorScheme, .dark)
+
+                        Spacer(minLength: 0)
                     }
                     .frame(minHeight: geo.size.height)
                     .padding(20)
@@ -492,6 +529,152 @@ struct AuraAuthGatewayView: View {
                 backendBaseURL = defaultBackendBaseURL
             }
             store.updateBackendBaseURL(backendBaseURL)
+            updateBiometricLabel()
+        }
+    }
+
+    private var modeToggle: some View {
+        HStack(spacing: 4) {
+            ForEach(Mode.allCases, id: \.self) { m in
+                modeButton(for: m)
+            }
+        }
+        .padding(4)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.14), lineWidth: 1))
+    }
+
+    private func modeButton(for m: Mode) -> some View {
+        let isSelected = mode == m
+        let fill: AnyShapeStyle = isSelected
+            ? AnyShapeStyle(LinearGradient(
+                colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                startPoint: .leading,
+                endPoint: .trailing
+            ))
+            : AnyShapeStyle(Color.clear)
+        return Button {
+            AuraHaptics.tap(.light)
+            withAnimation(AuraMotion.smooth) { mode = m }
+        } label: {
+            Text(m.rawValue)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .foregroundColor(isSelected ? .black : .white.opacity(0.75))
+                .background(fill, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func authField<Content: View>(icon: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white.opacity(0.55))
+                .frame(width: 18)
+            content()
+        }
+        .foregroundColor(.white)
+        .tint(.white)
+        .padding(.horizontal, AuraDesignTokens.Spacing.sm)
+        .padding(.vertical, AuraDesignTokens.Spacing.sm)
+        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: AuraDesignTokens.Stroke.subtle)
+        )
+    }
+
+    @ViewBuilder
+    private var biometricActionRow: some View {
+        if supportsBiometrics {
+            VStack(spacing: 8) {
+                Button {
+                    authenticateWithBiometrics()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: biometricSymbol)
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(biometricLabel.isEmpty ? biometricTitle : biometricLabel)
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .foregroundColor(.white)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    )
+                    .shadow(color: AuraThemePalette.current.accentStart.opacity(0.18), radius: 16, y: 8)
+                    .shadow(color: AuraThemePalette.current.accentEnd.opacity(0.12), radius: 24, y: 14)
+                }
+                .buttonStyle(AuraSoftPressButtonStyle())
+
+                Text("Secure unlock with Face ID or Touch ID.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.72))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 4)
+            }
+        }
+    }
+
+    private var biometricTitle: String {
+        biometricType == .faceID ? "Sign in with Face ID" : "Sign in with Touch ID"
+    }
+
+    private var biometricSymbol: String {
+        biometricType == .faceID ? "faceid" : "touchid"
+    }
+
+    private var biometricType: LABiometryType {
+        let context = LAContext()
+        var error: NSError?
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        return context.biometryType
+    }
+
+    private var supportsBiometrics: Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
+    private func updateBiometricLabel() {
+        biometricLabel = supportsBiometrics ? biometricTitle : ""
+    }
+
+    private var isMessageError: Bool {
+        let lower = message.lowercased()
+        return lower.contains("failed")
+            || lower.contains("invalid")
+            || lower.contains("error")
+            || lower.contains("unavailable")
+            || lower.contains("expired")
+            || lower.contains("not found")
+    }
+
+    private func authenticateWithBiometrics() {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            message = "Biometrics are not available on this device."
+            return
+        }
+
+        let reason = "Unlock Aura with Face ID or Touch ID."
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, evalError in
+            DispatchQueue.main.async {
+                if success {
+                    allowOfflineMode = true
+                    message = "Biometrics verified. Opening your local workspace."
+                } else {
+                    message = evalError?.localizedDescription ?? "Biometric authentication failed."
+                }
+            }
         }
     }
 }
@@ -500,14 +683,13 @@ private struct AuraAuthBackgroundSlideshow: View {
     let mode: String
     @State private var slideIndex = 0
 
-    private let slides: [(asset: String, icon: String, label: String)] = [
-        ("family_all", "person.3.fill", "Family time"),
-        ("family_dad", "person.fill", "Dad"),
-        ("family_mom", "person.fill", "Mom"),
-        ("family_kid", "figure.2.and.child.holdinghands", "Child")
+    private let slides: [(symbol: String, title: String, subtitle: String, start: String, end: String)] = [
+        ("square.stack.3d.up.fill", "Multi-Group Workspaces", "Family, roommates, church, travel, study", "0B1220", "1D4ED8"),
+        ("person.crop.circle.badge.checkmark", "Personal Command", "One merged view across your life circles", "0F172A", "0F766E"),
+        ("bolt.horizontal.circle.fill", "Conflict Intercept", "Catch overlaps early and auto-suggest better slots", "1F2937", "9A3412")
     ]
 
-    private var visibleSlides: [(asset: String, icon: String, label: String)] {
+    private var visibleSlides: [(symbol: String, title: String, subtitle: String, start: String, end: String)] {
         mode == "single" ? [slides[0]] : slides
     }
 
@@ -517,20 +699,25 @@ private struct AuraAuthBackgroundSlideshow: View {
             ZStack {
                 ForEach(Array(visibleSlides.enumerated()), id: \.offset) { index, slide in
                     ZStack {
-                        if let image = UIImage(named: slide.asset) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            LinearGradient(
-                                colors: [Color(hex: "111827"), Color(hex: "0B1220")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            Image(systemName: slide.icon)
-                                .font(.system(size: 56, weight: .bold))
-                                .foregroundColor(.white.opacity(0.75))
-                        }
+                        LinearGradient(
+                            colors: [Color(hex: slide.start), Color(hex: slide.end)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+
+                        Circle()
+                            .fill(Color.white.opacity(0.14))
+                            .frame(width: 280, height: 280)
+                            .blur(radius: 26)
+                            .offset(x: -120, y: -210)
+
+                        Circle()
+                            .fill(Color.black.opacity(0.22))
+                            .frame(width: 320, height: 320)
+                            .blur(radius: 28)
+                            .offset(x: 140, y: 260)
+
+                        EmptyView()
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
@@ -552,15 +739,7 @@ private struct AuraAuthBackgroundSlideshow: View {
                     endPoint: .bottom
                 )
 
-                VStack {
-                    Spacer()
-
-                    Text(visibleSlides[slideIndex].label)
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .foregroundColor(.white.opacity(0.92))
-                        .padding(.bottom, 36)
-                }
-                .padding(.horizontal, 20)
+                EmptyView()
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .background(
@@ -574,7 +753,7 @@ private struct AuraAuthBackgroundSlideshow: View {
         .onAppear {
             slideIndex = 0
         }
-        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: 6, on: .main, in: .common).autoconnect()) { _ in
             guard mode != "single", visibleSlides.count > 1 else { return }
             withAnimation(.easeInOut(duration: 1.0)) {
                 slideIndex = (slideIndex + 1) % visibleSlides.count
@@ -588,35 +767,17 @@ private extension View {
         self
             .foregroundColor(.white)
             .tint(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
-            .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.24), lineWidth: 1))
+            .padding(.horizontal, AuraDesignTokens.Spacing.sm)
+            .padding(.vertical, AuraDesignTokens.Spacing.sm)
+            .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: AuraDesignTokens.Stroke.subtle)
+            )
     }
 }
 
 // MARK: - App Delegate  (shows banner even when app is open)
-private extension AuraAuthGatewayView {
-    func authMetric(title: String, value: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(title.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-            }
-            .foregroundColor(.white.opacity(0.72))
-
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.white.opacity(0.1), lineWidth: 1))
-    }
-}
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -691,10 +852,10 @@ struct AuraThemePalette {
     var accentEnd:       Color { Color(hex: accentEndHex) }
 
     static let fallback = AuraThemePalette(
-        backgroundStartHex: "1E1B4B",
-        backgroundEndHex: "4C1D95",
-        accentStartHex: "6366F1",
-        accentEndHex: "A78BFA"
+        backgroundStartHex: "08111F",
+        backgroundEndHex: "1B2A41",
+        accentStartHex: "0EA5A4",
+        accentEndHex: "F59E0B"
     )
 
     static func from(themeJSON: String) -> AuraThemePalette {
@@ -720,15 +881,126 @@ struct InAppBannerPayload: Equatable {
     var message: String
 }
 
+struct AuraDesignTokens {
+    struct Spacing {
+        static let xxs: CGFloat = 4
+        static let xs: CGFloat = 8
+        static let sm: CGFloat = 12
+        static let md: CGFloat = 16
+        static let lg: CGFloat = 20
+        static let xl: CGFloat = 24
+    }
+
+    struct Radius {
+        static let sm: CGFloat = 10
+        static let md: CGFloat = 14
+        static let lg: CGFloat = 20
+        static let xl: CGFloat = 28
+    }
+
+    struct Stroke {
+        static let subtle: CGFloat = 1
+    }
+
+    struct Typography {
+        static let eyebrow = Font.system(size: 10, weight: .bold, design: .rounded)
+        static let title = Font.system(size: 22, weight: .black, design: .rounded)
+        static let subtitle = Font.system(size: 13, weight: .semibold)
+        static let bodyStrong = Font.system(size: 13, weight: .semibold)
+        static let body = Font.system(size: 12, weight: .medium)
+        static let caption = Font.system(size: 11, weight: .semibold)
+    }
+
+    struct Elevation {
+        static let cardShadowRadius: CGFloat = 16
+        static let cardShadowY: CGFloat = 8
+    }
+}
+
+struct AuraSoftPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(AuraMotion.quick, value: configuration.isPressed)
+    }
+}
+
+private extension View {
+    func auraGlassCard(radius: CGFloat = AuraDesignTokens.Radius.md) -> some View {
+        let p = AuraThemePalette.current
+        return self
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [p.accentStart.opacity(0.09), p.accentEnd.opacity(0.04)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: AuraDesignTokens.Stroke.subtle)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(p.accentStart.opacity(0.18), lineWidth: 0.6)
+            )
+            .shadow(
+                color: .black.opacity(0.18),
+                radius: AuraDesignTokens.Elevation.cardShadowRadius,
+                y: AuraDesignTokens.Elevation.cardShadowY
+            )
+            .shadow(
+                color: p.accentStart.opacity(0.1),
+                radius: 22,
+                y: 10
+            )
+    }
+}
+
+struct AuraAtmosphericBackground: View {
+    var body: some View {
+        let palette = AuraThemePalette.current
+        ZStack {
+            LinearGradient(
+                colors: [palette.backgroundStart.opacity(0.2), Color(.systemBackground), palette.backgroundEnd.opacity(0.16)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            Circle()
+                .fill(palette.accentStart.opacity(0.15))
+                .frame(width: 320, height: 320)
+                .blur(radius: 30)
+                .offset(x: 130, y: -280)
+
+            Circle()
+                .fill(palette.accentEnd.opacity(0.12))
+                .frame(width: 260, height: 260)
+                .blur(radius: 26)
+                .offset(x: -140, y: 340)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 extension Notification.Name {
     static let auraInAppBanner = Notification.Name("AuraInAppBanner")
 }
 
 enum AuraMotion {
-    static let quick   = Animation.easeInOut(duration: 0.16)
-    static let smooth  = Animation.easeInOut(duration: 0.24)
-    static let spring  = Animation.spring(response: 0.34, dampingFraction: 0.88)
-    static let banner  = Animation.spring(response: 0.35, dampingFraction: 0.9)
+    static let quick   = Animation.easeInOut(duration: 0.18)
+    static let smooth  = Animation.easeInOut(duration: 0.28)
+    static let spring  = Animation.spring(response: 0.42, dampingFraction: 0.86)
+    static let banner  = Animation.spring(response: 0.4, dampingFraction: 0.88)
 }
 
 enum AuraHaptics {
@@ -830,7 +1102,7 @@ struct DataIntegrityReport {
     }
 }
 
-struct FamilyMember: Identifiable, Codable, Equatable, Hashable {
+struct GroupMember: Identifiable, Codable, Equatable, Hashable {
     var id = UUID()
     var name: String
     var colorHex: String
@@ -877,13 +1149,13 @@ enum VisibilityScope: String, Codable, CaseIterable {
     var subtitle: String {
         switch self {
         case .personal: return "Only you can see this"
-        case .family: return "Visible to the whole household"
-        case .custom: return "Visible to selected family members"
+        case .family: return "Visible to everyone in this workspace"
+        case .custom: return "Visible to selected members"
         }
     }
 }
 
-enum FamilyActivityKind: String, Codable, CaseIterable {
+enum GroupActivityKind: String, Codable, CaseIterable {
     case walk = "Walk"
     case run = "Run"
     case play = "Play"
@@ -905,9 +1177,9 @@ enum FamilyActivityKind: String, Codable, CaseIterable {
     }
 }
 
-struct FamilyActivity: Identifiable, Codable, Equatable {
+struct GroupActivity: Identifiable, Codable, Equatable {
     var id = UUID()
-    var kind: FamilyActivityKind
+    var kind: GroupActivityKind
     var date: Date
     var durationMinutes: Int
     var notes: String
@@ -917,7 +1189,7 @@ struct FamilyActivity: Identifiable, Codable, Equatable {
     var sharedWithNames: [String] = []
 }
 
-enum FamilyListKind: String, Codable, CaseIterable {
+enum GroupListKind: String, Codable, CaseIterable {
     case supermarket = "Supermarket"
     case pharmacy = "Pharmacy"
     case chores = "Chores"
@@ -937,7 +1209,7 @@ enum FamilyListKind: String, Codable, CaseIterable {
     }
 }
 
-struct FamilyListItem: Identifiable, Codable, Equatable {
+struct GroupListItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var name: String
     var quantity: String
@@ -950,18 +1222,18 @@ struct FamilyListItem: Identifiable, Codable, Equatable {
     var boughtAt: Date? = nil
 }
 
-struct FamilyList: Identifiable, Codable, Equatable {
+struct GroupList: Identifiable, Codable, Equatable {
     var id = UUID()
     var title: String
-    var kind: FamilyListKind
+    var kind: GroupListKind
     var createdAt: Date
-    var items: [FamilyListItem]
+    var items: [GroupListItem]
     var ownerName: String = ""
     var visibility: VisibilityScope = .family
     var sharedWithNames: [String] = []
 }
 
-struct FamilyStepSnapshot: Identifiable, Codable, Equatable {
+struct GroupStepSnapshot: Identifiable, Codable, Equatable {
     var id = UUID()
     var ownerName: String
     var date: Date
@@ -971,9 +1243,9 @@ struct FamilyStepSnapshot: Identifiable, Codable, Equatable {
     var updatedAt: Date = Date()
 }
 
-struct LiveFamilyActivitySession: Identifiable, Codable, Equatable {
+struct LiveGroupActivitySession: Identifiable, Codable, Equatable {
     var id = UUID()
-    var kind: FamilyActivityKind
+    var kind: GroupActivityKind
     var startedAt: Date
     var notes: String
     var participantIds: [UUID]
@@ -987,10 +1259,72 @@ struct HouseholdSyncPayload: Codable {
     var updatedBy: String
     var categories: [EventCategory]
     var events: [CalendarEvent]
-    var members: [FamilyMember]
-    var familyLists: [FamilyList]
-    var familyActivities: [FamilyActivity]
-    var stepSnapshots: [FamilyStepSnapshot]
+    var members: [GroupMember]
+    var groupLists: [GroupList]
+    var groupActivities: [GroupActivity]
+    var stepSnapshots: [GroupStepSnapshot]
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt
+        case updatedBy
+        case categories
+        case events
+        case members
+        case groupLists
+        case groupActivities
+        case stepSnapshots
+        case familyLists
+        case familyActivities
+    }
+
+    init(
+        updatedAt: Date,
+        updatedBy: String,
+        categories: [EventCategory],
+        events: [CalendarEvent],
+        members: [GroupMember],
+        groupLists: [GroupList],
+        groupActivities: [GroupActivity],
+        stepSnapshots: [GroupStepSnapshot]
+    ) {
+        self.updatedAt = updatedAt
+        self.updatedBy = updatedBy
+        self.categories = categories
+        self.events = events
+        self.members = members
+        self.groupLists = groupLists
+        self.groupActivities = groupActivities
+        self.stepSnapshots = stepSnapshots
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        updatedBy = try container.decode(String.self, forKey: .updatedBy)
+        categories = try container.decode([EventCategory].self, forKey: .categories)
+        events = try container.decode([CalendarEvent].self, forKey: .events)
+        members = try container.decode([GroupMember].self, forKey: .members)
+        groupLists = try container.decodeIfPresent([GroupList].self, forKey: .groupLists)
+            ?? container.decodeIfPresent([GroupList].self, forKey: .familyLists)
+            ?? []
+        groupActivities = try container.decodeIfPresent([GroupActivity].self, forKey: .groupActivities)
+            ?? container.decodeIfPresent([GroupActivity].self, forKey: .familyActivities)
+            ?? []
+        stepSnapshots = try container.decodeIfPresent([GroupStepSnapshot].self, forKey: .stepSnapshots) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(updatedBy, forKey: .updatedBy)
+        try container.encode(categories, forKey: .categories)
+        try container.encode(events, forKey: .events)
+        try container.encode(members, forKey: .members)
+        // Keep legacy keys for server/storage compatibility during migration.
+        try container.encode(groupLists, forKey: .familyLists)
+        try container.encode(groupActivities, forKey: .familyActivities)
+        try container.encode(stepSnapshots, forKey: .stepSnapshots)
+    }
 }
 
 struct AuraRemoteUser: Codable {
@@ -1012,6 +1346,117 @@ struct AuraRemoteHousehold: Codable {
     var code: String
     var createdBy: String
     var createdAt: String
+}
+
+struct AuraRemoteGroup: Codable, Identifiable {
+    var id: String
+    var name: String
+    var type: String
+    var code: String
+    var createdBy: String
+    var createdAt: String
+}
+
+struct AuraRemoteGroupMembership: Codable {
+    var userId: String
+    var groupId: String
+    var role: String
+    var joinedAt: String
+}
+
+struct AuraRemoteGroupRecord: Codable, Identifiable {
+    var group: AuraRemoteGroup
+    var membership: AuraRemoteGroupMembership
+
+    var id: String { group.id }
+}
+
+struct AuraRemoteGroupsResponse: Codable {
+    var groups: [AuraRemoteGroupRecord]
+}
+
+struct AuraRemoteGroupPayloadRecord: Codable, Identifiable {
+    var id: String
+    var groupId: String
+    var createdBy: String
+    var updatedAt: String
+    var payload: [String: String]
+}
+
+struct AuraRemoteGroupEventsResponse: Codable {
+    var events: [AuraRemoteGroupPayloadRecord]
+}
+
+struct AuraRemoteGroupListsResponse: Codable {
+    var lists: [AuraRemoteGroupPayloadRecord]
+}
+
+struct AuraRemoteGroupPlansResponse: Codable {
+    var plans: [AuraRemoteGroupPayloadRecord]
+}
+
+struct AuraRemoteGroupRoutinesResponse: Codable {
+    var routines: [AuraRemoteGroupPayloadRecord]
+}
+
+struct AuraRemoteGroupEventEnvelope: Codable {
+    var event: AuraRemoteGroupPayloadRecord
+}
+
+struct AuraRemoteGroupListEnvelope: Codable {
+    var list: AuraRemoteGroupPayloadRecord
+}
+
+struct AuraRemoteGroupPlanEnvelope: Codable {
+    var plan: AuraRemoteGroupPayloadRecord
+}
+
+struct AuraRemoteGroupRoutineEnvelope: Codable {
+    var routine: AuraRemoteGroupPayloadRecord
+}
+
+struct AuraRemotePersonalAggregateItem: Codable, Identifiable {
+    var id: String
+    var groupId: String
+    var createdBy: String
+    var updatedAt: String
+    var payload: [String: String]
+    var group: AuraRemoteGroup?
+}
+
+struct AuraRemotePersonalAggregateResponse: Codable {
+    var items: [AuraRemotePersonalAggregateItem]
+    var total: Int
+}
+
+struct AuraRemoteConflictRecord: Codable, Identifiable {
+    var leftEventId: String
+    var rightEventId: String
+    var leftEventTitle: String?
+    var rightEventTitle: String?
+    var severity: String
+
+    var id: String { "\(leftEventId)-\(rightEventId)" }
+}
+
+struct AuraRemoteConflictsResponse: Codable {
+    var conflicts: [AuraRemoteConflictRecord]
+    var total: Int
+}
+
+struct AuraRemoteConflictInterceptResponse: Codable {
+    var ok: Bool
+    var action: String
+    var suggestionStart: String?
+    var suggestionEnd: String?
+    var resolvedEventId: String?
+    var eventTitle: String?
+    var groupId: String?
+    var beforeStart: String?
+    var beforeEnd: String?
+    var afterStart: String?
+    var afterEnd: String?
+    var remainingConflicts: Int?
 }
 
 struct AuraRemoteAuthResponse: Codable {
@@ -1085,6 +1530,19 @@ struct AuraRemoteAuditEntry: Codable, Identifiable {
 
 struct AuraRemoteAuditResponse: Codable {
     var entries: [AuraRemoteAuditEntry]
+}
+
+struct AuraRemoteGroupConflictHistoryEntry: Codable, Identifiable {
+    var id: String
+    var action: String
+    var actorUserId: String
+    var createdAt: String
+    var details: String
+}
+
+struct AuraRemoteGroupConflictHistoryResponse: Codable {
+    var groupId: String
+    var entries: [AuraRemoteGroupConflictHistoryEntry]
 }
 
 enum AuraServerError: LocalizedError {
@@ -1318,6 +1776,139 @@ actor AuraServerSyncEngine {
         )
     }
 
+    func groups(baseURL: String, token: String) async throws -> AuraRemoteGroupsResponse {
+        try await request(baseURL: baseURL, path: "/groups", token: token)
+    }
+
+    func createGroup(baseURL: String, token: String, name: String, type: String) async throws -> AuraRemoteGroupRecord {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups",
+            method: "POST",
+            token: token,
+            payload: ["name": name, "type": type]
+        )
+    }
+
+    func joinGroup(baseURL: String, token: String, code: String) async throws -> AuraRemoteGroupRecord {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/join",
+            method: "POST",
+            token: token,
+            payload: ["code": code]
+        )
+    }
+
+    func groupEvents(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupEventsResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/events", token: token)
+    }
+
+    func createGroupEvent(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupEventEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/events",
+            method: "POST",
+            token: token,
+            payload: ["payload": payload]
+        )
+    }
+
+    func groupLists(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupListsResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/lists", token: token)
+    }
+
+    func createGroupList(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupListEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/lists",
+            method: "POST",
+            token: token,
+            payload: ["payload": payload]
+        )
+    }
+
+    func groupPlans(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupPlansResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/plans", token: token)
+    }
+
+    func createGroupPlan(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupPlanEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/plans",
+            method: "POST",
+            token: token,
+            payload: ["payload": payload]
+        )
+    }
+
+    func groupRoutines(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupRoutinesResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/routines", token: token)
+    }
+
+    func createGroupRoutine(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupRoutineEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)/routines",
+            method: "POST",
+            token: token,
+            payload: ["payload": payload]
+        )
+    }
+
+    func personalMasterCalendar(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
+        try await request(baseURL: baseURL, path: "/me/master-calendar", token: token)
+    }
+
+    func personalTasks(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
+        try await request(baseURL: baseURL, path: "/me/tasks", token: token)
+    }
+
+    func personalPlans(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
+        try await request(baseURL: baseURL, path: "/me/plans", token: token)
+    }
+
+    func personalRoutines(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
+        try await request(baseURL: baseURL, path: "/me/routines", token: token)
+    }
+
+    func personalConflicts(baseURL: String, token: String) async throws -> AuraRemoteConflictsResponse {
+        try await request(baseURL: baseURL, path: "/me/conflicts", token: token)
+    }
+
+    func conflictCheck(baseURL: String, token: String) async throws -> AuraRemoteConflictsResponse {
+        try await request(baseURL: baseURL, path: "/conflicts/check", method: "POST", token: token, payload: EmptyPayload())
+    }
+
+    func conflictIntercept(
+        baseURL: String,
+        token: String,
+        action: String,
+        leftEventId: String,
+        rightEventId: String,
+        preferredEventId: String? = nil
+    ) async throws -> AuraRemoteConflictInterceptResponse {
+        struct ConflictPayload: Encodable {
+            let action: String
+            let leftEventId: String
+            let rightEventId: String
+            let preferredEventId: String?
+        }
+
+        return try await request(
+            baseURL: baseURL,
+            path: "/conflicts/intercept",
+            method: "POST",
+            token: token,
+            payload: ConflictPayload(
+                action: action,
+                leftEventId: leftEventId,
+                rightEventId: rightEventId,
+                preferredEventId: preferredEventId
+            )
+        )
+    }
+
     func uploadSnapshot(baseURL: String, token: String, payload: HouseholdSyncPayload) async throws -> AuraRemoteSnapshotEnvelope {
         try await request(
             baseURL: baseURL,
@@ -1387,6 +1978,10 @@ actor AuraServerSyncEngine {
 
     func adminAudit(baseURL: String, token: String) async throws -> AuraRemoteAuditResponse {
         try await request(baseURL: baseURL, path: "/admin/household/audit", token: token)
+    }
+
+    func groupConflictHistory(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupConflictHistoryResponse {
+        try await request(baseURL: baseURL, path: "/groups/\(groupId)/conflicts/history", token: token)
     }
 }
 
@@ -1560,30 +2155,39 @@ class EventStore: ObservableObject {
     @Published var events:     [CalendarEvent] = []
     @Published var categories: [EventCategory] = []
     @Published var sharedActivity: [SharedActivityEntry] = []
-    @Published var members: [FamilyMember] = []
-    @Published var familyLists: [FamilyList] = []
-    @Published var familyActivities: [FamilyActivity] = []
-    @Published var familyStepSnapshots: [FamilyStepSnapshot] = []
-    @Published var activeActivitySession: LiveFamilyActivitySession? = nil
+    @Published var members: [GroupMember] = []
+    @Published var groupLists: [GroupList] = []
+    @Published var groupActivities: [GroupActivity] = []
+    @Published var groupStepSnapshots: [GroupStepSnapshot] = []
+    @Published var activeActivitySession: LiveGroupActivitySession? = nil
     @Published var isBootstrapping = true
     @Published var syncStatus = "Sync disabled"
     @Published var serverAccountEmail = ""
-    @Published var serverHouseholdName = ""
+    @Published var serverGroupName = ""
     @Published var serverMembershipRole = ""
     @Published var serverIsAdmin = false
     @Published var serverUserId = ""
-    @Published var serverHouseholdMembers: [AuraRemoteHouseholdMemberRecord] = []
+    @Published var serverGroups: [AuraRemoteGroupRecord] = []
+    @Published var serverGroupMembers: [AuraRemoteHouseholdMemberRecord] = []
     @Published var serverAuditEntries: [AuraRemoteAuditEntry] = []
+    @Published var serverGroupConflictHistoryEntries: [AuraRemoteGroupConflictHistoryEntry] = []
+    @Published var personalMasterCalendarItems: [AuraRemotePersonalAggregateItem] = []
+    @Published var personalTaskItems: [AuraRemotePersonalAggregateItem] = []
+    @Published var personalPlanItems: [AuraRemotePersonalAggregateItem] = []
+    @Published var personalRoutineItems: [AuraRemotePersonalAggregateItem] = []
+    @Published var personalConflictItems: [AuraRemoteConflictRecord] = []
+    @Published var isLoadingPersonalLayer = false
     @AppStorage("colorScheme") var scheme: String = "system"
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
-    @AppStorage("activeFamilyMemberId") private var activeFamilyMemberId = ""
+    @AppStorage("activeFamilyMemberId") private var activeMemberId = ""
     @AppStorage("householdCode") private var householdCode = ""
-    @AppStorage("householdLastSnapshot") private var householdLastSnapshot = 0.0
+    @AppStorage("householdLastSnapshot") private var groupLastSnapshot = 0.0
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAuthToken") private var backendAuthToken = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
-    @AppStorage("backendHouseholdId") private var backendHouseholdId = ""
-    @AppStorage("backendHouseholdName") private var backendStoredHouseholdName = ""
+    @AppStorage("backendHouseholdId") private var backendGroupId = ""
+    @AppStorage("backendHouseholdName") private var backendStoredGroupName = ""
+    @AppStorage("activeGroupId") private var activeGroupId = ""
     @AppStorage("viewAsMemberName") private var viewAsMemberName = ""
     @AppStorage("shareDailySteps") private var shareDailySteps = false
     @AppStorage("dailyStepVisibility") private var dailyStepVisibilityRaw = VisibilityScope.personal.rawValue
@@ -1610,8 +2214,8 @@ class EventStore: ObservableObject {
         return clean.isEmpty ? "Aura User" : clean
     }
 
-    var activeMember: FamilyMember? {
-        guard let id = UUID(uuidString: activeFamilyMemberId) else { return nil }
+    var activeMember: GroupMember? {
+        guard let id = UUID(uuidString: activeMemberId) else { return nil }
         return members.first(where: { $0.id == id })
     }
 
@@ -1631,7 +2235,7 @@ class EventStore: ObservableObject {
             .filter { !$0.isEmpty }
     }
 
-    var currentHouseholdCode: String {
+    var currentGroupCode: String {
         householdCode.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -1643,15 +2247,31 @@ class EventStore: ObservableObject {
         !currentBackendBaseURL.isEmpty && !backendAuthToken.isEmpty
     }
 
-    var hasServerHousehold: Bool {
-        hasServerSession && !backendHouseholdId.isEmpty
+    var hasServerGroup: Bool {
+        hasServerSession && !backendGroupId.isEmpty
+    }
+
+    var activeServerGroupId: String {
+        activeGroupId
+    }
+
+    var activeServerGroup: AuraRemoteGroupRecord? {
+        serverGroups.first(where: { $0.group.id == activeGroupId })
+    }
+
+    var activeServerGroupName: String {
+        activeServerGroup?.group.name ?? "No Group"
+    }
+
+    var hasServerGroups: Bool {
+        !serverGroups.isEmpty
     }
 
     var currentSyncBackendLabel: String {
-        if hasServerHousehold {
+        if hasServerGroup {
             return "Aura Server"
         }
-        if !currentHouseholdCode.isEmpty {
+        if !currentGroupCode.isEmpty {
             return "CloudKit"
         }
         return "Local only"
@@ -1661,17 +2281,33 @@ class EventStore: ObservableObject {
         serverMembershipRole.caseInsensitiveCompare("Owner") == .orderedSame
     }
 
+    func setActiveServerGroup(id: String) {
+        guard let selected = serverGroups.first(where: { $0.group.id == id }) else { return }
+        activeGroupId = selected.group.id
+        backendGroupId = selected.group.id
+        backendStoredGroupName = selected.group.name
+        serverGroupName = selected.group.name
+        householdCode = selected.group.code
+        serverMembershipRole = selected.membership.role
+        syncStatus = "Active group: \(selected.group.name)"
+        if hasServerSession && isServerOwner {
+            Task { @MainActor [weak self] in
+                await self?.refreshServerAdminData()
+            }
+        }
+    }
+
     init() {
         loadCats()
         loadEvents()
         loadSharedActivity()
         loadMembers()
-        loadFamilyLists()
-        loadFamilyActivities()
-        loadFamilyStepSnapshots()
+        loadGroupLists()
+        loadGroupActivities()
+        loadGroupStepSnapshots()
         loadLiveActivitySession()
         serverAccountEmail = backendAccountEmail
-        serverHouseholdName = backendStoredHouseholdName
+        serverGroupName = backendStoredGroupName
         if hasServerSession {
             Task { @MainActor [weak self] in
                 await self?.refreshServerContext()
@@ -1762,6 +2398,7 @@ class EventStore: ObservableObject {
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
         if e.hasAlarm { NotificationManager.shared.schedule(e, cat: category(for: e.categoryId)) }
+        pushEventToActiveGroup(e)
     }
     func updateEvent(_ e: CalendarEvent) {
         guard let i = events.firstIndex(where: { $0.id == e.id }) else { return }
@@ -1771,6 +2408,30 @@ class EventStore: ObservableObject {
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
         if e.hasAlarm { NotificationManager.shared.schedule(e, cat: category(for: e.categoryId)) }
+        pushEventToActiveGroup(e)
+    }
+
+    /// Mirrors a locally-created/updated event into the active group's shared
+    /// calendar so the Personal tab and conflict detection have real data to
+    /// read (they only read from group-scoped records, never local events).
+    private func pushEventToActiveGroup(_ e: CalendarEvent) {
+        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
+        let groupId = activeServerGroupId
+        let baseURL = currentBackendBaseURL
+        let token = backendAuthToken
+        let iso = ISO8601DateFormatter()
+        let payload: [String: String] = [
+            "localId": e.id.uuidString,
+            "title": e.title,
+            "notes": e.notes,
+            "startDate": iso.string(from: e.startDate),
+            "endDate": iso.string(from: e.endDate),
+            "isAllDay": e.isAllDay ? "true" : "false",
+            "location": e.location
+        ]
+        Task {
+            _ = try? await AuraServerSyncEngine.shared.createGroupEvent(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
+        }
     }
     func deleteEvent(id: UUID) {
         if let e = events.first(where: { $0.id == id }), e.sharePermission == .view { return }
@@ -1829,6 +2490,50 @@ class EventStore: ObservableObject {
         ids.compactMap { id in
             members.first(where: { $0.id == id })?.name
         }
+    }
+
+    func eventFromPayload(_ payload: [String: String]) -> CalendarEvent? {
+        if let rawId = payload["id"],
+           let id = UUID(uuidString: rawId),
+           let exact = events.first(where: { $0.id == id }) {
+            return exact
+        }
+
+        let title = payload["title"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if title.isEmpty {
+            return nil
+        }
+
+        if let rawStart = payload["startDate"],
+           let start = ISO8601DateFormatter().date(from: rawStart),
+           let exactByTime = events.first(where: {
+               $0.title.caseInsensitiveCompare(title) == .orderedSame &&
+               abs($0.startDate.timeIntervalSince(start)) < 60
+           }) {
+            return exactByTime
+        }
+
+        return events.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame })
+    }
+
+    func groupListFromPayload(_ payload: [String: String]) -> GroupList? {
+        if let rawId = payload["id"],
+           let id = UUID(uuidString: rawId),
+           let exact = groupLists.first(where: { $0.id == id }) {
+            return exact
+        }
+
+        let title = payload["title"]?.trimmingCharacters(in: .whitespacesAndNewlines) ??
+            payload["name"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if title.isEmpty {
+            return nil
+        }
+        return groupLists.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame })
+    }
+
+    func suggestedConflictStart(for eventId: UUID) -> Date? {
+        guard let event = events.first(where: { $0.id == eventId }) else { return nil }
+        return nextAvailableStart(for: event, excluding: eventId)
     }
 
     func conflictingEvents(for candidate: CalendarEvent, excluding eventId: UUID? = nil) -> [CalendarEvent] {
@@ -2009,10 +2714,10 @@ class EventStore: ObservableObject {
         return nil
     }
 
-    // ── Family Members ─────────────────────────────────────
+    // ── Group Members ──────────────────────────────────────
     func loadMembers() {
         if let d = shared.data(forKey: mKey),
-           let v = try? JSONDecoder().decode([FamilyMember].self, from: d),
+           let v = try? JSONDecoder().decode([GroupMember].self, from: d),
            !v.isEmpty {
             members = v
         } else {
@@ -2032,22 +2737,22 @@ class EventStore: ObservableObject {
         if !applyingRemoteSnapshot { queueSyncPush() }
     }
 
-    func addMember(_ m: FamilyMember) {
+    func addMember(_ m: GroupMember) {
         members.append(m)
-        if activeFamilyMemberId.isEmpty {
-            activeFamilyMemberId = m.id.uuidString
+        if activeMemberId.isEmpty {
+            activeMemberId = m.id.uuidString
         }
         saveMembers()
     }
 
-    func updateMember(_ member: FamilyMember) {
+    func updateMember(_ member: GroupMember) {
         guard let idx = members.firstIndex(where: { $0.id == member.id }) else { return }
         members[idx] = member
         saveMembers()
     }
 
     func setActiveMember(id: UUID?) {
-        activeFamilyMemberId = id?.uuidString ?? ""
+        activeMemberId = id?.uuidString ?? ""
         objectWillChange.send()
     }
 
@@ -2078,118 +2783,137 @@ class EventStore: ObservableObject {
         objectWillChange.send()
     }
 
-    // ── Shared Family Lists ────────────────────────────────
-    func loadFamilyLists() {
+    // ── Shared Group Lists ─────────────────────────────────
+    func loadGroupLists() {
         if let d = shared.data(forKey: lKey),
-           let v = try? JSONDecoder().decode([FamilyList].self, from: d) {
-            familyLists = v.sorted { $0.createdAt > $1.createdAt }
+           let v = try? JSONDecoder().decode([GroupList].self, from: d) {
+            groupLists = v.sorted { $0.createdAt > $1.createdAt }
         } else {
-            familyLists = [
+            groupLists = [
                 .init(title: "Weekly Grocery", kind: .supermarket, createdAt: Date(), items: [])
             ]
-            saveFamilyLists()
+            saveGroupLists()
         }
     }
 
-    func saveFamilyLists() {
-        if let d = try? JSONEncoder().encode(familyLists) {
+    func saveGroupLists() {
+        if let d = try? JSONEncoder().encode(groupLists) {
             shared.set(d, forKey: lKey)
         }
         if !applyingRemoteSnapshot { queueSyncPush() }
     }
 
-    func addFamilyList(title: String, kind: FamilyListKind) {
+    func addGroupList(title: String, kind: GroupListKind) {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
-        familyLists.insert(.init(title: clean, kind: kind, createdAt: Date(), items: [], ownerName: activeProfileName, visibility: .family, sharedWithNames: []), at: 0)
-        saveFamilyLists()
+        let list = GroupList(title: clean, kind: kind, createdAt: Date(), items: [], ownerName: activeProfileName, visibility: .family, sharedWithNames: [])
+        groupLists.insert(list, at: 0)
+        saveGroupLists()
+        pushListToActiveGroup(list)
     }
 
-    func addFamilyList(title: String, kind: FamilyListKind, visibility: VisibilityScope, sharedWithNames: [String]) {
+    func addGroupList(title: String, kind: GroupListKind, visibility: VisibilityScope, sharedWithNames: [String]) {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
         let allowed = sharedWithNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        familyLists.insert(
-            .init(
-                title: clean,
-                kind: kind,
-                createdAt: Date(),
-                items: [],
-                ownerName: activeProfileName,
-                visibility: visibility,
-                sharedWithNames: allowed
-            ),
-            at: 0
+        let list = GroupList(
+            title: clean,
+            kind: kind,
+            createdAt: Date(),
+            items: [],
+            ownerName: activeProfileName,
+            visibility: visibility,
+            sharedWithNames: allowed
         )
-        saveFamilyLists()
+        groupLists.insert(list, at: 0)
+        saveGroupLists()
+        pushListToActiveGroup(list)
     }
 
-    func deleteFamilyList(id: UUID) {
-        familyLists.removeAll { $0.id == id }
-        saveFamilyLists()
-    }
-
-    func addItem(to listId: UUID, item: FamilyListItem) {
-        guard let i = familyLists.firstIndex(where: { $0.id == listId }) else { return }
-        familyLists[i].items.append(item)
-        saveFamilyLists()
-    }
-
-    func updateItem(listId: UUID, item: FamilyListItem) {
-        guard let i = familyLists.firstIndex(where: { $0.id == listId }),
-              let j = familyLists[i].items.firstIndex(where: { $0.id == item.id })
-        else { return }
-        familyLists[i].items[j] = item
-        saveFamilyLists()
-    }
-
-    func toggleItem(listId: UUID, itemId: UUID) {
-        guard let i = familyLists.firstIndex(where: { $0.id == listId }),
-              let j = familyLists[i].items.firstIndex(where: { $0.id == itemId })
-        else { return }
-        familyLists[i].items[j].isDone.toggle()
-        familyLists[i].items[j].completedByName = familyLists[i].items[j].isDone ? activeProfileName : nil
-                familyLists[i].items[j].boughtAt = familyLists[i].items[j].isDone ? Date() : nil
-        saveFamilyLists()
-    }
-
-    func deleteItem(listId: UUID, itemId: UUID) {
-        guard let i = familyLists.firstIndex(where: { $0.id == listId }) else { return }
-        familyLists[i].items.removeAll { $0.id == itemId }
-        saveFamilyLists()
-    }
-
-    // ── Family Activities ──────────────────────────────────
-    func loadFamilyActivities() {
-        if let d = shared.data(forKey: fKey),
-           let v = try? JSONDecoder().decode([FamilyActivity].self, from: d) {
-            familyActivities = v.sorted { $0.date > $1.date }
+    /// Mirrors a locally-created list into the active group's shared lists so
+    /// the Personal tab has real data to read (it only reads group-scoped
+    /// records, never local lists).
+    private func pushListToActiveGroup(_ list: GroupList) {
+        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
+        let groupId = activeServerGroupId
+        let baseURL = currentBackendBaseURL
+        let token = backendAuthToken
+        let payload: [String: String] = [
+            "id": list.id.uuidString,
+            "title": list.title,
+            "kind": list.kind.rawValue
+        ]
+        Task {
+            _ = try? await AuraServerSyncEngine.shared.createGroupList(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
         }
     }
 
-    func saveFamilyActivities() {
-        if let d = try? JSONEncoder().encode(familyActivities) {
+    func deleteGroupList(id: UUID) {
+        groupLists.removeAll { $0.id == id }
+        saveGroupLists()
+    }
+
+    func addItem(to listId: UUID, item: GroupListItem) {
+        guard let i = groupLists.firstIndex(where: { $0.id == listId }) else { return }
+        groupLists[i].items.append(item)
+        saveGroupLists()
+    }
+
+    func updateItem(listId: UUID, item: GroupListItem) {
+        guard let i = groupLists.firstIndex(where: { $0.id == listId }),
+              let j = groupLists[i].items.firstIndex(where: { $0.id == item.id })
+        else { return }
+        groupLists[i].items[j] = item
+        saveGroupLists()
+    }
+
+    func toggleItem(listId: UUID, itemId: UUID) {
+        guard let i = groupLists.firstIndex(where: { $0.id == listId }),
+              let j = groupLists[i].items.firstIndex(where: { $0.id == itemId })
+        else { return }
+        groupLists[i].items[j].isDone.toggle()
+        groupLists[i].items[j].completedByName = groupLists[i].items[j].isDone ? activeProfileName : nil
+                groupLists[i].items[j].boughtAt = groupLists[i].items[j].isDone ? Date() : nil
+        saveGroupLists()
+    }
+
+    func deleteItem(listId: UUID, itemId: UUID) {
+        guard let i = groupLists.firstIndex(where: { $0.id == listId }) else { return }
+        groupLists[i].items.removeAll { $0.id == itemId }
+        saveGroupLists()
+    }
+
+    // ── Group Activities ───────────────────────────────────
+    func loadGroupActivities() {
+        if let d = shared.data(forKey: fKey),
+           let v = try? JSONDecoder().decode([GroupActivity].self, from: d) {
+            groupActivities = v.sorted { $0.date > $1.date }
+        }
+    }
+
+    func saveGroupActivities() {
+        if let d = try? JSONEncoder().encode(groupActivities) {
             shared.set(d, forKey: fKey)
         }
         if !applyingRemoteSnapshot { queueSyncPush() }
     }
 
-    func addActivity(_ a: FamilyActivity) {
-        familyActivities.insert(a, at: 0)
-        if familyActivities.count > 500 { familyActivities = Array(familyActivities.prefix(500)) }
-        saveFamilyActivities()
+    func addActivity(_ a: GroupActivity) {
+        groupActivities.insert(a, at: 0)
+        if groupActivities.count > 500 { groupActivities = Array(groupActivities.prefix(500)) }
+        saveGroupActivities()
     }
 
-    func updateActivity(_ activity: FamilyActivity) {
-        guard let idx = familyActivities.firstIndex(where: { $0.id == activity.id }) else { return }
-        familyActivities[idx] = activity
-        familyActivities.sort { $0.date > $1.date }
-        saveFamilyActivities()
+    func updateActivity(_ activity: GroupActivity) {
+        guard let idx = groupActivities.firstIndex(where: { $0.id == activity.id }) else { return }
+        groupActivities[idx] = activity
+        groupActivities.sort { $0.date > $1.date }
+        saveGroupActivities()
     }
 
     func deleteActivity(id: UUID) {
-        familyActivities.removeAll { $0.id == id }
-        saveFamilyActivities()
+        groupActivities.removeAll { $0.id == id }
+        saveGroupActivities()
     }
 
     func canView(visibility: VisibilityScope, ownerName: String, sharedWithNames: [String]) -> Bool {
@@ -2204,12 +2928,12 @@ class EventStore: ObservableObject {
         }
     }
 
-    var visibleFamilyLists: [FamilyList] {
-        familyLists.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
+    var visibleGroupLists: [GroupList] {
+        groupLists.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
     }
 
-    var visibleFamilyActivities: [FamilyActivity] {
-        familyActivities.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
+    var visibleGroupActivities: [GroupActivity] {
+        groupActivities.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
     }
 
     func saveLiveActivitySession() {
@@ -2223,12 +2947,12 @@ class EventStore: ObservableObject {
 
     func loadLiveActivitySession() {
         if let d = shared.data(forKey: liveActivityKey),
-           let session = try? JSONDecoder().decode(LiveFamilyActivitySession.self, from: d) {
+           let session = try? JSONDecoder().decode(LiveGroupActivitySession.self, from: d) {
             activeActivitySession = session
         }
     }
 
-    func startLiveActivity(kind: FamilyActivityKind, notes: String, participantIds: [UUID], visibility: VisibilityScope, sharedWithNames: [String]) {
+    func startLiveActivity(kind: GroupActivityKind, notes: String, participantIds: [UUID], visibility: VisibilityScope, sharedWithNames: [String]) {
         activeActivitySession = .init(
             kind: kind,
             startedAt: Date(),
@@ -2262,18 +2986,18 @@ class EventStore: ObservableObject {
 
     func visibleSteps(for memberId: UUID) -> Int? {
         guard let member = members.first(where: { $0.id == memberId }), member.allowsStepSharing else { return nil }
-        guard let snapshot = visibleFamilyStepSnapshots.first(where: {
+        guard let snapshot = visibleGroupStepSnapshots.first(where: {
             $0.ownerName.caseInsensitiveCompare(member.name) == .orderedSame && Calendar.current.isDateInToday($0.date)
         }) else { return nil }
         return snapshot.steps
     }
 
-    func activityStepTotal(_ activity: FamilyActivity) -> Int {
+    func activityStepTotal(_ activity: GroupActivity) -> Int {
         activity.participantIds.compactMap { visibleSteps(for: $0) }.reduce(0, +)
     }
 
-    var visibleFamilyStepSnapshots: [FamilyStepSnapshot] {
-        familyStepSnapshots.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
+    var visibleGroupStepSnapshots: [GroupStepSnapshot] {
+        groupStepSnapshots.filter { canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
     }
 
     func updateHouseholdCode(_ code: String) {
@@ -2281,7 +3005,7 @@ class EventStore: ObservableObject {
         if householdCode.isEmpty {
             syncStatus = "Sync disabled"
         } else {
-            syncStatus = hasServerHousehold ? "Household code ready" : "Household linked"
+            syncStatus = hasServerGroup ? "Group code ready" : "Group linked"
             queueSyncPush()
         }
     }
@@ -2289,7 +3013,7 @@ class EventStore: ObservableObject {
     func updateBackendBaseURL(_ value: String) {
         backendBaseURL = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if backendBaseURL.isEmpty && backendAuthToken.isEmpty {
-            syncStatus = currentHouseholdCode.isEmpty ? "Sync disabled" : "Household linked"
+            syncStatus = currentGroupCode.isEmpty ? "Sync disabled" : "Group linked"
         }
         objectWillChange.send()
     }
@@ -2297,16 +3021,24 @@ class EventStore: ObservableObject {
     func clearServerSession() {
         backendAuthToken = ""
         backendAccountEmail = ""
-        backendHouseholdId = ""
-        backendStoredHouseholdName = ""
+        backendGroupId = ""
+        backendStoredGroupName = ""
+        activeGroupId = ""
         serverAccountEmail = ""
-        serverHouseholdName = ""
+        serverGroupName = ""
         serverMembershipRole = ""
         serverIsAdmin = false
         serverUserId = ""
-        serverHouseholdMembers = []
+        serverGroups = []
+        serverGroupMembers = []
         serverAuditEntries = []
-        syncStatus = currentHouseholdCode.isEmpty ? "Sync disabled" : "Household linked"
+        serverGroupConflictHistoryEntries = []
+        personalMasterCalendarItems = []
+        personalTaskItems = []
+        personalPlanItems = []
+        personalRoutineItems = []
+        personalConflictItems = []
+        syncStatus = currentGroupCode.isEmpty ? "Sync disabled" : "Group linked"
         objectWillChange.send()
     }
 
@@ -2375,39 +3107,144 @@ class EventStore: ObservableObject {
 
             if me.membership != nil,
                let household = try? await AuraServerSyncEngine.shared.currentHousehold(baseURL: currentBackendBaseURL, token: backendAuthToken) {
-                backendHouseholdId = household.household?.id ?? ""
-                backendStoredHouseholdName = household.household?.name ?? ""
-                serverHouseholdName = backendStoredHouseholdName
+                backendGroupId = household.household?.id ?? ""
+                backendStoredGroupName = household.household?.name ?? ""
+                serverGroupName = backendStoredGroupName
                 if let code = household.household?.code {
                     householdCode = code
                 }
             }
+            await refreshServerGroups()
             if isServerOwner {
                 await refreshServerAdminData()
             } else {
-                serverHouseholdMembers = []
+                serverGroupMembers = []
                 serverAuditEntries = []
             }
-            syncStatus = hasServerHousehold ? "Server household connected" : "Signed in · household not linked"
+            syncStatus = hasServerGroup ? "Server workspace connected" : "Signed in · no active group yet"
         } catch {
             _ = mapServerError(error, fallbackStatus: "Server refresh failed")
         }
     }
 
+    func refreshServerGroups() async {
+        guard hasServerSession else {
+            serverGroups = []
+            activeGroupId = ""
+            return
+        }
+
+        do {
+            let response = try await AuraServerSyncEngine.shared.groups(baseURL: currentBackendBaseURL, token: backendAuthToken)
+            serverGroups = response.groups
+
+            if let active = response.groups.first(where: { $0.group.id == activeGroupId }) {
+                serverMembershipRole = active.membership.role
+                backendGroupId = active.group.id
+                backendStoredGroupName = active.group.name
+                serverGroupName = active.group.name
+                householdCode = active.group.code
+            } else if let first = response.groups.first {
+                activeGroupId = first.group.id
+                serverMembershipRole = first.membership.role
+                backendGroupId = first.group.id
+                backendStoredGroupName = first.group.name
+                serverGroupName = first.group.name
+                householdCode = first.group.code
+            } else {
+                activeGroupId = ""
+                serverMembershipRole = ""
+            }
+        } catch {
+            _ = mapServerError(error, fallbackStatus: "Group refresh failed")
+        }
+    }
+
+    func refreshPersonalLayer() async {
+        guard hasServerSession else {
+            personalMasterCalendarItems = []
+            personalTaskItems = []
+            personalPlanItems = []
+            personalRoutineItems = []
+            personalConflictItems = []
+            return
+        }
+
+        isLoadingPersonalLayer = true
+        defer { isLoadingPersonalLayer = false }
+
+        do {
+            async let calendar = AuraServerSyncEngine.shared.personalMasterCalendar(baseURL: currentBackendBaseURL, token: backendAuthToken)
+            async let tasks = AuraServerSyncEngine.shared.personalTasks(baseURL: currentBackendBaseURL, token: backendAuthToken)
+            async let plans = AuraServerSyncEngine.shared.personalPlans(baseURL: currentBackendBaseURL, token: backendAuthToken)
+            async let routines = AuraServerSyncEngine.shared.personalRoutines(baseURL: currentBackendBaseURL, token: backendAuthToken)
+            async let conflicts = AuraServerSyncEngine.shared.conflictCheck(baseURL: currentBackendBaseURL, token: backendAuthToken)
+
+            let calendarValue = try await calendar
+            let tasksValue = try await tasks
+            let plansValue = try await plans
+            let routinesValue = try await routines
+            let conflictsValue = try await conflicts
+
+            personalMasterCalendarItems = calendarValue.items
+            personalTaskItems = tasksValue.items
+            personalPlanItems = plansValue.items
+            personalRoutineItems = routinesValue.items
+            personalConflictItems = conflictsValue.conflicts
+        } catch {
+            _ = mapServerError(error, fallbackStatus: "Personal layer refresh failed")
+        }
+    }
+
+    func interceptServerConflict(
+        action: String,
+        leftEventId: String,
+        rightEventId: String,
+        preferredEventId: String? = nil
+    ) async -> Result<AuraRemoteConflictInterceptResponse, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Server session required."))
+        }
+        do {
+            let response = try await AuraServerSyncEngine.shared.conflictIntercept(
+                baseURL: currentBackendBaseURL,
+                token: backendAuthToken,
+                action: action,
+                leftEventId: leftEventId,
+                rightEventId: rightEventId,
+                preferredEventId: preferredEventId
+            )
+            return .success(response)
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Conflict action failed"))
+        }
+    }
+
     func refreshServerAdminData() async {
         guard hasServerSession, isServerOwner else {
-            serverHouseholdMembers = []
+            serverGroupMembers = []
             serverAuditEntries = []
+            serverGroupConflictHistoryEntries = []
             return
         }
         do {
             let members = try await AuraServerSyncEngine.shared.adminMembers(baseURL: currentBackendBaseURL, token: backendAuthToken)
-            serverHouseholdMembers = members.members
+            serverGroupMembers = members.members
             if let code = Optional(members.household.code), !code.isEmpty {
                 householdCode = code
             }
             let audit = try await AuraServerSyncEngine.shared.adminAudit(baseURL: currentBackendBaseURL, token: backendAuthToken)
             serverAuditEntries = audit.entries
+            if !activeServerGroupId.isEmpty {
+                let conflicts = try await AuraServerSyncEngine.shared.groupConflictHistory(
+                    baseURL: currentBackendBaseURL,
+                    token: backendAuthToken,
+                    groupId: activeServerGroupId
+                )
+                serverGroupConflictHistoryEntries = conflicts.entries
+            } else {
+                serverGroupConflictHistoryEntries = []
+            }
         } catch {
             _ = mapServerError(error, fallbackStatus: "Admin refresh failed")
         }
@@ -2472,46 +3309,49 @@ class EventStore: ObservableObject {
     }
 
     func createServerHousehold(name: String) async -> Result<String, Error> {
+        return await createServerGroup(name: name, type: "Family")
+    }
+
+    func createServerGroup(name: String, type: String) async -> Result<String, Error> {
         guard hasServerSession else {
-            return .failure(AuraServerError.requestFailed("Sign in before creating a household."))
+            return .failure(AuraServerError.requestFailed("Sign in before creating a group."))
         }
         do {
-            let response = try await AuraServerSyncEngine.shared.createHousehold(
+            let response = try await AuraServerSyncEngine.shared.createGroup(
                 baseURL: currentBackendBaseURL,
                 token: backendAuthToken,
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines)
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                type: type
             )
-            backendHouseholdId = response.householdId
-            householdCode = response.code
-            backendStoredHouseholdName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            serverHouseholdName = backendStoredHouseholdName
-            syncStatus = "Server household ready"
-            await pushSnapshot()
-            return .success(response.code)
+            await refreshServerGroups()
+            setActiveServerGroup(id: response.group.id)
+            syncStatus = "Group ready"
+            return .success(response.group.code)
         } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Create household failed"))
+            return .failure(mapServerError(error, fallbackStatus: "Create group failed"))
         }
     }
 
     func joinServerHousehold(code: String) async -> Result<Void, Error> {
+        return await joinServerGroup(code: code)
+    }
+
+    func joinServerGroup(code: String) async -> Result<Void, Error> {
         guard hasServerSession else {
-            return .failure(AuraServerError.requestFailed("Sign in before joining a household."))
+            return .failure(AuraServerError.requestFailed("Sign in before joining a group."))
         }
         do {
-            let response = try await AuraServerSyncEngine.shared.joinHousehold(
+            let response = try await AuraServerSyncEngine.shared.joinGroup(
                 baseURL: currentBackendBaseURL,
                 token: backendAuthToken,
                 code: code.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-            backendHouseholdId = response.household.id
-            backendStoredHouseholdName = response.household.name
-            serverHouseholdName = response.household.name
-            householdCode = response.household.code
-            syncStatus = "Joined \(response.household.name)"
-            await pullSnapshot()
+            await refreshServerGroups()
+            setActiveServerGroup(id: response.group.id)
+            syncStatus = "Joined \(response.group.name)"
             return .success(())
         } catch {
-            return .failure(mapServerError(error, fallbackStatus: "Join household failed"))
+            return .failure(mapServerError(error, fallbackStatus: "Join group failed"))
         }
     }
 
@@ -2567,7 +3407,7 @@ class EventStore: ObservableObject {
     }
 
     func queueSyncPush() {
-        let canSync = hasServerHousehold || !currentHouseholdCode.isEmpty
+        let canSync = hasServerGroup || !currentGroupCode.isEmpty
         guard canSync else { return }
         syncDebounceTask?.cancel()
         syncDebounceTask = Task { [weak self] in
@@ -2577,7 +3417,7 @@ class EventStore: ObservableObject {
     }
 
     func forceSyncNow() {
-        let canSync = hasServerHousehold || !currentHouseholdCode.isEmpty
+        let canSync = hasServerGroup || !currentGroupCode.isEmpty
         guard canSync else { return }
         Task { [weak self] in
             await self?.pushSnapshot()
@@ -2589,6 +3429,7 @@ class EventStore: ObservableObject {
     func refreshHomeDashboard() async {
         if hasServerSession {
             await refreshServerContext()
+            await refreshPersonalLayer()
         }
         await pullSnapshot()
         refreshDailyStepsIfEnabled(force: true)
@@ -2598,7 +3439,7 @@ class EventStore: ObservableObject {
         periodicPullTask?.cancel()
         periodicPullTask = Task { [weak self] in
             while let self, !Task.isCancelled {
-                let interval: UInt64 = self.hasServerHousehold ? 6_000_000_000 : 15_000_000_000
+                let interval: UInt64 = self.hasServerGroup ? 6_000_000_000 : 15_000_000_000
                 try? await Task.sleep(nanoseconds: interval)
                 await self.pullSnapshot()
             }
@@ -2612,26 +3453,26 @@ class EventStore: ObservableObject {
             categories: categories,
             events: events,
             members: members,
-            familyLists: familyLists,
-            familyActivities: familyActivities
-            ,stepSnapshots: familyStepSnapshots
+            groupLists: groupLists,
+            groupActivities: groupActivities
+            ,stepSnapshots: groupStepSnapshots
         )
     }
 
     @MainActor
     private func pushSnapshot() async {
         do {
-            if hasServerHousehold {
+            if hasServerGroup {
                 _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, payload: snapshotPayload())
             } else {
-                let code = currentHouseholdCode
+                let code = currentGroupCode
                 guard !code.isEmpty else { return }
                 try await HouseholdSyncEngine.shared.upload(householdCode: code, payload: snapshotPayload())
             }
-            householdLastSnapshot = Date().timeIntervalSince1970
-            syncStatus = hasServerHousehold ? "Server synced just now" : "Synced just now"
+            groupLastSnapshot = Date().timeIntervalSince1970
+            syncStatus = hasServerGroup ? "Server synced just now" : "Synced just now"
         } catch {
-            _ = mapServerError(error, fallbackStatus: hasServerHousehold ? "Server sync upload failed" : "Sync upload failed")
+            _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync upload failed" : "Sync upload failed")
         }
     }
 
@@ -2639,45 +3480,45 @@ class EventStore: ObservableObject {
     private func pullSnapshot() async {
         do {
             let incoming: HouseholdSyncPayload?
-            if hasServerHousehold {
+            if hasServerGroup {
                 incoming = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken)
             } else {
-                let code = currentHouseholdCode
+                let code = currentGroupCode
                 guard !code.isEmpty else { return }
                 incoming = try await HouseholdSyncEngine.shared.download(householdCode: code)
             }
             guard let incoming else { return }
-            guard incoming.updatedAt.timeIntervalSince1970 > householdLastSnapshot + 0.5 else { return }
+            guard incoming.updatedAt.timeIntervalSince1970 > groupLastSnapshot + 0.5 else { return }
             applyingRemoteSnapshot = true
             categories = incoming.categories
             events = incoming.events.sorted { $0.startDate < $1.startDate }
             members = incoming.members
-            familyLists = incoming.familyLists.sorted { $0.createdAt > $1.createdAt }
-            familyActivities = incoming.familyActivities.sorted { $0.date > $1.date }
-            familyStepSnapshots = incoming.stepSnapshots.sorted { $0.updatedAt > $1.updatedAt }
+            groupLists = incoming.groupLists.sorted { $0.createdAt > $1.createdAt }
+            groupActivities = incoming.groupActivities.sorted { $0.date > $1.date }
+            groupStepSnapshots = incoming.stepSnapshots.sorted { $0.updatedAt > $1.updatedAt }
             saveCats()
             saveEvents()
             saveMembers()
-            saveFamilyLists()
-            saveFamilyActivities()
-            saveFamilyStepSnapshots()
+            saveGroupLists()
+            saveGroupActivities()
+            saveGroupStepSnapshots()
             applyingRemoteSnapshot = false
-            householdLastSnapshot = incoming.updatedAt.timeIntervalSince1970
-            syncStatus = hasServerHousehold ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
+            groupLastSnapshot = incoming.updatedAt.timeIntervalSince1970
+            syncStatus = hasServerGroup ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
         } catch {
-            _ = mapServerError(error, fallbackStatus: hasServerHousehold ? "Server sync pull failed" : "Sync pull failed")
+            _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync pull failed" : "Sync pull failed")
         }
     }
 
-    func loadFamilyStepSnapshots() {
+    func loadGroupStepSnapshots() {
         if let d = shared.data(forKey: sKey),
-           let v = try? JSONDecoder().decode([FamilyStepSnapshot].self, from: d) {
-            familyStepSnapshots = v.sorted { $0.updatedAt > $1.updatedAt }
+           let v = try? JSONDecoder().decode([GroupStepSnapshot].self, from: d) {
+            groupStepSnapshots = v.sorted { $0.updatedAt > $1.updatedAt }
         }
     }
 
-    func saveFamilyStepSnapshots() {
-        if let d = try? JSONEncoder().encode(familyStepSnapshots) {
+    func saveGroupStepSnapshots() {
+        if let d = try? JSONEncoder().encode(groupStepSnapshots) {
             shared.set(d, forKey: sKey)
         }
         if !applyingRemoteSnapshot { queueSyncPush() }
@@ -2708,21 +3549,21 @@ class EventStore: ObservableObject {
         let today = Calendar.current.startOfDay(for: Date())
         let visibility = dailyStepVisibility
         let sharedNames = dailyStepSharedWithNames
-        if let idx = familyStepSnapshots.firstIndex(where: {
+        if let idx = groupStepSnapshots.firstIndex(where: {
             $0.ownerName.caseInsensitiveCompare(activeProfileName) == .orderedSame &&
             Calendar.current.isDate($0.date, inSameDayAs: today)
         }) {
-            familyStepSnapshots[idx].steps = steps
-            familyStepSnapshots[idx].visibility = visibility
-            familyStepSnapshots[idx].sharedWithNames = sharedNames
-            familyStepSnapshots[idx].updatedAt = Date()
+            groupStepSnapshots[idx].steps = steps
+            groupStepSnapshots[idx].visibility = visibility
+            groupStepSnapshots[idx].sharedWithNames = sharedNames
+            groupStepSnapshots[idx].updatedAt = Date()
         } else {
-            familyStepSnapshots.insert(
+            groupStepSnapshots.insert(
                 .init(ownerName: activeProfileName, date: today, steps: steps, visibility: visibility, sharedWithNames: sharedNames, updatedAt: Date()),
                 at: 0
             )
         }
-        saveFamilyStepSnapshots()
+        saveGroupStepSnapshots()
     }
 }
 
@@ -2799,6 +3640,7 @@ class NotificationManager {
     }
 
     func schedule(_ event: CalendarEvent, cat: EventCategory?) {
+        requestPermission()
         configureReminderCategories()
         let c = UNMutableNotificationContent()
         c.title = event.title
@@ -2923,9 +3765,12 @@ struct ContentView: View {
                 ListsView()
                     .id("lists-\(widgetThemeJSON)")
                     .tabItem { Label("Lists", systemImage: "checklist") }.tag(3)
+                PersonalHubView()
+                    .id("personal-\(widgetThemeJSON)")
+                    .tabItem { Label("Personal", systemImage: "person.crop.circle") }.tag(4)
                 SettingsView()
                     .id("settings-\(widgetThemeJSON)")
-                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(4)
+                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(5)
             }
             .tint(palette.accentStart)
 
@@ -2935,6 +3780,37 @@ struct ContentView: View {
                         .padding(.top, 8)
                         .padding(.horizontal, 14)
                         .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if store.hasServerSession && store.hasServerGroups {
+                    HStack {
+                        Menu {
+                            ForEach(store.serverGroups) { record in
+                                Button {
+                                    store.setActiveServerGroup(id: record.group.id)
+                                } label: {
+                                    Label("\(record.group.name) · \(record.membership.role)", systemImage: record.group.id == store.activeServerGroupId ? "checkmark.circle.fill" : "circle")
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.stack.3d.up.fill")
+                                Text(store.activeServerGroupName)
+                                    .lineLimit(1)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.24), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                            .foregroundStyle(.white)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, bannerPayload == nil ? 8 : 0)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 Spacer()
             }
@@ -2967,7 +3843,7 @@ struct ContentView: View {
             CreateEventView(isPresented: $showCreate, preset: eventDraftPreset).environmentObject(store)
         }
         .sheet(isPresented: $showAddList) {
-            AddFamilyListView(isPresented: $showAddList).environmentObject(store)
+            AddGroupListView(isPresented: $showAddList).environmentObject(store)
         }
         .sheet(isPresented: $showAddActivity) {
             AddActivityView(isPresented: $showAddActivity).environmentObject(store)
@@ -3057,7 +3933,7 @@ struct ContentView: View {
             withAnimation(AuraMotion.spring) { showCreate = true }
         case 3:
             withAnimation(AuraMotion.spring) { showAddList = true }
-        case 4:
+        case 5:
             withAnimation(AuraMotion.spring) { showAddMember = true }
         default:
             withAnimation(AuraMotion.spring) { showCreate = true }
@@ -3078,21 +3954,21 @@ struct HomeView: View {
     @State private var showRoutineTemplates = false
     @State private var showWeekPlanner = false
     @State private var showOnlyShared = true
-    @State private var editingActivity: FamilyActivity? = nil
+    @State private var editingActivity: GroupActivity? = nil
 
     var todayEventsCount: Int {
         store.events(for: Date()).count
     }
 
     var pendingShoppingItems: Int {
-        (showOnlyShared ? store.visibleFamilyLists : store.familyLists)
+        (showOnlyShared ? store.visibleGroupLists : store.groupLists)
             .flatMap { $0.items }
             .filter { !$0.isDone }
             .count
     }
 
-    var recentActivities: [FamilyActivity] {
-        Array((showOnlyShared ? store.visibleFamilyActivities : store.familyActivities).prefix(3))
+    var recentActivities: [GroupActivity] {
+        Array((showOnlyShared ? store.visibleGroupActivities : store.groupActivities).prefix(3))
     }
 
     var todayEvents: [CalendarEvent] {
@@ -3113,7 +3989,7 @@ struct HomeView: View {
         return lower.contains("failed") || lower.contains("unavailable") || lower.contains("expired")
     }
 
-    var workloadByMember: [(member: FamilyMember, count: Int)] {
+    var workloadByMember: [(member: GroupMember, count: Int)] {
         let horizon = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let source = showOnlyShared ? store.visibleEvents : store.events
         return store.members.map { member in
@@ -3136,7 +4012,7 @@ struct HomeView: View {
 
     var activeStreakDays: Int {
         let cal = Calendar.current
-        let activityDates: [Date] = (showOnlyShared ? store.visibleFamilyActivities : store.familyActivities).map { $0.date }
+        let activityDates: [Date] = (showOnlyShared ? store.visibleGroupActivities : store.groupActivities).map { $0.date }
         let activeDays = Set(activityDates.map { cal.startOfDay(for: $0) })
         var streak = 0
         for offset in 0..<30 {
@@ -3194,6 +4070,8 @@ struct HomeView: View {
 
     var body: some View {
         NavigationView {
+            ZStack {
+            AuraAtmosphericBackground()
             ScrollView {
                 VStack(spacing: 14) {
                     HomeHeroCard(
@@ -3209,7 +4087,7 @@ struct HomeView: View {
                             Label(store.syncStatus, systemImage: "wifi.exclamationmark")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.orange)
-                            Text("Pull to refresh on Home or tap Refresh to reconnect and pull the latest family data.")
+                            Text("Pull to refresh on Home or tap Refresh to reconnect and pull the latest workspace data.")
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
@@ -3217,7 +4095,7 @@ struct HomeView: View {
 
                     HomeSectionCard(title: "Viewing As") {
                         HStack {
-                            Picker("Family Member", selection: Binding(
+                            Picker("Active Member", selection: Binding(
                                 get: { store.activeMember?.id },
                                 set: { store.setActiveMember(id: $0) }
                             )) {
@@ -3233,7 +4111,7 @@ struct HomeView: View {
                                 .labelsHidden()
                                 .tint(AuraThemePalette.current.accentStart)
                         }
-                        Text(showOnlyShared ? "Showing items you can access." : "Showing full household data.")
+                        Text(showOnlyShared ? "Showing items you can access." : "Showing full workspace data.")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
                     }
@@ -3306,7 +4184,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("No events planned for today")
                                     .font(.system(size: 14, weight: .semibold))
-                                Text("Use Schedule Event to add your next family moment.")
+                                Text("Use Schedule Event to add your next shared moment.")
                                     .font(.system(size: 12))
                                     .foregroundColor(.secondary)
                                 Button("Add First Event") {
@@ -3364,7 +4242,7 @@ struct HomeView: View {
                         }
                     }
 
-                    HomeSectionCard(title: "Family Insights") {
+                    HomeSectionCard(title: "Group Insights") {
                         HStack(spacing: 8) {
                             HomeInsightBadge(title: "Balance", value: "\(balanceScore)%")
                             HomeInsightBadge(title: "Streak", value: "\(activeStreakDays)d")
@@ -3372,7 +4250,7 @@ struct HomeView: View {
                         }
 
                         if workloadByMember.isEmpty {
-                            Text("Add family members to see workload insights.")
+                            Text("Add members to see workload insights.")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.secondary)
                         } else {
@@ -3407,7 +4285,7 @@ struct HomeView: View {
                         }
                     }
 
-                    HomeSectionCard(title: "Recent Family Activities") {
+                    HomeSectionCard(title: "Recent Group Activities") {
                         if store.isBootstrapping {
                             HomeLoadingRows()
                         } else if recentActivities.isEmpty {
@@ -3457,6 +4335,7 @@ struct HomeView: View {
                 }
                 .padding(16)
                 .padding(.bottom, 90)
+            }
             }
             .refreshable {
                 await store.refreshHomeDashboard()
@@ -3523,7 +4402,7 @@ struct HomeView: View {
         return f.string(from: e.startDate)
     }
 
-    private func activitySubtitle(_ a: FamilyActivity) -> String {
+    private func activitySubtitle(_ a: GroupActivity) -> String {
         let names = a.participantIds.compactMap { id in
             store.members.first(where: { $0.id == id })?.name
         }
@@ -3540,6 +4419,351 @@ struct HomeView: View {
     }
 }
 
+struct PersonalHubView: View {
+    @EnvironmentObject var store: EventStore
+    @EnvironmentObject var shareManager: ShareManager
+    @State private var selectedEvent: CalendarEvent? = nil
+    @State private var selectedList: GroupList? = nil
+    @State private var statusMessage = ""
+    @State private var showStatusMessage = false
+    @State private var dismissedConflictIds: Set<String> = []
+    @State private var conflictActionLoadingIds: Set<String> = []
+    @Namespace private var personalHeroNamespace
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+            AuraAtmosphericBackground()
+            ScrollView {
+                VStack(spacing: 14) {
+                    HomeHeroCard(
+                        title: "Personal Command",
+                        subtitle: "\(store.personalMasterCalendarItems.count) calendar · \(store.personalTaskItems.count) tasks · \(store.personalConflictItems.count) conflicts",
+                        detail: store.syncStatus
+                    ) {
+                        Task { await store.refreshPersonalLayer() }
+                    }
+
+                    HomeSectionCard(title: "Master Calendar") {
+                        if store.isLoadingPersonalLayer {
+                            HomeLoadingRows()
+                        } else if store.personalMasterCalendarItems.isEmpty {
+                            Text("No personal calendar items yet.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(store.personalMasterCalendarItems.prefix(5)) { item in
+                                    PersonalAggregateRow(item: item, fallbackIcon: "calendar") {
+                                        if let event = store.eventFromPayload(item.payload) {
+                                            selectedEvent = event
+                                        } else {
+                                            statusMessage = "Source event not found on this device yet."
+                                            showStatusMessage = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HomeSectionCard(title: "My Tasks") {
+                        if store.isLoadingPersonalLayer {
+                            HomeLoadingRows()
+                        } else if store.personalTaskItems.isEmpty {
+                            Text("No tasks assigned yet.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(store.personalTaskItems.prefix(5)) { item in
+                                    PersonalAggregateRow(item: item, fallbackIcon: "checkmark.circle") {
+                                        if let list = store.groupListFromPayload(item.payload) {
+                                            selectedList = list
+                                        } else {
+                                            statusMessage = "Source list not found locally yet."
+                                            showStatusMessage = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HomeSectionCard(title: "My Plans") {
+                        if store.isLoadingPersonalLayer {
+                            HomeLoadingRows()
+                        } else if store.personalPlanItems.isEmpty {
+                            Text("No plan steps assigned yet.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(store.personalPlanItems.prefix(5)) { item in
+                                    PersonalAggregateRow(item: item, fallbackIcon: "list.bullet.rectangle") {
+                                        if let event = store.eventFromPayload(item.payload) {
+                                            selectedEvent = event
+                                        } else {
+                                            statusMessage = "Plan source detail opening will expand in the next chunk."
+                                            showStatusMessage = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HomeSectionCard(title: "My Routines") {
+                        if store.isLoadingPersonalLayer {
+                            HomeLoadingRows()
+                        } else if store.personalRoutineItems.isEmpty {
+                            Text("No routines yet.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(store.personalRoutineItems.prefix(5)) { item in
+                                    PersonalAggregateRow(item: item, fallbackIcon: "repeat") {
+                                        if let event = store.eventFromPayload(item.payload) {
+                                            selectedEvent = event
+                                        } else {
+                                            statusMessage = "Routine source detail opening will expand in the next chunk."
+                                            showStatusMessage = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HomeSectionCard(title: "Conflicts") {
+                        if store.isLoadingPersonalLayer {
+                            HomeLoadingRows()
+                        } else if store.personalConflictItems.isEmpty {
+                            Text("No conflicts detected.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(store.personalConflictItems.filter { !dismissedConflictIds.contains($0.id) }.prefix(8)) { conflict in
+                                    HStack {
+                                        Text(conflict.severity)
+                                            .font(.system(size: 11, weight: .bold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(conflictColor(conflict.severity).opacity(0.2), in: Capsule())
+                                            .foregroundColor(conflictColor(conflict.severity))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Overlap Detected")
+                                                .font(.system(size: 13, weight: .semibold))
+                                            Text("\(conflict.leftEventTitle ?? "Untitled event") vs \(conflict.rightEventTitle ?? "Untitled event")")
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        Spacer()
+                                        if conflictActionLoadingIds.contains(conflict.id) {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                        }
+                                        Menu {
+                                            Button("Fix now") {
+                                                Task { await handleConflictAction(conflict, action: "fix") }
+                                            }
+                                            Button("Suggest slot") {
+                                                Task { await handleConflictAction(conflict, action: "suggest") }
+                                            }
+                                            Button("Accept anyway") {
+                                                Task { await handleConflictAction(conflict, action: "accept") }
+                                            }
+                                        } label: {
+                                            Image(systemName: "ellipsis.circle")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .disabled(conflictActionLoadingIds.contains(conflict.id))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .padding(.bottom, 90)
+            }
+            if let event = selectedEvent {
+                EventDetailView(
+                    event: event,
+                    heroNamespace: personalHeroNamespace,
+                    onClose: { selectedEvent = nil }
+                )
+                .environmentObject(store)
+                .environmentObject(shareManager)
+                .zIndex(10)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            }
+            .navigationTitle("Personal")
+            .refreshable {
+                await store.refreshPersonalLayer()
+            }
+            .task {
+                if store.hasServerSession && store.personalMasterCalendarItems.isEmpty && !store.isLoadingPersonalLayer {
+                    await store.refreshPersonalLayer()
+                }
+            }
+            .sheet(item: $selectedList) { list in
+                GroupListDetailView(listId: list.id)
+                    .environmentObject(store)
+            }
+            .alert("Personal Layer", isPresented: $showStatusMessage) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(statusMessage)
+            }
+        }
+    }
+
+    private func conflictColor(_ severity: String) -> Color {
+        switch severity {
+        case "Critical":
+            return .red
+        case "Hard":
+            return .orange
+        default:
+            return .yellow
+        }
+    }
+
+    private func conflictEventCandidates(_ conflict: AuraRemoteConflictRecord) -> [UUID] {
+        [conflict.leftEventId, conflict.rightEventId].compactMap { UUID(uuidString: $0) }
+    }
+
+    private func resolveConflictNow(_ conflict: AuraRemoteConflictRecord) -> Bool {
+        for id in conflictEventCandidates(conflict) {
+            if store.resolveSharedEventConflict(id: id) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func suggestedSlotText(_ conflict: AuraRemoteConflictRecord) -> String? {
+        for id in conflictEventCandidates(conflict) {
+            if let suggestion = store.suggestedConflictStart(for: id) {
+                return "Suggested start: \(suggestion.formatted(date: .abbreviated, time: .shortened))"
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func handleConflictAction(_ conflict: AuraRemoteConflictRecord, action: String) async {
+        guard !conflictActionLoadingIds.contains(conflict.id) else { return }
+        conflictActionLoadingIds.insert(conflict.id)
+        defer { conflictActionLoadingIds.remove(conflict.id) }
+
+        if store.hasServerSession {
+            let result = await store.interceptServerConflict(
+                action: action,
+                leftEventId: conflict.leftEventId,
+                rightEventId: conflict.rightEventId,
+                preferredEventId: conflict.leftEventId
+            )
+            switch result {
+            case .success(let response):
+                if action == "accept" {
+                    dismissedConflictIds.insert(conflict.id)
+                    statusMessage = "Conflict acknowledged."
+                } else if action == "suggest", let suggestionISO = response.suggestionStart, let suggestionDate = ISO8601DateFormatter().date(from: suggestionISO) {
+                    let title = response.eventTitle ?? "Event"
+                    statusMessage = "\(title): suggested start \(suggestionDate.formatted(date: .abbreviated, time: .shortened))."
+                } else if action == "fix" {
+                    if
+                        let afterISO = response.afterStart ?? response.suggestionStart,
+                        let afterDate = ISO8601DateFormatter().date(from: afterISO)
+                    {
+                        let title = response.eventTitle ?? "Event"
+                        if let remaining = response.remainingConflicts {
+                            statusMessage = "\(title) moved to \(afterDate.formatted(date: .abbreviated, time: .shortened)). Remaining overlaps: \(remaining)."
+                        } else {
+                            statusMessage = "\(title) moved to \(afterDate.formatted(date: .abbreviated, time: .shortened))."
+                        }
+                    } else {
+                        statusMessage = "Conflict auto-resolved."
+                    }
+                } else {
+                    statusMessage = "Conflict action completed."
+                }
+                await store.refreshPersonalLayer()
+                showStatusMessage = true
+                return
+            case .failure:
+                break
+            }
+        }
+
+        // Fallback path keeps existing local behavior when server action is unavailable.
+        if action == "accept" {
+            dismissedConflictIds.insert(conflict.id)
+            statusMessage = "Conflict acknowledged."
+        } else if action == "suggest" {
+            statusMessage = suggestedSlotText(conflict) ?? "No alternative slot found in the current window."
+        } else {
+            statusMessage = resolveConflictNow(conflict) ? "Conflict auto-resolved." : "Could not auto-resolve this conflict yet."
+        }
+        showStatusMessage = true
+    }
+}
+
+private struct PersonalAggregateRow: View {
+    let item: AuraRemotePersonalAggregateItem
+    let fallbackIcon: String
+    var onTap: () -> Void
+    @State private var isPressed = false
+
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+        HStack(spacing: 10) {
+            Image(systemName: fallbackIcon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(AuraThemePalette.current.accentStart)
+                .frame(width: 30, height: 30)
+                .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.payload["title"] ?? item.payload["name"] ?? "Untitled")
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Text(item.group?.name ?? "Private")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Text(relativeLabel(item.updatedAt))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+        }
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.985 : 1)
+        .opacity(isPressed ? 0.92 : 1)
+        .animation(AuraMotion.quick, value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: 40, pressing: { pressing in
+            isPressed = pressing
+        }, perform: {})
+    }
+
+    private func relativeLabel(_ iso: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: iso) else { return "now" }
+        return date.formatted(.relative(presentation: .named))
+    }
+}
+
 struct HomeHeroCard: View {
     let title: String
     let subtitle: String
@@ -3547,48 +4771,49 @@ struct HomeHeroCard: View {
     var onRefresh: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TODAY")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+        let p = AuraThemePalette.current
+        VStack(alignment: .leading, spacing: AuraDesignTokens.Spacing.xs) {
+            Text("TODAY BRIEF")
+                .font(AuraDesignTokens.Typography.eyebrow)
                 .foregroundColor(.white.opacity(0.72))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, AuraDesignTokens.Spacing.xs)
+                .padding(.vertical, AuraDesignTokens.Spacing.xxs + 1)
                 .background(.white.opacity(0.12), in: Capsule())
 
             Text(title)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(AuraDesignTokens.Typography.title)
                 .foregroundColor(.white)
             Text(subtitle)
-                .font(.system(size: 13, weight: .medium))
+                .font(AuraDesignTokens.Typography.subtitle)
                 .foregroundColor(.white.opacity(0.9))
             HStack {
                 Label(detail, systemImage: "bolt.horizontal.circle.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AuraDesignTokens.Typography.body)
                     .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, AuraDesignTokens.Spacing.xs)
+                    .padding(.vertical, AuraDesignTokens.Spacing.xs - 2)
                     .background(Color.white.opacity(0.16), in: Capsule())
                 Spacer()
                 Button("Refresh") {
                     onRefresh()
                 }
-                .font(.system(size: 12, weight: .bold))
+                .font(AuraDesignTokens.Typography.bodyStrong)
                 .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.2), in: Capsule())
+                .padding(.horizontal, AuraDesignTokens.Spacing.xs)
+                .padding(.vertical, AuraDesignTokens.Spacing.xs - 2)
+                .background(Color.white.opacity(0.16), in: Capsule())
             }
-            .padding(.top, 4)
+            .padding(.top, AuraDesignTokens.Spacing.xxs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(AuraDesignTokens.Spacing.md)
         .background(
             LinearGradient(
-                colors: [AuraThemePalette.current.backgroundStart, AuraThemePalette.current.backgroundEnd],
+                colors: [p.backgroundStart, p.backgroundEnd],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 18)
+            in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.lg)
         )
         .overlay(
             Circle()
@@ -3598,8 +4823,13 @@ struct HomeHeroCard: View {
                 .offset(x: 130, y: -24)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.lg)
+                .stroke(.white.opacity(0.16), lineWidth: AuraDesignTokens.Stroke.subtle)
+        )
+        .shadow(
+            color: .black.opacity(0.2),
+            radius: AuraDesignTokens.Elevation.cardShadowRadius,
+            y: AuraDesignTokens.Elevation.cardShadowY
         )
     }
 }
@@ -3610,20 +4840,35 @@ struct HomeQuickActionButton: View {
     let action: () -> Void
 
     var body: some View {
+        let p = AuraThemePalette.current
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: AuraDesignTokens.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 26, height: 26)
+                    .background(Color.white.opacity(0.2), in: Circle())
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AuraDesignTokens.Typography.bodyStrong)
                     .lineLimit(1)
             }
-            .foregroundColor(AuraThemePalette.current.accentStart)
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
-            .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .frame(height: 46)
+            .background(
+                LinearGradient(
+                    colors: [p.accentStart.opacity(0.9), p.accentEnd.opacity(0.85)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm)
+                    .stroke(Color.white.opacity(0.16), lineWidth: AuraDesignTokens.Stroke.subtle)
+            )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AuraSoftPressButtonStyle())
     }
 }
 
@@ -3632,22 +4877,28 @@ struct HomeSectionCard<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 16, weight: .bold))
+        VStack(alignment: .leading, spacing: AuraDesignTokens.Spacing.xs + 2) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(AuraThemePalette.current.accentStart)
+                    .frame(width: 4, height: 18)
+                Text(title)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                Spacer(minLength: 0)
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .padding(AuraDesignTokens.Spacing.sm + 2)
+        .auraGlassCard(radius: AuraDesignTokens.Radius.md)
     }
 }
 
 struct HomeLoadingRows: View {
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: AuraDesignTokens.Spacing.xs) {
             ForEach(0..<3, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm)
                     .fill(Color(.tertiarySystemFill))
                     .frame(height: 14)
             }
@@ -3925,7 +5176,7 @@ struct WeekPlanningAssistantSheet: View {
             workload[memberId, default: 0] += 1
         }
 
-        if store.visibleFamilyActivities.count < 3,
+        if store.visibleGroupActivities.count < 3,
            let memberId = leastLoadedMemberId() ?? store.members.first?.id {
             let start = nextDate(dayOffset: 4, hour: 18)
             plan.append(.init(
@@ -4161,13 +5412,13 @@ struct EventDraftPreset {
 
 struct ListsView: View {
     @EnvironmentObject var store: EventStore
-    @State private var selectedKind: FamilyListKind? = nil
+    @State private var selectedKind: GroupListKind? = nil
     @State private var selectedVisibility: VisibilityScope? = nil
     @State private var showAddList = false
-    @State private var selectedList: FamilyList? = nil
+    @State private var selectedList: GroupList? = nil
 
-    var filteredLists: [FamilyList] {
-        let base = store.visibleFamilyLists
+    var filteredLists: [GroupList] {
+        let base = store.visibleGroupLists
         let byKind = selectedKind == nil ? base : base.filter { $0.kind == selectedKind }
         return selectedVisibility == nil ? byKind : byKind.filter { $0.visibility == selectedVisibility }
     }
@@ -4181,7 +5432,7 @@ struct ListsView: View {
                             FilterChip(title: "All", selected: selectedKind == nil) {
                                 selectedKind = nil
                             }
-                            ForEach(FamilyListKind.allCases, id: \.self) { kind in
+                            ForEach(GroupListKind.allCases, id: \.self) { kind in
                                 FilterChip(title: kind.rawValue, selected: selectedKind == kind) {
                                     selectedKind = kind
                                 }
@@ -4207,11 +5458,11 @@ struct ListsView: View {
 
                 if filteredLists.isEmpty {
                     Section {
-                        Text("No lists yet. Create your first shared family list.")
+                        Text("No lists yet. Create your first shared group list.")
                             .foregroundColor(.secondary)
                     }
                 } else {
-                    Section("Family Lists") {
+                    Section("Group Lists") {
                         ForEach(filteredLists) { list in
                             Button {
                                 selectedList = list
@@ -4238,7 +5489,7 @@ struct ListsView: View {
                             }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
-                                    store.deleteFamilyList(id: list.id)
+                                    store.deleteGroupList(id: list.id)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -4259,16 +5510,16 @@ struct ListsView: View {
             }
         }
         .sheet(isPresented: $showAddList) {
-            AddFamilyListView(isPresented: $showAddList)
+            AddGroupListView(isPresented: $showAddList)
                 .environmentObject(store)
         }
         .sheet(item: $selectedList) { list in
-            FamilyListDetailView(listId: list.id)
+            GroupListDetailView(listId: list.id)
                 .environmentObject(store)
         }
     }
 
-    private func summary(for list: FamilyList) -> String {
+    private func summary(for list: GroupList) -> String {
         let done = list.items.filter { $0.isDone }.count
         if list.kind == .supermarket {
             let stores = Set(list.items.compactMap { $0.preferredStore?.rawValue })
@@ -4301,11 +5552,11 @@ struct FilterChip: View {
     }
 }
 
-struct AddFamilyListView: View {
+struct AddGroupListView: View {
     @EnvironmentObject var store: EventStore
     @Binding var isPresented: Bool
     @State private var title = ""
-    @State private var kind: FamilyListKind = .supermarket
+    @State private var kind: GroupListKind = .supermarket
     @State private var visibility: VisibilityScope = .family
     @State private var customNames: Set<String> = []
 
@@ -4317,7 +5568,7 @@ struct AddFamilyListView: View {
                 }
                 Section("List Type") {
                     Picker("Type", selection: $kind) {
-                        ForEach(FamilyListKind.allCases, id: \.self) { k in
+                        ForEach(GroupListKind.allCases, id: \.self) { k in
                             Label(k.rawValue, systemImage: k.icon).tag(k)
                         }
                     }
@@ -4366,7 +5617,7 @@ struct AddFamilyListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Create") {
                         AuraHaptics.success()
-                        store.addFamilyList(
+                        store.addGroupList(
                             title: title,
                             kind: kind,
                             visibility: visibility,
@@ -4381,18 +5632,18 @@ struct AddFamilyListView: View {
     }
 }
 
-struct FamilyListDetailView: View {
+struct GroupListDetailView: View {
     @EnvironmentObject var store: EventStore
     @Environment(\.dismiss) var dismiss
     let listId: UUID
     @State private var showAddItem = false
-    @State private var editItem: FamilyListItem? = nil
+    @State private var editItem: GroupListItem? = nil
 
-    var list: FamilyList? {
-        store.familyLists.first(where: { $0.id == listId })
+    var list: GroupList? {
+        store.groupLists.first(where: { $0.id == listId })
     }
 
-    var groupedItems: [(ShoppingStore, [FamilyListItem])] {
+    var groupedItems: [(ShoppingStore, [GroupListItem])] {
         guard let list, list.kind == .supermarket else { return [] }
         return ShoppingStore.allCases.compactMap { storeName in
             let items = list.items.filter { ($0.preferredStore ?? .others) == storeName }
@@ -4438,16 +5689,16 @@ struct FamilyListDetailView: View {
             }
         }
         .sheet(isPresented: $showAddItem) {
-            AddFamilyListItemView(isPresented: $showAddItem, listId: listId)
+            AddGroupListItemView(isPresented: $showAddItem, listId: listId)
                 .environmentObject(store)
         }
         .sheet(item: $editItem) { item in
-            AddFamilyListItemView(isPresented: .constant(true), listId: listId, editingItem: item)
+            AddGroupListItemView(isPresented: .constant(true), listId: listId, editingItem: item)
                 .environmentObject(store)
         }
     }
 
-    private func itemSummary(_ item: FamilyListItem) -> String {
+    private func itemSummary(_ item: GroupListItem) -> String {
         var bits: [String] = []
         if !item.quantity.isEmpty { bits.append(item.quantity) }
         bits.append(item.preferredStore?.rawValue ?? "Store not set")
@@ -4463,7 +5714,7 @@ struct FamilyListDetailView: View {
     }
 
     @ViewBuilder
-    private func itemRow(_ item: FamilyListItem) -> some View {
+    private func itemRow(_ item: GroupListItem) -> some View {
         HStack(spacing: 10) {
             Button {
                 AuraHaptics.tap(.light)
@@ -4512,12 +5763,12 @@ struct FamilyListDetailView: View {
     }
 }
 
-struct AddFamilyListItemView: View {
+struct AddGroupListItemView: View {
     @EnvironmentObject var store: EventStore
     @Environment(\.dismiss) var dismiss
     @Binding var isPresented: Bool
     let listId: UUID
-    var editingItem: FamilyListItem? = nil
+    var editingItem: GroupListItem? = nil
 
     @State private var name = ""
     @State private var quantity = ""
@@ -4572,7 +5823,7 @@ struct AddFamilyListItemView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(editingItem == nil ? "Add" : "Save") {
                         AuraHaptics.success()
-                        let item = FamilyListItem(
+                        let item = GroupListItem(
                             id: editingItem?.id ?? UUID(),
                             name: name,
                             quantity: quantity,
@@ -4613,8 +5864,8 @@ struct AddActivityView: View {
     @EnvironmentObject var store: EventStore
     @Environment(\.dismiss) var dismiss
     @Binding var isPresented: Bool
-    var editingActivity: FamilyActivity? = nil
-    @State private var kind: FamilyActivityKind = .walk
+    var editingActivity: GroupActivity? = nil
+    @State private var kind: GroupActivityKind = .walk
     @State private var date = Date()
     @State private var duration = 30
     @State private var notes = ""
@@ -4635,7 +5886,7 @@ struct AddActivityView: View {
             Form {
                 Section("Activity") {
                     Picker("Type", selection: $kind) {
-                        ForEach(FamilyActivityKind.allCases, id: \.self) { k in
+                        ForEach(GroupActivityKind.allCases, id: \.self) { k in
                             Label(k.rawValue, systemImage: k.icon).tag(k)
                         }
                     }
@@ -4712,7 +5963,7 @@ struct AddActivityView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(editingActivity == nil ? "Save" : "Update") {
                         AuraHaptics.success()
-                        let activity = FamilyActivity(
+                        let activity = GroupActivity(
                             id: editingActivity?.id ?? UUID(),
                             kind: kind,
                             date: date,
@@ -4749,7 +6000,7 @@ struct AddActivityView: View {
 struct StartLiveActivityView: View {
     @EnvironmentObject var store: EventStore
     @Binding var isPresented: Bool
-    @State private var kind: FamilyActivityKind = .walk
+    @State private var kind: GroupActivityKind = .walk
     @State private var notes = ""
     @State private var selectedMembers: Set<UUID> = []
     @State private var visibility: VisibilityScope = .family
@@ -4760,7 +6011,7 @@ struct StartLiveActivityView: View {
             Form {
                 Section("Activity") {
                     Picker("Type", selection: $kind) {
-                        ForEach(FamilyActivityKind.allCases, id: \.self) { kind in
+                        ForEach(GroupActivityKind.allCases, id: \.self) { kind in
                             Label(kind.rawValue, systemImage: kind.icon).tag(kind)
                         }
                     }
@@ -4844,8 +6095,8 @@ struct QuickAddShoppingItemView: View {
     @State private var hasDueDate = false
     @State private var dueDate = Date()
 
-    var firstSupermarketList: FamilyList? {
-        store.visibleFamilyLists.first(where: { $0.kind == .supermarket }) ?? store.visibleFamilyLists.first
+    var firstSupermarketList: GroupList? {
+        store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first
     }
 
     var body: some View {
@@ -4892,9 +6143,9 @@ struct QuickAddShoppingItemView: View {
                     Button("Add") {
                         AuraHaptics.success()
                         if firstSupermarketList == nil {
-                            store.addFamilyList(title: "Weekly Grocery", kind: .supermarket, visibility: .family, sharedWithNames: [])
+                            store.addGroupList(title: "Weekly Grocery", kind: .supermarket, visibility: .family, sharedWithNames: [])
                         }
-                        if let target = store.visibleFamilyLists.first(where: { $0.kind == .supermarket }) ?? store.visibleFamilyLists.first {
+                        if let target = store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first {
                             store.addItem(to: target.id, item: .init(name: name, quantity: quantity, note: "", isDone: false, assignedMemberId: assignedMemberId, preferredStore: preferredStore, dueDate: hasDueDate ? dueDate : nil, completedByName: nil, boughtAt: nil))
                         }
                         isPresented = false
@@ -4931,7 +6182,7 @@ struct AddMemberView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         AuraHaptics.success()
-                        let member = FamilyMember(name: name, colorHex: color.toHex(), role: role, allowsStepSharing: false)
+                        let member = GroupMember(name: name, colorHex: color.toHex(), role: role, allowsStepSharing: false)
                         store.addMember(member)
                         store.setActiveMember(id: member.id)
                         isPresented = false
@@ -6549,7 +7800,7 @@ struct CreateEventView: View {
             Button {
                 applyNextAvailableSlot()
             } label: {
-                Label("Find Next Free Family Slot", systemImage: "sparkles")
+                Label("Find Next Free Group Slot", systemImage: "sparkles")
             }
             .disabled(assignedMemberIds.isEmpty || allDay)
 
@@ -6563,7 +7814,7 @@ struct CreateEventView: View {
             }
 
             if assignedMemberIds.isEmpty {
-                Text("Assign at least one family member to enable collision-aware scheduling.")
+                Text("Assign at least one member to enable collision-aware scheduling.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
@@ -6614,7 +7865,7 @@ struct CreateEventView: View {
                             .foregroundColor(AuraThemePalette.current.accentStart)
                     }
                 }
-                Text("These family members are already booked during this time. You can still save if this overlap is intentional.")
+                Text("These members are already booked during this time. You can still save if this overlap is intentional.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 Button {
@@ -6941,7 +8192,7 @@ struct SettingsView: View {
     @AppStorage("householdCode") private var householdCode = ""
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
-    @AppStorage("backendHouseholdName") private var backendStoredHouseholdName = ""
+    @AppStorage("backendHouseholdName") private var backendStoredGroupName = ""
     @AppStorage("enableInAppBanner") private var enableInAppBanner = true
     @AppStorage("enableActionableReminders") private var enableActionableReminders = true
     @AppStorage("enableReminderSnooze") private var enableReminderSnooze = true
@@ -6965,7 +8216,7 @@ struct SettingsView: View {
     @State private var serverEmail = ""
     @State private var serverPassword = ""
     @State private var serverDisplayName = ""
-    @State private var householdNameDraft = "My Family"
+    @State private var householdNameDraft = "My Group"
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var serverMessage = ""
@@ -6999,7 +8250,7 @@ struct SettingsView: View {
             case .transferOwnership(_, let memberName):
                 return "This will make \(memberName) an owner and may demote your account to member."
             case .removeMember(_, let memberName):
-                return "\(memberName) will be removed from this household and lose access to shared data."
+                return "\(memberName) will be removed from this workspace and lose access to shared data."
             }
         }
 
@@ -7043,14 +8294,14 @@ struct SettingsView: View {
                 "Set display name for sharing"
             ),
             (
-                "Family Members",
+                "Workspace Members",
                 !store.members.isEmpty,
-                "Add at least one member"
+                "Add at least one member profile"
             ),
             (
-                "Sync Connection",
-                store.hasServerHousehold || !householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                "Link a server or household code"
+                "Connection",
+                store.hasServerGroup || !householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Link a server or workspace join code"
             ),
             (
                 "Notifications",
@@ -7122,24 +8373,47 @@ struct SettingsView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "externaldrive.badge.icloud")
                             .foregroundColor(AuraThemePalette.current.accentStart)
-                        Text("Account & Server controls are here.")
+                        Text("Account and connection controls live here.")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    Text("Use this section for Railway URL, sign-in, and account management.")
+                    Text("Use this section for connection setup and account operations.")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 } header: {
-                    Text("Account & Server (Railway Sync)")
+                    Text("Account & Server")
                 }
 
                 Section {
                     Toggle("Allow Offline Mode", isOn: $allowOfflineMode)
+
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { backendBaseURL },
+                            set: {
+                                backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                                store.updateBackendBaseURL(backendBaseURL)
+                            }
+                        ),
+                        prompt: Text("Backend URL").foregroundColor(.secondary)
+                    )
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.URL)
 
                     Picker("Auth Hero Style", selection: $authHeroMode) {
                         Text("Collage").tag("collage")
                         Text("Single").tag("single")
                     }
                     .pickerStyle(.segmented)
+
+                    Button {
+                        backendBaseURL = ""
+                        store.updateBackendBaseURL("")
+                        serverMessage = "Backend URL cleared."
+                    } label: {
+                        Label("Clear Backend URL", systemImage: "server.rack")
+                    }
 
                     Button {
                         hasSeenOnboarding = false
@@ -7154,21 +8428,13 @@ struct SettingsView: View {
                     } label: {
                         Label("Reset Auth Flow", systemImage: "arrow.counterclockwise.circle")
                     }
-
-                    Button(role: .destructive) {
-                        backendBaseURL = ""
-                        store.updateBackendBaseURL("")
-                        serverMessage = "Backend URL cleared."
-                    } label: {
-                        Label("Clear Backend URL", systemImage: "server.rack")
-                    }
                 } header: {
-                    Text("Admin & Change Management")
+                    Text("Sync & Backup")
                 } footer: {
-                    Text("Use this panel to change onboarding, offline behavior, or sign-in state without editing code.")
+                    Text("Use this panel for backend connection, onboarding replay, and sync-related recovery.")
                 }
 
-                Section("Family Member") {
+                Section("Active Member") {
                     Picker("Viewing as", selection: Binding(
                         get: { store.activeMember?.id },
                         set: { store.setActiveMember(id: $0) }
@@ -7182,7 +8448,7 @@ struct SettingsView: View {
                     Button {
                         showAddMember = true
                     } label: {
-                        Label("Add Family Member", systemImage: "person.badge.plus")
+                        Label("Add Member", systemImage: "person.badge.plus")
                     }
                 }
 
@@ -7245,21 +8511,10 @@ struct SettingsView: View {
                 } header: {
                     Text("Daily Steps")
                 } footer: {
-                    Text("The active family member can choose whether their steps are visible to others.")
+                    Text("The active member can choose whether their steps are visible to others.")
                 }
 
                 Section {
-                    TextField("Backend URL", text: Binding(
-                        get: { backendBaseURL },
-                        set: {
-                            backendBaseURL = $0
-                            store.updateBackendBaseURL($0)
-                        }
-                    ))
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-
                     if store.hasServerSession {
                         LabeledContent("Signed in as", value: store.serverAccountEmail.isEmpty ? backendAccountEmail : store.serverAccountEmail)
                         LabeledContent("Sync backend", value: store.currentSyncBackendLabel)
@@ -7389,9 +8644,9 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Account & Server")
+                    Text("Account Access")
                 } footer: {
-                    Text("Use a Railway backend URL to enable account-based sync across devices. Without it, Aura keeps using local storage and the existing household code flow.")
+                    Text("Sign in to sync securely across devices and workspaces.")
                 }
 
                 if store.hasServerSession {
@@ -7413,14 +8668,14 @@ struct SettingsView: View {
                                     switch result {
                                     case .success(let code):
                                         householdCode = code
-                                        serverMessage = "New join code: \(code)"
+                                        serverMessage = "New group code: \(code)"
                                     case .failure(let error):
                                         serverMessage = error.localizedDescription
                                     }
                                 }
                             }
                         } label: {
-                            Label("Regenerate Join Code", systemImage: "qrcode")
+                            Label("Regenerate Group Code", systemImage: "qrcode")
                         }
 
                         Button {
@@ -7437,7 +8692,7 @@ struct SettingsView: View {
                             Label("Refresh Admin Data", systemImage: "arrow.clockwise")
                         }
 
-                        ForEach(store.serverHouseholdMembers) { record in
+                        ForEach(store.serverGroupMembers) { record in
                             HStack(spacing: 10) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(record.user?.displayName ?? record.user?.email ?? "Unknown")
@@ -7504,9 +8759,9 @@ struct SettingsView: View {
                             }
                         }
                     } header: {
-                        Text("Household Admin")
+                        Text("Workspace Admin")
                     } footer: {
-                        Text("Owner-only tools for role management, transfers, and household security.")
+                        Text("Owner-only tools for role management, transfers, and workspace security.")
                     }
 
                     Section("Admin Audit Log") {
@@ -7530,6 +8785,40 @@ struct SettingsView: View {
                             }
                             .padding(.vertical, 2)
                         }
+                    }
+
+                    Section {
+                        if store.activeServerGroupId.isEmpty {
+                            Text("Select an active group to view conflict history.")
+                                .foregroundColor(.secondary)
+                        } else if store.serverGroupConflictHistoryEntries.isEmpty {
+                            Text("No conflict history yet for this group.")
+                                .foregroundColor(.secondary)
+                        }
+
+                        ForEach(store.serverGroupConflictHistoryEntries.prefix(12)) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(conflictActionLabel(entry.action))
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Spacer()
+                                    Text(relativeServerTime(entry.createdAt))
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                }
+                                if !entry.details.isEmpty {
+                                    Text(entry.details)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(3)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    } header: {
+                        Text("Conflict Resolution History")
+                    } footer: {
+                        Text("Tracks conflict acknowledgements, suggested slots, and auto-fix actions for the active group.")
                     }
                 }
 
@@ -7749,14 +9038,14 @@ struct SettingsView: View {
                     Text("\(releaseReadyCount)/\(readinessChecks.count) readiness checks passed.")
                 }
 
-                // ── Household Sync ─────────────────────────────
+                // ── Group Sync ─────────────────────────────
                 Section {
-                    TextField("Household Code", text: $householdCode)
+                    TextField("Group Code", text: $householdCode)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
 
                     if store.hasServerSession {
-                        TextField("Server household name", text: $householdNameDraft)
+                        TextField("Server group name", text: $householdNameDraft)
                     }
 
                     HStack {
@@ -7778,8 +9067,8 @@ struct SettingsView: View {
                                     switch result {
                                     case .success(let code):
                                         householdCode = code
-                                        backendStoredHouseholdName = householdNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        serverMessage = "Server household created with code \(code)."
+                                        backendStoredGroupName = householdNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        serverMessage = "Server group created with code \(code)."
                                     case .failure(let error):
                                         serverMessage = error.localizedDescription
                                     }
@@ -7793,7 +9082,7 @@ struct SettingsView: View {
                             store.forceSyncNow()
                         }
                     } label: {
-                        Label(store.hasServerSession ? "Create Server Household" : "Link / Create Household", systemImage: "person.3.sequence.fill")
+                        Label(store.hasServerSession ? "Create Server Group" : "Link / Create Group", systemImage: "person.3.sequence.fill")
                     }
 
                     if store.hasServerSession {
@@ -7806,19 +9095,19 @@ struct SettingsView: View {
                                     isServerWorking = false
                                     switch result {
                                     case .success:
-                                        serverMessage = "Joined server household successfully."
+                                        serverMessage = "Joined server group successfully."
                                     case .failure(let error):
                                         serverMessage = error.localizedDescription
                                     }
                                 }
                             }
                         } label: {
-                            Label("Join Server Household", systemImage: "person.2.badge.plus")
+                            Label("Join Server Group", systemImage: "person.2.badge.plus")
                         }
                         .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-                        if !backendStoredHouseholdName.isEmpty || !store.serverHouseholdName.isEmpty {
-                            LabeledContent("Current household", value: store.serverHouseholdName.isEmpty ? backendStoredHouseholdName : store.serverHouseholdName)
+                        if !backendStoredGroupName.isEmpty || !store.serverGroupName.isEmpty {
+                            LabeledContent("Current group", value: store.serverGroupName.isEmpty ? backendStoredGroupName : store.serverGroupName)
                         }
                     }
 
@@ -7829,9 +9118,9 @@ struct SettingsView: View {
                     }
                     .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } header: {
-                    Text("Household Sync")
+                    Text("Group Sync")
                 } footer: {
-                    Text(store.hasServerSession ? "Invite family by sharing the household code after they create or sign in to an account." : "Use the same household code on each family phone to sync Lists and Activities.")
+                    Text(store.hasServerSession ? "Invite members by sharing the group code after they create or sign in to an account." : "Use the same group code on each device to sync lists and activities.")
                 }
 
                 // ── Profile ─────────────────────────────
@@ -7899,7 +9188,7 @@ struct SettingsView: View {
                 stepCustomNames = Set(dailyStepSharedWithNames)
                 serverEmail = backendAccountEmail
                 serverDisplayName = profileDisplayName
-                householdNameDraft = backendStoredHouseholdName.isEmpty ? "My Family" : backendStoredHouseholdName
+                householdNameDraft = backendStoredGroupName.isEmpty ? "My Group" : backendStoredGroupName
                 Task {
                     await store.refreshServerContext()
                     await MainActor.run {
@@ -7956,6 +9245,17 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private func conflictActionLabel(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private func relativeServerTime(_ iso: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: iso) else {
+            return iso
+        }
+        return date.formatted(.relative(presentation: .named))
     }
 
     func saveThemeSelection(_ t: WidgetGradientTheme) {
