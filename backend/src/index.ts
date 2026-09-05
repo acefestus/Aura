@@ -85,6 +85,31 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(webRoot));
 
+// Every mutating route does read-then-write against `store` rather than the
+// transactional store.update() (PgStore's row-locked version exists but no
+// handler uses it -- retrofitting ~40 handlers, several with early-return
+// validation between read and write, is a much larger and riskier change
+// than this app's real traffic justifies). Serializing mutating requests
+// closes the lost-update race at the application level instead: no two
+// POST/PUT/PATCH/DELETE handlers ever run concurrently, so a read-then-write
+// pair can never be interleaved by another request. GETs are unaffected.
+const mutatingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+let writeQueue: Promise<void> = Promise.resolve();
+app.use((req, res, next) => {
+  if (!mutatingMethods.has(req.method)) {
+    next();
+    return;
+  }
+  writeQueue = writeQueue.then(
+    () =>
+      new Promise<void>((resolve) => {
+        res.on("finish", resolve);
+        res.on("close", resolve);
+        next();
+      })
+  );
+});
+
 const authLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? 15 * 60 * 1000),
   max: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10),
