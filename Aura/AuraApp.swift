@@ -9110,34 +9110,11 @@ struct SettingsView: View {
                 Section {
                     Toggle("Allow Offline Mode", isOn: $allowOfflineMode)
 
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { backendBaseURL },
-                            set: {
-                                backendBaseURL = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                store.updateBackendBaseURL(backendBaseURL)
-                            }
-                        ),
-                        prompt: Text("Backend URL").foregroundColor(.secondary)
-                    )
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .keyboardType(.URL)
-
                     Picker("Auth Hero Style", selection: $authHeroMode) {
                         Text("Collage").tag("collage")
                         Text("Single").tag("single")
                     }
                     .pickerStyle(.segmented)
-
-                    Button {
-                        backendBaseURL = ""
-                        store.updateBackendBaseURL("")
-                        serverMessage = "Backend URL cleared."
-                    } label: {
-                        Label("Clear Backend URL", systemImage: "server.rack")
-                    }
 
                     Button {
                         hasSeenOnboarding = false
