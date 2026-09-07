@@ -288,7 +288,7 @@ struct AuraAuthGatewayView: View {
         case create = "Create Account"
     }
 
-    private let defaultBackendBaseURL = "https://aura-family-backend-production.up.railway.app"
+    private let defaultBackendBaseURL = "https://aurenda.up.railway.app"
 
     @EnvironmentObject var store: EventStore
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
@@ -2335,6 +2335,13 @@ class EventStore: ObservableObject {
     }
 
     init() {
+        // The Railway service was renamed after some installs already persisted
+        // the old domain in @AppStorage; a first-launch-only default wouldn't
+        // reach those. Repair it unconditionally so an existing install with a
+        // valid session doesn't keep silently failing every server call.
+        if backendBaseURL == "https://aura-family-backend-production.up.railway.app" {
+            backendBaseURL = "https://aurenda.up.railway.app"
+        }
         loadCats()
         loadEvents()
         loadSharedActivity()
