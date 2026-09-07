@@ -2442,7 +2442,7 @@ class EventStore: ObservableObject {
         events.append(e)
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
-        if e.hasAlarm { NotificationManager.shared.schedule(e, cat: category(for: e.categoryId)) }
+        scheduleReminderIfNeeded(e)
         pushEventToActiveGroup(e)
     }
     func updateEvent(_ e: CalendarEvent) {
@@ -2452,8 +2452,36 @@ class EventStore: ObservableObject {
         events[i] = e
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
-        if e.hasAlarm { NotificationManager.shared.schedule(e, cat: category(for: e.categoryId)) }
+        scheduleReminderIfNeeded(e)
         pushEventToActiveGroup(e)
+    }
+
+    /// Schedules a reminder and, unlike a bare fire-and-forget call, actually
+    /// tells the user when it silently wouldn't fire (alert time already
+    /// past, or notifications denied in iOS Settings) -- previously this was
+    /// only a console print no one ever saw.
+    func scheduleReminderIfNeeded(_ e: CalendarEvent) {
+        guard e.hasAlarm else { return }
+        Task { @MainActor in
+            let result = await NotificationManager.shared.schedule(e, cat: category(for: e.categoryId))
+            let message: String?
+            switch result {
+            case .scheduled:
+                message = nil
+            case .skippedPastFireTime:
+                message = "\"\(e.title)\" won't get an alert -- its reminder time has already passed."
+            case .notAuthorized:
+                message = "\"\(e.title)\" won't get an alert -- notifications are off for Aurenda in iOS Settings."
+            case .failed:
+                message = "Couldn't schedule a reminder for \"\(e.title)\"."
+            }
+            guard let message else { return }
+            NotificationCenter.default.post(
+                name: .auraInAppBanner,
+                object: nil,
+                userInfo: ["title": "Reminder Not Set", "message": message]
+            )
+        }
     }
 
     /// Mirrors a locally-created/updated event into the active group's shared
@@ -2497,8 +2525,11 @@ class EventStore: ObservableObject {
 
     func rebuildScheduledNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-        for event in events where event.hasAlarm {
-            NotificationManager.shared.schedule(event, cat: category(for: event.categoryId))
+        let toSchedule = events.filter { $0.hasAlarm }
+        Task { @MainActor in
+            for event in toSchedule {
+                _ = await NotificationManager.shared.schedule(event, cat: category(for: event.categoryId))
+            }
         }
         syncStatus = "Notifications rebuilt"
     }
@@ -2681,7 +2712,7 @@ class EventStore: ObservableObject {
                 details: "Imported with \(env.permission.rawValue.lowercased()) access"
             ))
             NotificationManager.shared.cancel(e.id)
-            if e.hasAlarm { NotificationManager.shared.schedule(e, cat: category(for: e.categoryId)) }
+            scheduleReminderIfNeeded(e)
         }
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
@@ -3806,11 +3837,37 @@ class NotificationManager {
             : UserDefaults.standard.bool(forKey: "enableSmartReminderMessaging")
     }
 
+    enum ReminderScheduleResult {
+        case scheduled
+        case skippedPastFireTime
+        case notAuthorized
+        case failed
+    }
+
     func requestPermission() {
         UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] _, _ in
                 self?.configureReminderCategories()
             }
+    }
+
+    /// Checks the current authorization status rather than blindly calling
+    /// requestAuthorization every time -- that call only actually prompts
+    /// once (on .notDetermined); after a denial it silently no-ops forever,
+    /// which is how a reminder used to fail with zero feedback to the user.
+    private func ensureAuthorized() async -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined:
+            return (try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        case .denied:
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     func configureReminderCategories() {
@@ -3838,8 +3895,11 @@ class NotificationManager {
         scheduleSnooze(from: content, minutes: reminderSnoozeMinutes)
     }
 
-    func schedule(_ event: CalendarEvent, cat: EventCategory?) {
-        requestPermission()
+    @discardableResult
+    func schedule(_ event: CalendarEvent, cat: EventCategory?) async -> ReminderScheduleResult {
+        guard await ensureAuthorized() else {
+            return .notAuthorized
+        }
         configureReminderCategories()
         let c = UNMutableNotificationContent()
         c.title = event.title
@@ -3866,7 +3926,7 @@ class NotificationManager {
         }
         guard fire > Date() else {
             print("[Aurenda] Skipped scheduling reminder for '\(event.title)': fire time \(fire) is already in the past.")
-            return
+            return .skippedPastFireTime
         }
 
         let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
@@ -3875,9 +3935,14 @@ class NotificationManager {
             content: c,
             trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         )
-        UNUserNotificationCenter.current().add(req) { error in
-            if let error {
-                print("[Aurenda] Failed to schedule reminder for '\(event.title)': \(error)")
+        return await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().add(req) { error in
+                if let error {
+                    print("[Aurenda] Failed to schedule reminder for '\(event.title)': \(error)")
+                    continuation.resume(returning: .failed)
+                } else {
+                    continuation.resume(returning: .scheduled)
+                }
             }
         }
     }
