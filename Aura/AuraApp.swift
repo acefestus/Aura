@@ -9803,6 +9803,13 @@ struct SettingsView: View {
     var dailyStepSharedWithNames: [String] {
         dailyStepSharedWithNamesRaw.split(separator: ",").map { String($0) }.filter { !$0.isEmpty }
     }
+    var appVersionString: String {
+        let info = Bundle.main.infoDictionary
+        let marketing = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(marketing) (\(build)) · iOS 16+"
+    }
+
     var sharedBySender: [(String, Int)] {
         let grouped = Dictionary(grouping: store.events.filter { $0.sharedBy != nil }) { $0.sharedBy ?? "Unknown" }
         return grouped
@@ -10525,7 +10532,7 @@ struct SettingsView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                         Text("Aurenda")
                             .font(.system(size: 18, weight: .black, design: .rounded))
-                        Text("Version 1.1.0 · iOS 16+")
+                        Text("Version \(appVersionString)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
                     }
