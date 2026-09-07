@@ -14,6 +14,10 @@
 		AW00000003 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000103 /* WidgetKit.framework */; };
 		AW00000004 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
 		AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AW00000105 /* AuraWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AN00000001 /* NotificationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AN00000101 /* NotificationViewController.swift */; };
+		AN00000002 /* AuraNotificationContent.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AN00000105 /* AuraNotificationContent.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AN00000003 /* UserNotificationsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AN00000103 /* UserNotificationsUI.framework */; };
+		AN00000004 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -23,6 +27,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AW00000200;
 			remoteInfo = AuraWidgetExtension;
+		};
+		AN00000006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 232A7F4C2B5E8A9100000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AN00000200;
+			remoteInfo = AuraNotificationContent;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -34,6 +45,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */,
+				AN00000002 /* AuraNotificationContent.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -53,6 +65,11 @@
 		AW00000106 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AW00000107 /* Aura.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Aura.entitlements; sourceTree = "<group>"; };
 		AW00000108 /* AuraWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AuraWidget.entitlements; sourceTree = "<group>"; };
+		AN00000101 /* NotificationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViewController.swift; sourceTree = "<group>"; };
+		AN00000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AN00000103 /* UserNotificationsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotificationsUI.framework; path = System/Library/Frameworks/UserNotificationsUI.framework; sourceTree = SDKROOT; };
+		AN00000105 /* AuraNotificationContent.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AuraNotificationContent.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AN00000106 /* AuraNotificationContent.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AuraNotificationContent.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +89,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AN00000300 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AN00000003 /* UserNotificationsUI.framework in Frameworks */,
+				AN00000004 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -80,6 +106,7 @@
 			children = (
 				232A7F4C2B5E8A910000000A /* Aura */,
 				AW00000400 /* AuraWidget */,
+				AN00000400 /* AuraNotificationContent */,
 				AW00000401 /* Frameworks */,
 				232A7F4C2B5E8A910000000B /* Products */,
 			);
@@ -101,6 +128,7 @@
 			children = (
 				232A7F4C2B5E8A9100000008 /* Aura.app */,
 				AW00000105 /* AuraWidgetExtension.appex */,
+				AN00000105 /* AuraNotificationContent.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,8 +149,19 @@
 			children = (
 				AW00000103 /* WidgetKit.framework */,
 				AW00000104 /* SwiftUI.framework */,
+				AN00000103 /* UserNotificationsUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AN00000400 /* AuraNotificationContent */ = {
+			isa = PBXGroup;
+			children = (
+				AN00000101 /* NotificationViewController.swift */,
+				AN00000102 /* Info.plist */,
+				AN00000106 /* AuraNotificationContent.entitlements */,
+			);
+			path = AuraNotificationContent;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -141,6 +180,7 @@
 			);
 			dependencies = (
 				AW00000500 /* PBXTargetDependency */,
+				AN00000500 /* PBXTargetDependency */,
 			);
 			name = Aura;
 			productName = Aura;
@@ -164,6 +204,23 @@
 			productReference = AW00000105 /* AuraWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AN00000200 /* AuraNotificationContent */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AN00000600 /* Build configuration list for PBXNativeTarget "AuraNotificationContent" */;
+			buildPhases = (
+				AN00000301 /* Sources */,
+				AN00000300 /* Frameworks */,
+				AN00000302 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuraNotificationContent;
+			productName = AuraNotificationContent;
+			productReference = AN00000105 /* AuraNotificationContent.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -178,6 +235,9 @@
 						CreatedOnToolsVersion = 15.0;
 					};
 					AW00000200 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					AN00000200 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -197,6 +257,7 @@
 			targets = (
 				232A7F4C2B5E8A9100000002 /* Aura */,
 				AW00000200 /* AuraWidgetExtension */,
+				AN00000200 /* AuraNotificationContent */,
 			);
 		};
 /* End PBXProject section */
@@ -215,6 +276,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				AW00000002 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AN00000302 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,6 +305,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AN00000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AN00000001 /* NotificationViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -244,6 +320,11 @@
 			isa = PBXTargetDependency;
 			target = AW00000200 /* AuraWidgetExtension */;
 			targetProxy = AW00000006 /* PBXContainerItemProxy */;
+		};
+		AN00000500 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AN00000200 /* AuraNotificationContent */;
+			targetProxy = AN00000006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -475,6 +556,66 @@
 			};
 			name = Release;
 		};
+		AN00000601 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraNotificationContent/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.reminders;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AN00000602 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraNotificationContent/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.reminders;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -501,6 +642,15 @@
 			buildConfigurations = (
 				AW00000601 /* Debug */,
 				AW00000602 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AN00000600 /* Build configuration list for PBXNativeTarget "AuraNotificationContent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AN00000601 /* Debug */,
+				AN00000602 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
