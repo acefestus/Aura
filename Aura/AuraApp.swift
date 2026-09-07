@@ -854,7 +854,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 )
             }
         }
-        completionHandler([.sound, .badge])
+        completionHandler([.banner, .list, .sound, .badge])
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -3798,7 +3798,10 @@ class NotificationManager {
         } else {
             fire = event.startDate.addingTimeInterval(-(Double(event.alarmMins) * 60))
         }
-        guard fire > Date() else { return }
+        guard fire > Date() else {
+            print("[Aura] Skipped scheduling reminder for '\(event.title)': fire time \(fire) is already in the past.")
+            return
+        }
 
         let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
         let req   = UNNotificationRequest(
@@ -3806,7 +3809,11 @@ class NotificationManager {
             content: c,
             trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         )
-        UNUserNotificationCenter.current().add(req)
+        UNUserNotificationCenter.current().add(req) { error in
+            if let error {
+                print("[Aura] Failed to schedule reminder for '\(event.title)': \(error)")
+            }
+        }
     }
 
     private func scheduleSnooze(from content: UNNotificationContent, minutes: Int) {
@@ -6094,35 +6101,55 @@ struct GroupPlanDetailView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                if let plan {
-                    Section {
-                        HStack {
-                            Text("Target Date")
-                            Spacer()
-                            Text(plan.targetDate.formatted(date: .abbreviated, time: .omitted))
-                                .foregroundColor(.secondary)
-                        }
-                        if !plan.notes.isEmpty {
-                            Text(plan.notes)
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                        }
-                        ProgressView(value: plan.progress)
-                            .tint(AuraThemePalette.current.accentStart)
-                    }
-
-                    Section("Steps") {
-                        if plan.items.isEmpty {
-                            Text("No steps yet")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach(plan.items) { item in
-                                itemRow(item)
+            ZStack {
+                AuraAtmosphericBackground()
+                List {
+                    if let plan {
+                        Section {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Target Date")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Spacer()
+                                    Text(plan.targetDate.formatted(date: .abbreviated, time: .omitted))
+                                        .foregroundColor(.secondary)
+                                }
+                                if !plan.notes.isEmpty {
+                                    Text(plan.notes)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                }
+                                ProgressView(value: plan.progress)
+                                    .tint(AuraThemePalette.current.accentStart)
                             }
+                            .padding(AuraDesignTokens.Spacing.sm)
+                            .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+
+                        Section {
+                            if plan.items.isEmpty {
+                                Text("No steps yet")
+                                    .foregroundColor(.secondary)
+                                    .listRowBackground(Color.clear)
+                            } else {
+                                ForEach(plan.items) { item in
+                                    itemRow(item)
+                                        .padding(AuraDesignTokens.Spacing.sm)
+                                        .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                                        .listRowBackground(Color.clear)
+                                        .listRowSeparator(.hidden)
+                                }
+                            }
+                        } header: {
+                            Text("STEPS")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle(plan?.title ?? "Plan")
             .navigationBarTitleDisplayMode(.inline)
@@ -7246,27 +7273,30 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                Picker("Scope", selection: $scope) {
-                    ForEach(CalendarScope.allCases, id: \.self) { s in
-                        Text(s.rawValue).tag(s)
+            ZStack {
+                AuraAtmosphericBackground()
+                VStack(spacing: 0) {
+                    Picker("Scope", selection: $scope) {
+                        ForEach(CalendarScope.allCases, id: \.self) { s in
+                            Text(s.rawValue).tag(s)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 10)
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
 
-                Group {
-                    switch scope {
-                    case .day:
-                        dayScope
-                    case .week:
-                        weekScope
-                    case .month:
-                        monthScope
-                    case .year:
-                        yearScope
+                    Group {
+                        switch scope {
+                        case .day:
+                            dayScope
+                        case .week:
+                            weekScope
+                        case .month:
+                            monthScope
+                        case .year:
+                            yearScope
+                        }
                     }
                 }
             }
@@ -8069,9 +8099,13 @@ struct CreateEventView: View {
 
     var body: some View {
         NavigationView {
-            Form {
-                formTopSections
-                formBottomSections
+            ZStack {
+                AuraAtmosphericBackground()
+                Form {
+                    formTopSections
+                    formBottomSections
+                }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle(editing == nil ? "New Event" : "Edit Event")
             .navigationBarTitleDisplayMode(.inline)
