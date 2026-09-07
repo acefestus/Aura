@@ -6159,6 +6159,26 @@ struct GroupListDetailView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+        .contextMenu {
+            Button {
+                AuraHaptics.tap(.light)
+                withAnimation(AuraMotion.quick) {
+                    store.toggleItem(listId: listId, itemId: item.id)
+                }
+            } label: {
+                Label(item.isDone ? "Mark Not Done" : "Mark Done", systemImage: item.isDone ? "circle" : "checkmark.circle.fill")
+            }
+            Button {
+                editItem = item
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                store.deleteItem(listId: listId, itemId: item.id)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 }
 
@@ -7271,6 +7291,7 @@ struct AgendaView: View {
     @Binding var showCreate: Bool
     @State private var q = ""
     @State private var selected: CalendarEvent?
+    @State private var editingEvent: CalendarEvent?
     @State private var showShareAgenda = false
     @State private var scrollOffset: CGFloat = 0
     @Namespace private var eventHeroNamespace
@@ -7380,6 +7401,35 @@ struct AgendaView: View {
                                                 AuraHaptics.tap(.light)
                                                 withAnimation(AuraMotion.spring) { selected = e }
                                             }
+                                            .contextMenu {
+                                                Button {
+                                                    AuraHaptics.tap(.light)
+                                                    withAnimation(AuraMotion.spring) { selected = e }
+                                                } label: {
+                                                    Label("View Details", systemImage: "eye.fill")
+                                                }
+                                                Button {
+                                                    AuraHaptics.tap(.light)
+                                                    editingEvent = e
+                                                } label: {
+                                                    Label("Edit", systemImage: "pencil")
+                                                }
+                                                Button {
+                                                    AuraHaptics.success()
+                                                    var copy = e
+                                                    copy.id = UUID()
+                                                    copy.title = "\(e.title) Copy"
+                                                    store.addEvent(copy)
+                                                } label: {
+                                                    Label("Duplicate", systemImage: "plus.square.on.square")
+                                                }
+                                                Button(role: .destructive) {
+                                                    AuraHaptics.warning()
+                                                    withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
                                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                                 Button(role: .destructive) {
                                                     AuraHaptics.warning()
@@ -7446,6 +7496,13 @@ struct AgendaView: View {
                 events: shareableAgendaEvents
             )
             .environmentObject(shareManager)
+        }
+        .sheet(item: $editingEvent) { event in
+            CreateEventView(
+                isPresented: Binding(get: { true }, set: { _ in editingEvent = nil }),
+                editing: event
+            )
+            .environmentObject(store)
         }
     }
 }
@@ -7947,6 +8004,7 @@ struct CalendarView: View {
     @State private var selectedDate = Date()
     @State private var month = Date()
     @State private var selected: CalendarEvent?
+    @State private var editingEvent: CalendarEvent?
     @State private var scope: CalendarScope = .month
     @State private var sourceFilter: CalendarSourceFilter = .thisGroup
 
@@ -8024,6 +8082,13 @@ struct CalendarView: View {
         }
         .sheet(item: $selected) { e in
             EventDetailView(event: e).environmentObject(store)
+        }
+        .sheet(item: $editingEvent) { event in
+            CreateEventView(
+                isPresented: Binding(get: { true }, set: { _ in editingEvent = nil }),
+                editing: event
+            )
+            .environmentObject(store)
         }
         .onChange(of: sourceFilter) { newValue in
             if newValue == .allGroups && store.personalMasterCalendarItems.isEmpty && !store.isLoadingPersonalLayer {
@@ -8165,6 +8230,24 @@ struct CalendarView: View {
                             EventRow(event: e)
                                 .padding(.horizontal, 16)
                                 .onTapGesture { selected = e }
+                                .contextMenu {
+                                    Button {
+                                        selected = e
+                                    } label: {
+                                        Label("View Details", systemImage: "eye.fill")
+                                    }
+                                    Button {
+                                        editingEvent = e
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    Button(role: .destructive) {
+                                        AuraHaptics.warning()
+                                        store.deleteEvent(id: e.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                     .padding(.bottom, 90)
@@ -9057,6 +9140,11 @@ struct CreateEventView: View {
             Toggle("All Day", isOn: $allDay)
             DatePicker("Start", selection: $start,
                        displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
+                .onChange(of: start) { newStart in
+                    if end < newStart {
+                        end = newStart.addingTimeInterval(3600)
+                    }
+                }
             DatePicker("End", selection: $end, in: start...,
                        displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
             Button { showRepeatPicker = true } label: {
