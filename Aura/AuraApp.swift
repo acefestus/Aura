@@ -83,7 +83,7 @@ struct AuraSplashScreen: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 42, weight: .bold))
                     .foregroundColor(.white)
-                Text("Aura")
+                Text("Aurenda")
                     .font(.system(size: 40, weight: .black, design: .rounded))
                     .foregroundColor(.white)
                 Text("Shared Life, Organized")
@@ -323,7 +323,7 @@ struct AuraAuthGatewayView: View {
                                 .padding(.vertical, 6)
                                 .background(Color.white.opacity(0.08), in: Capsule())
 
-                            Text("Aura")
+                            Text("Aurenda")
                                 .font(.system(size: 42, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
                             Text("Your life, beautifully organized. Aura brings every circle into harmony.")
@@ -2217,7 +2217,7 @@ class EventStore: ObservableObject {
             return activeMember.name
         }
         let clean = profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return clean.isEmpty ? "Aura User" : clean
+        return clean.isEmpty ? "Aurenda User" : clean
     }
 
     var activeMember: GroupMember? {
@@ -4215,8 +4215,9 @@ struct HomeView: View {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
         case 5..<12: return "Good Morning"
-        case 12..<18: return "Good Afternoon"
-        default: return "Good Evening"
+        case 12..<17: return "Good Afternoon"
+        case 17..<22: return "Good Evening"
+        default: return "Good Night"
         }
     }
 
@@ -5169,7 +5170,7 @@ struct WeekPlanningAssistantSheet: View {
         NavigationView {
             List {
                 Section("Assistant") {
-                    Text("Aura generated a weekly plan from your current workload, routines, and pending family needs.")
+                    Text("Aurenda generated a weekly plan from your current workload, routines, and pending family needs.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                     if !plannerMessage.isEmpty {
@@ -6847,7 +6848,7 @@ struct AgendaView: View {
             .animation(AuraMotion.spring, value: selected?.id)
             .animation(AuraMotion.smooth, value: filtered.isEmpty)
             .searchable(text: $q, prompt: "Search events…")
-            .navigationTitle("Aura")
+            .navigationTitle("Aurenda")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -8748,7 +8749,7 @@ struct GroupMembersView: View {
                 } label: {
                     Image(systemName: "doc.on.doc")
                 }
-                ShareLink(item: "Join my Aura group \"\(store.activeServerGroupName)\" — use code \(householdCode) in the app.") {
+                ShareLink(item: "Join my Aurenda group \"\(store.activeServerGroupName)\" — use code \(householdCode) in the app.") {
                     Image(systemName: "square.and.arrow.up")
                 }
             }
@@ -9595,7 +9596,7 @@ struct SettingsView: View {
 
                 // ── About ─────────────────────────────────────
                 Section("About") {
-                    LabeledContent("App",     value: "Aura")
+                    LabeledContent("App",     value: "Aurenda")
                     LabeledContent("Version", value: "1.1.0")
                     LabeledContent("Build",   value: "SwiftUI · iOS 16+")
                 }

@@ -505,7 +505,7 @@ struct AuraWidgetExtension: Widget {
         StaticConfiguration(kind: kind, provider: AuraProvider()) { entry in
             AuraWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Aura")
+        .configurationDisplayName("Aurenda")
         .description("Countdown + upcoming events with your custom gradient.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
