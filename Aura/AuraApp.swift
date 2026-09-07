@@ -4269,7 +4269,7 @@ struct HomeView: View {
                     }
 
                     HStack(spacing: 10) {
-                        HomeQuickActionButton(label: "Schedule Event", icon: "calendar.badge.plus") {
+                        HomeQuickActionButton(label: "Schedule Event", icon: "calendar.badge.plus", prominent: true) {
                             AuraHaptics.tap(.light)
                             showQuickEventTemplates = true
                         }
@@ -4488,12 +4488,17 @@ struct HomeView: View {
                 .padding(16)
                 .padding(.bottom, 90)
             }
-            }
             .refreshable {
                 await store.refreshHomeDashboard()
             }
+            }
             .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Home")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         Task { await store.refreshHomeDashboard() }
@@ -5008,6 +5013,7 @@ struct HomeHeroCard: View {
 struct HomeQuickActionButton: View {
     let label: String
     let icon: String
+    var prominent: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -5016,27 +5022,32 @@ struct HomeQuickActionButton: View {
             HStack(spacing: AuraDesignTokens.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(prominent ? .white : p.accentStart)
                     .frame(width: 26, height: 26)
-                    .background(Color.white.opacity(0.2), in: Circle())
+                    .background(
+                        prominent ? Color.white.opacity(0.2) : p.accentStart.opacity(0.12),
+                        in: Circle()
+                    )
                 Text(label)
                     .font(AuraDesignTokens.Typography.bodyStrong)
                     .lineLimit(1)
             }
-            .foregroundColor(.white)
+            .foregroundColor(prominent ? .white : .primary)
             .frame(maxWidth: .infinity)
             .frame(height: 46)
             .background(
-                LinearGradient(
-                    colors: [p.accentStart.opacity(0.9), p.accentEnd.opacity(0.85)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
+                prominent
+                    ? AnyShapeStyle(LinearGradient(
+                        colors: [p.accentStart.opacity(0.9), p.accentEnd.opacity(0.85)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    : AnyShapeStyle(Color(.secondarySystemBackground).opacity(0.7)),
                 in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm)
-                    .stroke(Color.white.opacity(0.16), lineWidth: AuraDesignTokens.Stroke.subtle)
+                    .stroke(prominent ? Color.white.opacity(0.16) : p.accentStart.opacity(0.18), lineWidth: AuraDesignTokens.Stroke.subtle)
             )
         }
         .buttonStyle(AuraSoftPressButtonStyle())
@@ -5753,7 +5764,9 @@ struct AddGroupListView: View {
 
     var body: some View {
         NavigationView {
-            Form {
+            ZStack {
+                AuraAtmosphericBackground()
+                Form {
                 Section("List Name") {
                     TextField("e.g. Weekly Grocery", text: $title)
                 }
@@ -5798,6 +5811,8 @@ struct AddGroupListView: View {
                         }
                     }
                 }
+                }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("New List")
             .navigationBarTitleDisplayMode(.inline)
@@ -6621,12 +6636,16 @@ struct AddMemberView: View {
 
     var body: some View {
         NavigationView {
-            Form {
-                Section("Member") {
-                    TextField("Name", text: $name)
-                    TextField("Role", text: $role)
-                    ColorPicker("Color", selection: $color)
+            ZStack {
+                AuraAtmosphericBackground()
+                Form {
+                    Section("Member") {
+                        TextField("Name", text: $name)
+                        TextField("Role", text: $role)
+                        ColorPicker("Color", selection: $color)
+                    }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Add Member")
             .navigationBarTitleDisplayMode(.inline)
@@ -6742,6 +6761,7 @@ struct AgendaView: View {
     var body: some View {
         NavigationView {
             ZStack {
+                AuraAtmosphericBackground()
                 ScrollView {
                     GeometryReader { g in
                         Color.clear
@@ -8945,7 +8965,9 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationView {
-            List {
+            ZStack {
+                AuraAtmosphericBackground()
+                List {
                 // ── Appearance ────────────────────────────────
                 Section("Appearance") {
                     Picker("Theme", selection: $scheme) {
@@ -9577,6 +9599,8 @@ struct SettingsView: View {
                     LabeledContent("Version", value: "1.1.0")
                     LabeledContent("Build",   value: "SwiftUI · iOS 16+")
                 }
+                }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Settings")
             .sheet(isPresented: $showAdd) {
