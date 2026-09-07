@@ -80,9 +80,12 @@ struct AuraSplashScreen: View {
             LinearGradient(colors: [p.backgroundStart, p.backgroundEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
             VStack(spacing: 14) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 42, weight: .bold))
-                    .foregroundColor(.white)
+                Image("AppIconGraphic")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 84, height: 84)
+                    .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
                 Text("Aurenda")
                     .font(.system(size: 40, weight: .black, design: .rounded))
                     .foregroundColor(.white)
@@ -10443,17 +10446,11 @@ struct SettingsView: View {
                 // ── About ─────────────────────────────────────
                 Section {
                     VStack(spacing: 10) {
-                        ZStack {
-                            Circle()
-                                .fill(LinearGradient(
-                                    colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                ))
-                                .frame(width: 56, height: 56)
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.white)
-                        }
+                        Image("AppIconGraphic")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                         Text("Aurenda")
                             .font(.system(size: 18, weight: .black, design: .rounded))
                         Text("Version 1.1.0 · iOS 16+")
