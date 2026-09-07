@@ -4509,6 +4509,7 @@ struct HomeView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
         .sheet(isPresented: $showLogActivity) {
             AddActivityView(isPresented: $showLogActivity)
                 .environmentObject(store)
