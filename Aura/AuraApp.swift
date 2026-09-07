@@ -4034,7 +4034,7 @@ struct ContentView: View {
                 showCreate = true
             }
             Button("Log Activity") { showAddActivity = true }
-            Button("Start Live Activity") { showStartLiveActivity = true }
+            Button("Track Activity") { showStartLiveActivity = true }
             Button("Add Grocery Item") { showQuickGrocery = true }
             Button("Create Shared List") { showAddList = true }
             Button("Cancel", role: .cancel) {}
@@ -4267,15 +4267,22 @@ struct HomeView: View {
 
                     HomeSectionCard(title: "Viewing As") {
                         HStack {
-                            Picker("Active Member", selection: Binding(
-                                get: { store.activeMember?.id },
-                                set: { store.setActiveMember(id: $0) }
-                            )) {
-                                ForEach(store.members) { member in
-                                    Text(member.name).tag(Optional(member.id))
+                            if store.members.isEmpty {
+                                Text("No local profiles")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Picker("Active Member", selection: Binding(
+                                    get: { store.activeMember?.id },
+                                    set: { store.setActiveMember(id: $0) }
+                                )) {
+                                    Text("None").tag(Optional<UUID>.none)
+                                    ForEach(store.members) { member in
+                                        Text(member.name).tag(Optional(member.id))
+                                    }
                                 }
+                                .pickerStyle(.menu)
                             }
-                            .pickerStyle(.menu)
 
                             Spacer()
 
@@ -4304,7 +4311,7 @@ struct HomeView: View {
                             AuraHaptics.tap(.light)
                             showQuickAddItem = true
                         }
-                        HomeQuickActionButton(label: "Start Live", icon: "play.circle.fill") {
+                        HomeQuickActionButton(label: "Track Activity", icon: "play.circle.fill") {
                             AuraHaptics.tap(.light)
                             showStartLiveActivity = true
                         }
@@ -4321,7 +4328,7 @@ struct HomeView: View {
                     }
 
                     if let session = store.activeActivitySession {
-                        HomeSectionCard(title: "Live Activity") {
+                        HomeSectionCard(title: "Currently Tracking") {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("\(session.kind.rawValue) started \(session.startedAt.formatted(date: .omitted, time: .shortened))")
                                     .font(.system(size: 14, weight: .semibold))
@@ -4970,12 +4977,16 @@ struct HomeHeroCard: View {
     var body: some View {
         let p = AuraThemePalette.current
         VStack(alignment: .leading, spacing: AuraDesignTokens.Spacing.xs) {
-            Text("TODAY BRIEF")
-                .font(AuraDesignTokens.Typography.eyebrow)
-                .foregroundColor(.white.opacity(0.72))
-                .padding(.horizontal, AuraDesignTokens.Spacing.xs)
-                .padding(.vertical, AuraDesignTokens.Spacing.xxs + 1)
-                .background(.white.opacity(0.12), in: Capsule())
+            HStack {
+                Text("TODAY BRIEF")
+                    .font(AuraDesignTokens.Typography.eyebrow)
+                    .foregroundColor(.white.opacity(0.72))
+                    .padding(.horizontal, AuraDesignTokens.Spacing.xs)
+                    .padding(.vertical, AuraDesignTokens.Spacing.xxs + 1)
+                    .background(.white.opacity(0.12), in: Capsule())
+                Spacer()
+                ProfileAvatarView(diameter: 34)
+            }
 
             Text(title)
                 .font(AuraDesignTokens.Typography.title)
@@ -6558,7 +6569,7 @@ struct StartLiveActivityView: View {
                     TextField("Optional notes", text: $notes)
                 }
             }
-            .navigationTitle("Start Live Activity")
+            .navigationTitle("Track Activity")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -8986,6 +8997,67 @@ struct GroupMembersView: View {
     }
 }
 
+// MARK: - Profile Picture Storage
+
+enum ProfileImageStore {
+    private static var fileURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("aura.profileImage.jpg")
+    }
+
+    static func load() -> UIImage? {
+        guard let url = fileURL, let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
+    }
+
+    static func save(_ image: UIImage) {
+        guard let url = fileURL, let data = image.jpegData(compressionQuality: 0.85) else { return }
+        try? data.write(to: url, options: .atomic)
+        NotificationCenter.default.post(name: .auraProfileImageChanged, object: nil)
+    }
+
+    static func clear() {
+        guard let url = fileURL else { return }
+        try? FileManager.default.removeItem(at: url)
+        NotificationCenter.default.post(name: .auraProfileImageChanged, object: nil)
+    }
+}
+
+extension Notification.Name {
+    static let auraProfileImageChanged = Notification.Name("AuraProfileImageChanged")
+}
+
+struct ProfileAvatarView: View {
+    var diameter: CGFloat = 56
+    @State private var image: UIImage? = ProfileImageStore.load()
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    LinearGradient(
+                        colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    Image(systemName: "person.fill")
+                        .font(.system(size: diameter * 0.42, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .frame(width: diameter, height: diameter)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
+        .onReceive(NotificationCenter.default.publisher(for: .auraProfileImageChanged)) { _ in
+            image = ProfileImageStore.load()
+        }
+    }
+}
+
 // MARK: - Settings View
 
 struct SettingsView: View {
@@ -9022,6 +9094,8 @@ struct SettingsView: View {
     @State private var serverEmail = ""
     @State private var serverPassword = ""
     @State private var serverDisplayName = ""
+    @State private var profilePickerItem: PhotosPickerItem?
+    @State private var hasProfileImage = ProfileImageStore.load() != nil
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var serverMessage = ""
@@ -9154,15 +9228,22 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("Assign as", selection: Binding(
-                        get: { store.activeMember?.id },
-                        set: { store.setActiveMember(id: $0) }
-                    )) {
-                        ForEach(store.members) { member in
-                            Text(member.name).tag(Optional(member.id))
+                    if store.members.isEmpty {
+                        Text("No local profiles yet.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Picker("Assign as", selection: Binding(
+                            get: { store.activeMember?.id },
+                            set: { store.setActiveMember(id: $0) }
+                        )) {
+                            Text("None").tag(Optional<UUID>.none)
+                            ForEach(store.members) { member in
+                                Text(member.name).tag(Optional(member.id))
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
 
                     Button {
                         showAddMember = true
@@ -9239,6 +9320,36 @@ struct SettingsView: View {
 
                 if store.hasServerSession {
                     Section {
+                        HStack(spacing: 14) {
+                            ProfileAvatarView(diameter: 60)
+                            VStack(alignment: .leading, spacing: 6) {
+                                PhotosPicker(selection: $profilePickerItem, matching: .images) {
+                                    Text(hasProfileImage ? "Change Photo" : "Add Photo")
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                if hasProfileImage {
+                                    Button(role: .destructive) {
+                                        ProfileImageStore.clear()
+                                        hasProfileImage = false
+                                    } label: {
+                                        Text("Remove Photo")
+                                            .font(.system(size: 13, weight: .semibold))
+                                    }
+                                }
+                            }
+                            Spacer()
+                        }
+                        .onChange(of: profilePickerItem) { newItem in
+                            guard let newItem else { return }
+                            Task {
+                                if let data = try? await newItem.loadTransferable(type: Data.self),
+                                   let uiImage = UIImage(data: data) {
+                                    ProfileImageStore.save(uiImage)
+                                    await MainActor.run { hasProfileImage = true }
+                                }
+                            }
+                        }
+
                         LabeledContent("Signed in as", value: store.serverAccountEmail.isEmpty ? backendAccountEmail : store.serverAccountEmail)
                         TextField("Display name", text: $serverDisplayName)
                         Button {
