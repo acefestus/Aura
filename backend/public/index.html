@@ -3,219 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0f6cbd" />
-  <title>Aura</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <meta name="theme-color" content="#08111F" />
+  <title>Aurenda — Coordination for any group</title>
+  <meta name="description" content="Aurenda is a shared calendar, agenda, and lists app for any small group — family, roommates, couples, church groups, travel crews, and study groups." />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="ambient ambient-a"></div>
-  <div class="ambient ambient-b"></div>
-  <div id="authBackdrop" class="auth-backdrop" aria-hidden="true">
-    <div class="auth-slide active" data-slide="0"></div>
-    <div class="auth-slide" data-slide="1"></div>
-    <div class="auth-slide" data-slide="2"></div>
-    <div class="auth-slide" data-slide="3"></div>
-    <div class="auth-overlay"></div>
-  </div>
-
-  <section id="authScreen" class="auth-shell">
-    <aside class="onboarding-card">
-      <div class="onboarding-visual" id="onboardingVisual"></div>
-      <h1 id="onboardingTitle">Built For Your Family</h1>
-      <p id="onboardingText">Events, lists, routines, and memories in one premium daily hub.</p>
-      <div class="metric-row">
-        <article class="metric-pill"><span>Secure</span><strong>JWT</strong></article>
-        <article class="metric-pill"><span>Family</span><strong>Sync</strong></article>
-        <article class="metric-pill"><span>Fallback</span><strong>Local</strong></article>
+  <div class="wrap">
+    <header class="site">
+      <div class="brand">
+        <img src="/icon-180.png" alt="Aurenda" />
+        Aurenda
       </div>
-      <div class="onboarding-controls">
-        <button id="onboardingNextBtn" class="ghost" type="button">Next</button>
-        <div id="onboardingDots" class="dots" aria-label="Onboarding pages"></div>
-      </div>
-    </aside>
-
-    <section class="auth-card">
-      <div class="auth-brand">
-        <span class="spark">*</span>
-        <div>
-          <h2>Aura</h2>
-          <p>Family life, beautifully orchestrated</p>
-        </div>
-      </div>
-
-      <div class="mode-switch" role="tablist" aria-label="Authentication mode">
-        <button id="modeSignIn" class="mode active" type="button">Sign In</button>
-        <button id="modeCreate" class="mode" type="button">Create Account</button>
-      </div>
-
-      <form id="loginForm" class="stack">
-        <label for="loginEmail">Email</label>
-        <input id="loginEmail" type="email" placeholder="you@example.com" required />
-        <label for="loginPassword">Password</label>
-        <input id="loginPassword" type="password" placeholder="Password" required />
-        <button type="submit">Sign In</button>
-      </form>
-
-      <form id="registerForm" class="stack" hidden>
-        <label for="registerName">Display name</label>
-        <input id="registerName" type="text" placeholder="Your name" required />
-        <label for="registerEmail">Email</label>
-        <input id="registerEmail" type="email" placeholder="you@example.com" required />
-        <label for="registerPassword">Password</label>
-        <input id="registerPassword" type="password" placeholder="Minimum 8 characters" minlength="8" required />
-        <button type="submit">Create Account</button>
-      </form>
-
-      <p class="auth-hint">Install after login: Safari Share -> Add to Home Screen.</p>
-
-      <details class="advanced-sync" id="advancedSync">
-        <summary>Advanced Sync Settings</summary>
-        <div class="stack mini">
-          <label for="backendBaseURL">Backend URL</label>
-          <input id="backendBaseURL" type="url" placeholder="https://aura-family-backend-production.up.railway.app" />
-          <label for="heroMode">Hero layout</label>
-          <select id="heroMode">
-            <option value="collage">Collage</option>
-            <option value="single">Single image</option>
-          </select>
-        </div>
-      </details>
-    </section>
-  </section>
-
-  <section id="appShell" class="app-shell" hidden>
-    <header class="topbar">
-      <div>
-        <h1>Aura</h1>
-        <p id="welcomeText">Welcome</p>
-        <p id="homeHouseholdBadge" class="household-badge">No household connected</p>
-      </div>
-      <div class="topbar-actions">
-        <button id="installBtn" class="ghost" hidden>Install App</button>
-        <button id="logoutBtn" class="ghost">Logout</button>
-      </div>
+      <nav class="site">
+        <a href="#features">Features</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="mailto:dhamyc245@gmail.com">Contact</a>
+      </nav>
     </header>
 
-    <nav class="tabbar" aria-label="Primary">
-      <button class="tab active" data-tab="home" type="button">Home</button>
-      <button class="tab" data-tab="agenda" type="button">Agenda</button>
-      <button class="tab" data-tab="calendar" type="button">Calendar</button>
-      <button class="tab" data-tab="settings" type="button">Settings</button>
-    </nav>
+    <section class="hero">
+      <span class="eyebrow">Coordination for any group</span>
+      <h1 class="hero-title">Your circle,<br /><span class="accent">beautifully organized</span></h1>
+      <p class="hero-sub">
+        One shared calendar, agenda, and lists app for family, roommates, couples,
+        church groups, travel crews, or study groups — built around whichever
+        circles you're actually part of, not just one.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Beta Access</a>
+        <a class="btn btn-secondary" href="#features">See what it does</a>
+      </div>
+      <div class="groups-row">
+        <span class="group-chip">Family</span>
+        <span class="group-chip">Roommates</span>
+        <span class="group-chip">Couples</span>
+        <span class="group-chip">Church Groups</span>
+        <span class="group-chip">Travel Crews</span>
+        <span class="group-chip">Study Groups</span>
+        <span class="group-chip">Any Small Group</span>
+      </div>
+    </section>
 
-    <main class="grid">
-      <section class="panel" data-page="home">
-        <h2>Today</h2>
-        <div class="quick-actions" id="homeQuickActions">
-          <button class="ghost quick-action" data-quick="plan" type="button">Plan My Week</button>
-          <button class="ghost quick-action" data-quick="sync" type="button">Sync Now</button>
-          <button class="ghost quick-action" data-quick="rebuild" type="button">Rebuild Notifications</button>
+    <section class="features" id="features">
+      <h2 class="section-title">Everything your group actually needs</h2>
+      <p class="section-sub">No assumptions about who you are — just the coordination tools every small group needs, with the flexibility to fit yours.</p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📅</div>
+          <h3>Shared Calendar</h3>
+          <p>Day, week, month, and year views. Filter by Personal, one specific group, or merge everything across every group you belong to.</p>
         </div>
-        <div class="kpi-grid">
-          <article class="kpi">
-            <span>Upcoming 7 days</span>
-            <strong id="kpiUpcoming">0</strong>
-          </article>
-          <article class="kpi">
-            <span>Today</span>
-            <strong id="kpiToday">0</strong>
-          </article>
-          <article class="kpi">
-            <span>Overdue</span>
-            <strong id="kpiOverdue">0</strong>
-          </article>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>Group Workspaces</h3>
+          <p>Belong to more than one group? Switch between them from a single screen — each with its own members, lists, and calendar.</p>
         </div>
-        <div class="next-event" id="nextEvent">No upcoming events yet.</div>
-        <h3 class="subhead">Next up</h3>
-        <ul id="homeUpcomingList" class="event-list compact"></ul>
-      </section>
-
-      <section class="panel" data-page="agenda" hidden>
-        <div class="section-head">
-          <h2>Agenda</h2>
-          <input id="agendaSearch" type="search" placeholder="Search events" />
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Agenda &amp; Conflict Detection</h3>
+          <p>See what's next at a glance, and get flagged automatically when two plans overlap so nothing gets double-booked.</p>
         </div>
-        <ul id="agendaList" class="event-list"></ul>
-      </section>
-
-      <section class="panel" data-page="calendar" hidden>
-        <div class="section-head">
-          <h2 id="calendarLabel">Calendar</h2>
-          <div class="inline-actions compact">
-            <button id="prevMonthBtn" class="ghost" type="button">Prev</button>
-            <button id="nextMonthBtn" class="ghost" type="button">Next</button>
-          </div>
+        <div class="feature-card">
+          <div class="feature-icon">✅</div>
+          <h3>Shared Lists</h3>
+          <p>Flexible lists for shopping, tasks, or anything else — free-text, not locked to any one kind of errand.</p>
         </div>
-        <div class="weekday-row" aria-hidden="true">
-          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        <div class="feature-card">
+          <div class="feature-icon">🚶</div>
+          <h3>Activity Tracking</h3>
+          <p>Log and share activities with your group, with optional step-count sharing you control.</p>
         </div>
-        <div id="calendarGrid" class="calendar-grid"></div>
-      </section>
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Reminders That Stand Out</h3>
+          <p>Themed notification cards that match your group's look, not a generic system alert.</p>
+        </div>
+      </div>
+    </section>
 
-      <section class="panel" data-page="settings" hidden>
-        <h2>Settings</h2>
-        <section class="settings-group">
-          <h3>Account & Server</h3>
-          <p id="accountInfo">Signed out</p>
-          <p id="householdInfo">No household loaded</p>
-        </section>
+    <section class="closing">
+      <h2>Ready to bring your circle together?</h2>
+      <p>Aurenda is currently in private beta ahead of its App Store launch. Reach out and we'll get you set up.</p>
+      <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Beta Access</a>
+    </section>
 
-        <section class="settings-group">
-          <h3>Profile</h3>
-          <form id="profileForm" class="stack mini">
-            <label for="displayName">Display name</label>
-            <input id="displayName" type="text" required />
-            <button type="submit">Update profile</button>
-          </form>
-        </section>
-
-        <section class="settings-group">
-          <h3>Security</h3>
-          <form id="passwordForm" class="stack mini">
-            <label for="currentPassword">Current password</label>
-            <input id="currentPassword" type="password" required />
-            <label for="newPassword">New password</label>
-            <input id="newPassword" type="password" minlength="8" required />
-            <button type="submit">Change password</button>
-          </form>
-        </section>
-
-        <section class="settings-group">
-          <h3>Household</h3>
-          <form id="createHouseholdForm" class="stack mini">
-            <label for="householdName">Create household</label>
-            <input id="householdName" type="text" placeholder="Our Family" required />
-            <button type="submit">Create household</button>
-          </form>
-
-          <form id="joinHouseholdForm" class="stack mini">
-            <label for="joinCode">Join with code</label>
-            <input id="joinCode" type="text" placeholder="AB12CD" required />
-            <button type="submit">Join household</button>
-          </form>
-        </section>
-
-        <section class="settings-group">
-          <h3>Sync Snapshot</h3>
-          <div class="inline-actions">
-            <button id="loadSnapshotBtn" class="ghost" type="button">Load snapshot</button>
-            <button id="saveSnapshotBtn" type="button">Save snapshot</button>
-          </div>
-          <textarea id="snapshotText" spellcheck="false" placeholder="Household sync payload JSON"></textarea>
-        </section>
-      </section>
-    </main>
-  </section>
-
-  <button id="fabBtn" class="fab" type="button" hidden aria-label="Quick add">+</button>
-
-  <p id="status" class="status">Ready.</p>
-
-  <script type="module" src="/app.js"></script>
+    <footer class="site">
+      <div class="footer-row">
+        <span>&copy; 2026 Aurenda</span>
+        <span class="footer-links">
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="mailto:dhamyc245@gmail.com">dhamyc245@gmail.com</a>
+        </span>
+      </div>
+    </footer>
+  </div>
 </body>
 </html>

@@ -1704,10 +1704,6 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   res.json({ snapshot });
 });
 
-app.get(/^\/(?!auth|admin|sync|households|groups|me|conflicts|health).*/, (_req, res) => {
-  res.sendFile(path.join(webRoot, "index.html"));
-});
-
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err instanceof Error && err.message.includes("CORS")) {
     res.status(403).json({ error: "Origin is not allowed." });
