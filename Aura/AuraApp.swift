@@ -3882,6 +3882,8 @@ struct ContentView: View {
     @State private var showQuickGrocery = false
     @State private var showAddMember = false
     @State private var showGroupMembers = false
+    @State private var showJoinOrCreateGroup = false
+    @State private var joinOrCreateMode: JoinOrCreateGroupView.Mode = .create
     @State private var eventDraftPreset: EventDraftPreset? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
@@ -3932,6 +3934,19 @@ struct ContentView: View {
                                     Label("\(record.group.name) · \(record.membership.role)", systemImage: record.group.id == store.activeServerGroupId ? "checkmark.circle.fill" : "circle")
                                 }
                             }
+                            Divider()
+                            Button {
+                                joinOrCreateMode = .create
+                                showJoinOrCreateGroup = true
+                            } label: {
+                                Label("Create New Group", systemImage: "plus.circle")
+                            }
+                            Button {
+                                joinOrCreateMode = .join
+                                showJoinOrCreateGroup = true
+                            } label: {
+                                Label("Join Another Group", systemImage: "person.badge.key")
+                            }
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.stack.3d.up.fill")
@@ -3965,6 +3980,10 @@ struct ContentView: View {
             .animation(AuraMotion.banner, value: bannerPayload)
             .sheet(isPresented: $showGroupMembers) {
                 GroupMembersView()
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showJoinOrCreateGroup) {
+                JoinOrCreateGroupView(isPresented: $showJoinOrCreateGroup, mode: joinOrCreateMode)
                     .environmentObject(store)
             }
 
@@ -6670,6 +6689,93 @@ struct AddMemberView: View {
     }
 }
 
+struct JoinOrCreateGroupView: View {
+    enum Mode { case create, join }
+
+    @EnvironmentObject var store: EventStore
+    @Binding var isPresented: Bool
+    @State var mode: Mode
+    @State private var groupName = ""
+    @State private var joinCode = ""
+    @State private var isWorking = false
+    @State private var message = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    Picker("Mode", selection: $mode) {
+                        Text("Create New").tag(Mode.create)
+                        Text("Join Existing").tag(Mode.join)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                }
+
+                if mode == .create {
+                    Section {
+                        TextField("Group name", text: $groupName)
+                    } footer: {
+                        Text("Creates a brand new, isolated group workspace. You'll be its Owner.")
+                    }
+                } else {
+                    Section {
+                        TextField("Join code", text: $joinCode)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled(true)
+                    } footer: {
+                        Text("Ask the group's owner for their join code (visible on their Group Members screen).")
+                    }
+                }
+
+                if isWorking {
+                    Section { ProgressView() }
+                }
+                if !message.isEmpty {
+                    Section {
+                        Text(message)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle(mode == .create ? "Create Group" : "Join Group")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { isPresented = false }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(mode == .create ? "Create" : "Join") {
+                        isWorking = true
+                        message = ""
+                        Task {
+                            let result: Result<Void, Error>
+                            if mode == .create {
+                                let createResult = await store.createServerGroup(name: groupName, type: "Family")
+                                result = createResult.map { _ in () }
+                            } else {
+                                result = await store.joinServerGroup(code: joinCode)
+                            }
+                            await MainActor.run {
+                                isWorking = false
+                                switch result {
+                                case .success:
+                                    AuraHaptics.success()
+                                    isPresented = false
+                                case .failure(let error):
+                                    message = error.localizedDescription
+                                }
+                            }
+                        }
+                    }
+                    .disabled(isWorking || (mode == .create ? groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : joinCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                }
+            }
+        }
+    }
+}
+
 struct AuraInAppBannerView: View {
     let payload: InAppBannerPayload
     let palette: AuraThemePalette
@@ -8890,7 +8996,6 @@ struct SettingsView: View {
     @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
     @AppStorage("authHeroMode") private var authHeroMode = "collage"
-    @AppStorage("householdCode") private var householdCode = ""
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
     @AppStorage("backendHouseholdName") private var backendStoredGroupName = ""
@@ -8908,6 +9013,7 @@ struct SettingsView: View {
     @State private var showSharedManager = false
     @State private var showSharedActivityLog = false
     @State private var showAddMember = false
+    @State private var showJoinOrCreateGroup = false
     @State private var stepCustomNames: Set<String> = []
     @State private var customThemes: [WidgetGradientTheme] = []
     @State private var selectedThemeId: UUID? = WidgetGradientTheme.presets.first?.id
@@ -8917,7 +9023,6 @@ struct SettingsView: View {
     @State private var serverEmail = ""
     @State private var serverPassword = ""
     @State private var serverDisplayName = ""
-    @State private var householdNameDraft = "My Group"
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var serverMessage = ""
@@ -9049,8 +9154,8 @@ struct SettingsView: View {
                     Text("Use this panel for offline mode, onboarding replay, and sync-related recovery.")
                 }
 
-                Section("Active Member") {
-                    Picker("Viewing as", selection: Binding(
+                Section {
+                    Picker("Assign as", selection: Binding(
                         get: { store.activeMember?.id },
                         set: { store.setActiveMember(id: $0) }
                     )) {
@@ -9063,8 +9168,12 @@ struct SettingsView: View {
                     Button {
                         showAddMember = true
                     } label: {
-                        Label("Add Member", systemImage: "person.badge.plus")
+                        Label("Add Local Profile", systemImage: "person.badge.plus")
                     }
+                } header: {
+                    Text("Local Profiles")
+                } footer: {
+                    Text("Local profiles don't have accounts or logins -- use them to assign events and activities to people (like young kids) who aren't signed into Aurenda themselves. This is separate from your actual Group Members.")
                 }
 
                 Section {
@@ -9129,11 +9238,9 @@ struct SettingsView: View {
                     Text("The active member can choose whether their steps are visible to others.")
                 }
 
-                Section {
-                    if store.hasServerSession {
+                if store.hasServerSession {
+                    Section {
                         LabeledContent("Signed in as", value: store.serverAccountEmail.isEmpty ? backendAccountEmail : store.serverAccountEmail)
-                        LabeledContent("Sync backend", value: store.currentSyncBackendLabel)
-
                         TextField("Display name", text: $serverDisplayName)
                         Button {
                             isServerWorking = true
@@ -9154,7 +9261,11 @@ struct SettingsView: View {
                         } label: {
                             Label("Save Profile", systemImage: "person.crop.circle.badge.checkmark")
                         }
+                    } header: {
+                        Text("Profile")
+                    }
 
+                    Section {
                         SecureField("Current password", text: $currentPassword)
                         SecureField("New password (min 8)", text: $newPassword)
                         Button {
@@ -9178,7 +9289,11 @@ struct SettingsView: View {
                             Label("Change Password", systemImage: "key.fill")
                         }
                         .disabled(currentPassword.isEmpty || newPassword.count < 8)
+                    } header: {
+                        Text("Security")
+                    }
 
+                    Section {
                         Button {
                             isServerWorking = true
                             serverMessage = ""
@@ -9189,7 +9304,7 @@ struct SettingsView: View {
                                 }
                             }
                         } label: {
-                            Label("Refresh Server Account", systemImage: "arrow.clockwise.circle")
+                            Label("Refresh Account Info", systemImage: "arrow.clockwise.circle")
                         }
 
                         Button(role: .destructive) {
@@ -9199,7 +9314,22 @@ struct SettingsView: View {
                         } label: {
                             Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                         }
-                    } else {
+                    } footer: {
+                        Text("\"Refresh Account Info\" re-fetches your profile and role from the server -- use it if something looks out of date.")
+                    }
+
+                    if isServerWorking {
+                        Section { ProgressView() }
+                    }
+                    if !serverMessage.isEmpty {
+                        Section {
+                            Text(serverMessage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else {
+                Section {
                         TextField("Email", text: $serverEmail)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
@@ -9248,20 +9378,20 @@ struct SettingsView: View {
                             Label("Sign In", systemImage: "person.crop.circle.badge.checkmark")
                         }
                         .disabled(backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || serverEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || serverPassword.isEmpty)
-                    }
 
-                    if isServerWorking {
-                        ProgressView()
+                        if isServerWorking {
+                            ProgressView()
+                        }
+                        if !serverMessage.isEmpty {
+                            Text(serverMessage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    } header: {
+                        Text("Account Access")
+                    } footer: {
+                        Text("Sign in to sync securely across devices and workspaces.")
                     }
-                    if !serverMessage.isEmpty {
-                        Text(serverMessage)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("Account Access")
-                } footer: {
-                    Text("Sign in to sync securely across devices and workspaces.")
                 }
 
                 if store.hasServerSession {
@@ -9508,14 +9638,12 @@ struct SettingsView: View {
                     Text("Data integrity checks and notification rebuilds -- use these if something looks out of sync.")
                 }
 
-                // ── Group Sync ─────────────────────────────
+                // ── Groups ─────────────────────────────
                 Section {
                     if store.hasServerSession {
-                        TextField("Group Code", text: $householdCode)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                        TextField("Server group name", text: $householdNameDraft)
-
+                        if !store.serverGroupName.isEmpty || !backendStoredGroupName.isEmpty {
+                            LabeledContent("Active group", value: store.serverGroupName.isEmpty ? backendStoredGroupName : store.serverGroupName)
+                        }
                         HStack {
                             Label("Status", systemImage: "arrow.triangle.2.circlepath")
                             Spacer()
@@ -9523,67 +9651,25 @@ struct SettingsView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.secondary)
                         }
-
-                        Button {
-                            isServerWorking = true
-                            serverMessage = ""
-                            Task {
-                                let result = await store.createServerHousehold(name: householdNameDraft)
-                                await MainActor.run {
-                                    isServerWorking = false
-                                    switch result {
-                                    case .success(let code):
-                                        householdCode = code
-                                        backendStoredGroupName = householdNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        serverMessage = "Server group created with code \(code)."
-                                    case .failure(let error):
-                                        serverMessage = error.localizedDescription
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label("Create Server Group", systemImage: "person.3.sequence.fill")
-                        }
-
-                        Button {
-                            isServerWorking = true
-                            serverMessage = ""
-                            Task {
-                                let result = await store.joinServerHousehold(code: householdCode)
-                                await MainActor.run {
-                                    isServerWorking = false
-                                    switch result {
-                                    case .success:
-                                        serverMessage = "Joined server group successfully."
-                                    case .failure(let error):
-                                        serverMessage = error.localizedDescription
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label("Join Server Group", systemImage: "person.2.badge.plus")
-                        }
-                        .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                        if !backendStoredGroupName.isEmpty || !store.serverGroupName.isEmpty {
-                            LabeledContent("Current group", value: store.serverGroupName.isEmpty ? backendStoredGroupName : store.serverGroupName)
-                        }
-
                         Button {
                             store.forceSyncNow()
                         } label: {
                             Label("Sync Now", systemImage: "arrow.clockwise")
                         }
-                        .disabled(householdCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button {
+                            showJoinOrCreateGroup = true
+                        } label: {
+                            Label("Create or Join Another Group", systemImage: "person.badge.key")
+                        }
                     } else {
                         Label("Sign in to sync groups across devices.", systemImage: "person.crop.circle.badge.exclamationmark")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("Group Sync")
+                    Text("Groups")
                 } footer: {
-                    Text(store.hasServerSession ? "Invite members by sharing the group code after they create or sign in to an account." : "Group sync requires a signed-in account -- there's no offline sync path.")
+                    Text("The join code for your active group, along with member management, lives on the Group Members screen (tap the people icon at the top of the app).")
                 }
 
                 // ── Profile ─────────────────────────────
@@ -9596,10 +9682,30 @@ struct SettingsView: View {
                 }
 
                 // ── About ─────────────────────────────────────
-                Section("About") {
-                    LabeledContent("App",     value: "Aurenda")
-                    LabeledContent("Version", value: "1.1.0")
-                    LabeledContent("Build",   value: "SwiftUI · iOS 16+")
+                Section {
+                    VStack(spacing: 10) {
+                        ZStack {
+                            Circle()
+                                .fill(LinearGradient(
+                                    colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                                .frame(width: 56, height: 56)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        Text("Aurenda")
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                        Text("Version 1.1.0 · iOS 16+")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .listRowBackground(Color.clear)
+                } header: {
+                    Text("About")
                 }
                 }
                 .scrollContentBackground(.hidden)
@@ -9643,6 +9749,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showAddMember) {
                 AddMemberView(isPresented: $showAddMember).environmentObject(store)
             }
+            .sheet(isPresented: $showJoinOrCreateGroup) {
+                JoinOrCreateGroupView(isPresented: $showJoinOrCreateGroup, mode: .create).environmentObject(store)
+            }
             .onChange(of: enableActionableReminders) { _ in
                 NotificationManager.shared.configureReminderCategories()
             }
@@ -9653,7 +9762,6 @@ struct SettingsView: View {
                 stepCustomNames = Set(dailyStepSharedWithNames)
                 serverEmail = backendAccountEmail
                 serverDisplayName = profileDisplayName
-                householdNameDraft = backendStoredGroupName.isEmpty ? "My Group" : backendStoredGroupName
                 Task {
                     await store.refreshServerContext()
                     await MainActor.run {
