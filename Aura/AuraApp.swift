@@ -1946,6 +1946,36 @@ actor AuraServerSyncEngine {
         )
     }
 
+    func exportAccountData(baseURL: String, token: String) async throws -> Data {
+        let base = try normalizedBaseURL(baseURL)
+        let url = base.appending(path: "me/export")
+        var req = URLRequest(url: url)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: req)
+        } catch {
+            if let netErr = error as? URLError,
+               netErr.code == .notConnectedToInternet || netErr.code == .networkConnectionLost || netErr.code == .timedOut {
+                throw AuraServerError.networkUnavailable
+            }
+            throw error
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw AuraServerError.invalidResponse
+        }
+        if http.statusCode == 401 {
+            throw AuraServerError.unauthorized
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AuraServerError.requestFailed(serverErrorMessage(from: data, statusCode: http.statusCode))
+        }
+        return data
+    }
+
     func deleteAccount(baseURL: String, token: String, password: String) async throws -> AuraRemoteOkEnvelope {
         try await request(
             baseURL: baseURL,
@@ -3534,6 +3564,26 @@ class EventStore: ObservableObject {
             return .success(())
         } catch {
             return .failure(mapServerError(error, fallbackStatus: "Account deletion failed"))
+        }
+    }
+
+    func exportAccountData() async -> Result<URL, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Sign in before exporting your data."))
+        }
+        do {
+            let data = try await AuraServerSyncEngine.shared.exportAccountData(
+                baseURL: currentBackendBaseURL,
+                token: backendAuthToken
+            )
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            let fileName = "Aurenda-export-\(df.string(from: Date())).json"
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+            try data.write(to: url, options: .atomic)
+            return .success(url)
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Export failed"))
         }
     }
 
@@ -6735,6 +6785,9 @@ struct DeleteAccountView: View {
     @State private var isWorking = false
     @State private var errorMessage = ""
     @State private var showFinalConfirm = false
+    @State private var isExporting = false
+    @State private var exportedFile: IdentifiableURL?
+    @State private var exportError = ""
 
     var body: some View {
         NavigationView {
@@ -6748,6 +6801,38 @@ struct DeleteAccountView: View {
                         Text("Any group only you belong to is deleted along with your account. Groups you share with others stay -- ownership passes to another member instead.")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
+                    }
+                    Section {
+                        Button {
+                            isExporting = true
+                            exportError = ""
+                            Task {
+                                let result = await store.exportAccountData()
+                                await MainActor.run {
+                                    isExporting = false
+                                    switch result {
+                                    case .success(let url):
+                                        exportedFile = IdentifiableURL(url: url)
+                                    case .failure(let error):
+                                        exportError = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            if isExporting {
+                                ProgressView()
+                            } else {
+                                Label("Export My Data First", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                        .disabled(isExporting)
+                        if !exportError.isEmpty {
+                            Text(exportError)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.red)
+                        }
+                    } footer: {
+                        Text("Downloads a copy of your account and group data as a file you can save or share.")
                     }
                     Section {
                         SecureField("Confirm your password", text: $password)
@@ -6809,6 +6894,9 @@ struct DeleteAccountView: View {
             } message: {
                 Text("This is your last chance to back out.")
             }
+        }
+        .sheet(item: $exportedFile) { file in
+            ActivityShareSheet(activityItems: [file.url])
         }
     }
 }
@@ -9541,6 +9629,21 @@ extension Notification.Name {
     static let auraProfileImageChanged = Notification.Name("AuraProfileImageChanged")
 }
 
+struct IdentifiableURL: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+struct ActivityShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
 struct ProfileAvatarView: View {
     var diameter: CGFloat = 56
     @State private var image: UIImage? = ProfileImageStore.load()
@@ -9615,6 +9718,9 @@ struct SettingsView: View {
     @State private var serverMessage = ""
     @State private var isServerWorking = false
     @State private var showDeleteAccount = false
+    @State private var isExporting = false
+    @State private var exportedFile: IdentifiableURL?
+    @State private var exportError = ""
 
     var allThemes: [WidgetGradientTheme] { WidgetGradientTheme.presets + customThemes }
     var selectedTheme: WidgetGradientTheme? { allThemes.first { $0.id == selectedThemeId } }
@@ -9932,6 +10038,30 @@ struct SettingsView: View {
                             Label("Refresh Account Info", systemImage: "arrow.clockwise.circle")
                         }
 
+                        Button {
+                            isExporting = true
+                            exportError = ""
+                            Task {
+                                let result = await store.exportAccountData()
+                                await MainActor.run {
+                                    isExporting = false
+                                    switch result {
+                                    case .success(let url):
+                                        exportedFile = IdentifiableURL(url: url)
+                                    case .failure(let error):
+                                        exportError = error.localizedDescription
+                                    }
+                                }
+                            }
+                        } label: {
+                            if isExporting {
+                                ProgressView()
+                            } else {
+                                Label("Export My Data", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                        .disabled(isExporting)
+
                         Button(role: .destructive) {
                             store.clearServerSession()
                             serverPassword = ""
@@ -9961,6 +10091,13 @@ struct SettingsView: View {
                             Text(serverMessage)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.secondary)
+                        }
+                    }
+                    if !exportError.isEmpty {
+                        Section {
+                            Text(exportError)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.red)
                         }
                     }
                 } else {
@@ -10373,6 +10510,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView(isPresented: $showDeleteAccount).environmentObject(store)
+            }
+            .sheet(item: $exportedFile) { file in
+                ActivityShareSheet(activityItems: [file.url])
             }
             .onChange(of: enableActionableReminders) { _ in
                 NotificationManager.shared.configureReminderCategories()

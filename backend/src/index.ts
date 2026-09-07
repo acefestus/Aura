@@ -640,6 +640,40 @@ app.get("/me", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
+app.get("/me/export", requireAuth, async (req: AuthRequest, res) => {
+  const context = await getUserGroupsContext(req);
+  const user = context.db.users.find((candidate) => candidate.id === context.userId);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const groups = context.groups.map((group) => {
+    const membership = context.memberships.find((candidate) => candidate.groupId === group.id);
+    const snapshot = context.db.snapshots.find((candidate) => candidate.householdId === group.id);
+    return {
+      id: group.id,
+      name: group.name,
+      type: group.type,
+      code: group.code,
+      role: membership?.role ?? null,
+      joinedAt: membership?.joinedAt ?? null,
+      data: snapshot?.payload ?? null
+    };
+  });
+
+  res.json({
+    exportedAt: new Date().toISOString(),
+    account: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      createdAt: user.createdAt
+    },
+    groups
+  });
+});
+
 app.get("/me/master-calendar", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
   const items = context.db.groupEvents
