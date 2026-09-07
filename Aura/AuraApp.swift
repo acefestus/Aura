@@ -4160,6 +4160,13 @@ struct HomeView: View {
         return lower.contains("failed") || lower.contains("unavailable") || lower.contains("expired")
     }
 
+    /// A calmer, Home-specific rendering of syncStatus -- "Sync disabled" reads as an
+    /// error even though it just means "not in a shared group yet", which is a normal
+    /// state, not a problem. Other screens still show the precise underlying status.
+    var homeStatusLabel: String {
+        store.syncStatus == "Sync disabled" ? "Personal mode" : store.syncStatus
+    }
+
     var workloadByMember: [(member: GroupMember, count: Int)] {
         let horizon = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let source = showOnlyShared ? store.visibleEvents : store.events
@@ -4249,7 +4256,7 @@ struct HomeView: View {
                     HomeHeroCard(
                         title: "\(greeting), \(store.activeProfileName)",
                         subtitle: "\(todayEventsCount) events today · \(pendingShoppingItems) list items pending",
-                        detail: store.syncStatus
+                        detail: homeStatusLabel
                     ) {
                         Task { await store.refreshHomeDashboard() }
                     }
@@ -4263,68 +4270,6 @@ struct HomeView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                         }
-                    }
-
-                    HomeSectionCard(title: "Viewing As") {
-                        HStack {
-                            if store.members.isEmpty {
-                                Text("No local profiles")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.secondary)
-                            } else {
-                                Picker("Active Member", selection: Binding(
-                                    get: { store.activeMember?.id },
-                                    set: { store.setActiveMember(id: $0) }
-                                )) {
-                                    Text("None").tag(Optional<UUID>.none)
-                                    ForEach(store.members) { member in
-                                        Text(member.name).tag(Optional(member.id))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                            }
-
-                            Spacer()
-
-                            Toggle("Visible Only", isOn: $showOnlyShared)
-                                .labelsHidden()
-                                .tint(AuraThemePalette.current.accentStart)
-                        }
-                        Text(showOnlyShared ? "Showing items you can access." : "Showing full workspace data.")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-
-                    HStack(spacing: 10) {
-                        HomeQuickActionButton(label: "Schedule Event", icon: "calendar.badge.plus", prominent: true) {
-                            AuraHaptics.tap(.light)
-                            showQuickEventTemplates = true
-                        }
-                        HomeQuickActionButton(label: "Log Activity", icon: "figure.walk") {
-                            AuraHaptics.tap(.light)
-                            showLogActivity = true
-                        }
-                    }
-
-                    HStack(spacing: 10) {
-                        HomeQuickActionButton(label: "Add Grocery", icon: "cart.badge.plus") {
-                            AuraHaptics.tap(.light)
-                            showQuickAddItem = true
-                        }
-                        HomeQuickActionButton(label: "Track Activity", icon: "play.circle.fill") {
-                            AuraHaptics.tap(.light)
-                            showStartLiveActivity = true
-                        }
-                    }
-
-                    HomeQuickActionButton(label: "Use Routine Template", icon: "wand.and.stars") {
-                        AuraHaptics.tap(.medium)
-                        showRoutineTemplates = true
-                    }
-
-                    HomeQuickActionButton(label: "Plan My Week", icon: "calendar.day.timeline.leading") {
-                        AuraHaptics.tap(.medium)
-                        showWeekPlanner = true
                     }
 
                     if let session = store.activeActivitySession {
@@ -4361,8 +4306,13 @@ struct HomeView: View {
                             HomeLoadingRows()
                         } else if todayEvents.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("No events planned for today")
-                                    .font(.system(size: 14, weight: .semibold))
+                                HStack(spacing: 8) {
+                                    Image(systemName: "moon.stars")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AuraThemePalette.current.accentStart)
+                                    Text("Nothing planned for today")
+                                        .font(.system(size: 14, weight: .semibold))
+                                }
                                 Text("Use Schedule Event to add your next shared moment.")
                                     .font(.system(size: 12))
                                     .foregroundColor(.secondary)
@@ -4419,6 +4369,38 @@ struct HomeView: View {
                                 }
                             }
                         }
+                    }
+
+                    HStack(spacing: 10) {
+                        HomeQuickActionButton(label: "Schedule Event", icon: "calendar.badge.plus", prominent: true) {
+                            AuraHaptics.tap(.light)
+                            showQuickEventTemplates = true
+                        }
+                        HomeQuickActionButton(label: "Log Activity", icon: "figure.walk") {
+                            AuraHaptics.tap(.light)
+                            showLogActivity = true
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        HomeQuickActionButton(label: "Add Grocery", icon: "cart.badge.plus") {
+                            AuraHaptics.tap(.light)
+                            showQuickAddItem = true
+                        }
+                        HomeQuickActionButton(label: "Track Activity", icon: "play.circle.fill") {
+                            AuraHaptics.tap(.light)
+                            showStartLiveActivity = true
+                        }
+                    }
+
+                    HomeQuickActionButton(label: "Use Routine Template", icon: "wand.and.stars") {
+                        AuraHaptics.tap(.medium)
+                        showRoutineTemplates = true
+                    }
+
+                    HomeQuickActionButton(label: "Plan My Week", icon: "calendar.day.timeline.leading") {
+                        AuraHaptics.tap(.medium)
+                        showWeekPlanner = true
                     }
 
                     HomeSectionCard(title: "Group Insights") {
@@ -4511,6 +4493,45 @@ struct HomeView: View {
                             }
                         }
                     }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("DISPLAY FILTER")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Show only items shared with me")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(showOnlyShared ? "Hiding items outside your access." : "Showing everything in this workspace.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $showOnlyShared)
+                                .labelsHidden()
+                                .tint(AuraThemePalette.current.accentStart)
+                        }
+                        if !store.members.isEmpty {
+                            Divider()
+                            HStack {
+                                Text("Assign new items as")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Spacer()
+                                Picker("Active Member", selection: Binding(
+                                    get: { store.activeMember?.id },
+                                    set: { store.setActiveMember(id: $0) }
+                                )) {
+                                    Text("None").tag(Optional<UUID>.none)
+                                    ForEach(store.members) { member in
+                                        Text(member.name).tag(Optional(member.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                            }
+                        }
+                    }
+                    .padding(AuraDesignTokens.Spacing.sm)
+                    .opacity(0.85)
                 }
                 .padding(16)
                 .padding(.bottom, 90)
