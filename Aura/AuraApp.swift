@@ -326,7 +326,7 @@ struct AuraAuthGatewayView: View {
                             Text("Aurenda")
                                 .font(.system(size: 42, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
-                            Text("Your life, beautifully organized. Aura brings every circle into harmony.")
+                            Text("Your life, beautifully organized. Aurenda brings every circle into harmony.")
                                 .font(.system(size: 16, weight: .medium))
                                 .lineSpacing(3)
                                 .foregroundColor(.white.opacity(0.9))
@@ -393,7 +393,7 @@ struct AuraAuthGatewayView: View {
                                     }
                                 }
                             } label: {
-                                Label(mode == .create ? "Create Account" : "Enter Aura", systemImage: "person.crop.circle.badge.checkmark")
+                                Label(mode == .create ? "Create Account" : "Enter Aurenda", systemImage: "person.crop.circle.badge.checkmark")
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 52)
@@ -714,7 +714,7 @@ struct AuraAuthGatewayView: View {
             return
         }
 
-        let reason = "Unlock Aura with Face ID or Touch ID."
+        let reason = "Unlock Aurenda with Face ID or Touch ID."
         context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, evalError in
             DispatchQueue.main.async {
                 if success {
@@ -2257,10 +2257,6 @@ class EventStore: ObservableObject {
         !serverGroups.isEmpty
     }
 
-    var currentSyncBackendLabel: String {
-        hasServerGroup ? "Aura Server" : "Local only"
-    }
-
     var isServerOwner: Bool {
         serverMembershipRole.caseInsensitiveCompare("Owner") == .orderedSame
     }
@@ -3777,7 +3773,7 @@ class NotificationManager {
             fire = event.startDate.addingTimeInterval(-(Double(event.alarmMins) * 60))
         }
         guard fire > Date() else {
-            print("[Aura] Skipped scheduling reminder for '\(event.title)': fire time \(fire) is already in the past.")
+            print("[Aurenda] Skipped scheduling reminder for '\(event.title)': fire time \(fire) is already in the past.")
             return
         }
 
@@ -3789,7 +3785,7 @@ class NotificationManager {
         )
         UNUserNotificationCenter.current().add(req) { error in
             if let error {
-                print("[Aura] Failed to schedule reminder for '\(event.title)': \(error)")
+                print("[Aurenda] Failed to schedule reminder for '\(event.title)': \(error)")
             }
         }
     }
@@ -3995,12 +3991,12 @@ struct ContentView: View {
             }
             Button("Log Activity") { showAddActivity = true }
             Button("Track Activity") { showStartLiveActivity = true }
-            Button("Add Grocery Item") { showQuickGrocery = true }
+            Button("Add List Item") { showQuickGrocery = true }
             Button("Create Shared List") { showAddList = true }
             Button("Cancel", role: .cancel) {}
         }
         .alert(
-            "Shared Aura Data",
+            "Shared Aurenda Data",
             isPresented: Binding(
                 get: { shareManager.pendingImport != nil },
                 set: { v in if !v { shareManager.pendingImport = nil } }
@@ -4343,7 +4339,7 @@ struct HomeView: View {
                     }
 
                     HStack(spacing: 10) {
-                        HomeQuickActionButton(label: "Add Grocery", icon: "cart.badge.plus") {
+                        HomeQuickActionButton(label: "Add List Item", icon: "cart.badge.plus") {
                             AuraHaptics.tap(.light)
                             showQuickAddItem = true
                         }
@@ -6041,7 +6037,7 @@ struct AddGroupListItemView: View {
                     TextField("Preferred store (optional)", text: $preferredStore)
                     Toggle("Set date", isOn: $hasDueDate)
                     if hasDueDate {
-                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date])
+                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     }
                 }
                 Section("Assignment") {
@@ -6307,7 +6303,7 @@ struct AddGroupPlanItemView: View {
                     TextField("e.g. Book the venue", text: $name)
                     Toggle("Set date", isOn: $hasDueDate)
                     if hasDueDate {
-                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date])
+                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     }
                 }
                 Section("Assignment") {
@@ -6608,7 +6604,7 @@ struct QuickAddShoppingItemView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Shopping Item") {
+                Section("Item") {
                     TextField("Item name", text: $name)
                     TextField("Quantity", text: $quantity)
                     TextField("Preferred store (optional)", text: $preferredStore)
@@ -6620,7 +6616,7 @@ struct QuickAddShoppingItemView: View {
                     }
                     Toggle("Set date", isOn: $hasDueDate)
                     if hasDueDate {
-                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date])
+                        DatePicker("Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     }
                 }
                 Section {
@@ -6629,13 +6625,13 @@ struct QuickAddShoppingItemView: View {
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     } else {
-                        Text("No list found. A Weekly Grocery list will be created automatically.")
+                        Text("No list found. A Shopping List will be created automatically.")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
                 }
             }
-            .navigationTitle("Quick Grocery")
+            .navigationTitle("Quick Add")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -6645,7 +6641,7 @@ struct QuickAddShoppingItemView: View {
                     Button("Add") {
                         AuraHaptics.success()
                         if firstSupermarketList == nil {
-                            store.addGroupList(title: "Weekly Grocery", kind: .supermarket, visibility: .family, sharedWithNames: [])
+                            store.addGroupList(title: "Shopping List", kind: .supermarket, visibility: .family, sharedWithNames: [])
                         }
                         if let target = store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first {
                             store.addItem(to: target.id, item: .init(name: name, quantity: quantity, note: "", isDone: false, assignedMemberId: assignedMemberId, preferredStore: preferredStore, dueDate: hasDueDate ? dueDate : nil, completedByName: nil, boughtAt: nil))
@@ -7333,7 +7329,7 @@ struct ShareAuraSheet: View {
     var shareURL: URL? {
         shareManager.makeShareURL(
             senderName: senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "Aura User" : senderName.trimmingCharacters(in: .whitespacesAndNewlines),
+                ? "Aurenda User" : senderName.trimmingCharacters(in: .whitespacesAndNewlines),
             permission: permission,
             events: events
         )
@@ -7412,7 +7408,7 @@ struct ShareAuraSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 if senderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    senderName = storedDisplayName.isEmpty ? "Aura User" : storedDisplayName
+                    senderName = storedDisplayName.isEmpty ? "Aurenda User" : storedDisplayName
                 }
             }
             .onChange(of: senderName) { v in
@@ -8463,7 +8459,7 @@ struct EventDetailView: View {
             .sheet(isPresented: $showShare) {
                 ShareAuraSheet(
                     title: "Share Event",
-                    subtitle: "Send this event to another Aura user.",
+                    subtitle: "Send this event to another Aurenda user.",
                     events: [event]
                 )
                 .environmentObject(shareManager)
