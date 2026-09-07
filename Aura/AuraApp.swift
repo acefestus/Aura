@@ -1161,27 +1161,6 @@ struct GroupMember: Identifiable, Codable, Equatable, Hashable {
     var color: Color { Color(hex: colorHex) }
 }
 
-enum ShoppingStore: String, Codable, CaseIterable {
-    case rewe = "Rewe"
-    case aldi = "Aldi"
-    case edeka = "Edeka"
-    case lidl = "Lidl"
-    case dm = "DM"
-    case afroStore = "Afro Store"
-    case online = "Online"
-    case turkishStore = "Turkish Store"
-    case others = "Others"
-
-    var icon: String {
-        switch self {
-        case .rewe, .aldi, .edeka, .lidl, .dm, .afroStore, .turkishStore, .others:
-            return "basket.fill"
-        case .online:
-            return "shippingbox.fill"
-        }
-    }
-}
-
 enum VisibilityScope: String, Codable, CaseIterable {
     case personal = "Personal"
     case family = "Family"
@@ -1277,7 +1256,7 @@ struct GroupListItem: Identifiable, Codable, Equatable {
     var note: String
     var isDone: Bool
     var assignedMemberId: UUID?
-    var preferredStore: ShoppingStore? = nil
+    var preferredStore: String? = nil
     var dueDate: Date? = nil
     var completedByName: String? = nil
     var boughtAt: Date? = nil
@@ -2831,14 +2810,12 @@ class EventStore: ObservableObject {
 
     // ── Shared Group Lists ─────────────────────────────────
     func loadGroupLists() {
+        // No auto-seeded list here on purpose, same reasoning as loadMembers():
+        // not every group wants a grocery list on day one (a study or travel
+        // group might not), so start empty and let people create their own.
         if let d = shared.data(forKey: lKey),
            let v = try? JSONDecoder().decode([GroupList].self, from: d) {
             groupLists = v.sorted { $0.createdAt > $1.createdAt }
-        } else {
-            groupLists = [
-                .init(title: "Weekly Grocery", kind: .supermarket, createdAt: Date(), items: [])
-            ]
-            saveGroupLists()
         }
     }
 
@@ -5798,7 +5775,7 @@ struct ListsView: View {
     private func summary(for list: GroupList) -> String {
         let done = list.items.filter { $0.isDone }.count
         if list.kind == .supermarket {
-            let stores = Set(list.items.compactMap { $0.preferredStore?.rawValue })
+            let stores = Set(list.items.compactMap { $0.preferredStore })
             return "\(list.items.count) items · \(done) done · \(stores.count) stores"
         }
         return "\(list.items.count) items · \(done) done"
@@ -5923,12 +5900,18 @@ struct GroupListDetailView: View {
         store.groupLists.first(where: { $0.id == listId })
     }
 
-    var groupedItems: [(ShoppingStore, [GroupListItem])] {
+    var groupedItems: [(String, [GroupListItem])] {
         guard let list, list.kind == .supermarket else { return [] }
-        return ShoppingStore.allCases.compactMap { storeName in
-            let items = list.items.filter { ($0.preferredStore ?? .others) == storeName }
-            return items.isEmpty ? nil : (storeName, items)
+        let groups = Dictionary(grouping: list.items) { item -> String in
+            let trimmed = item.preferredStore?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return trimmed.isEmpty ? "No Store Set" : trimmed
         }
+        return groups
+            .sorted { lhs, rhs in
+                if lhs.key == "No Store Set" { return false }
+                if rhs.key == "No Store Set" { return true }
+                return lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
+            }
     }
 
     var body: some View {
@@ -5940,7 +5923,7 @@ struct GroupListDetailView: View {
                             .foregroundColor(.secondary)
                     } else if list.kind == .supermarket {
                         ForEach(groupedItems, id: \.0) { storeGroup in
-                            Section(storeGroup.0.rawValue) {
+                            Section(storeGroup.0) {
                                 ForEach(storeGroup.1) { item in
                                     itemRow(item)
                                 }
@@ -5981,7 +5964,8 @@ struct GroupListDetailView: View {
     private func itemSummary(_ item: GroupListItem) -> String {
         var bits: [String] = []
         if !item.quantity.isEmpty { bits.append(item.quantity) }
-        bits.append(item.preferredStore?.rawValue ?? "Store not set")
+        let storeText = item.preferredStore?.trimmingCharacters(in: .whitespacesAndNewlines)
+        bits.append((storeText?.isEmpty ?? true) ? "Store not set" : storeText!)
         if let dueDate = item.dueDate {
             let f = DateFormatter()
             f.dateStyle = .medium
@@ -6054,7 +6038,7 @@ struct AddGroupListItemView: View {
     @State private var quantity = ""
     @State private var note = ""
     @State private var assignedMemberId: UUID? = nil
-    @State private var preferredStore: ShoppingStore = .others
+    @State private var preferredStore: String = ""
     @State private var dueDate = Date()
     @State private var hasDueDate = false
 
@@ -6072,11 +6056,7 @@ struct AddGroupListItemView: View {
                 Section("Item") {
                     TextField("e.g. Milk", text: $name)
                     TextField("Quantity", text: $quantity)
-                    Picker("Buy At", selection: $preferredStore) {
-                        ForEach(ShoppingStore.allCases, id: \.self) { store in
-                            Label(store.rawValue, systemImage: store.icon).tag(store)
-                        }
-                    }
+                    TextField("Preferred store (optional)", text: $preferredStore)
                     Toggle("Set date", isOn: $hasDueDate)
                     if hasDueDate {
                         DatePicker("Date", selection: $dueDate, displayedComponents: [.date])
@@ -6130,7 +6110,7 @@ struct AddGroupListItemView: View {
                 quantity = editingItem.quantity
                 note = editingItem.note
                 assignedMemberId = editingItem.assignedMemberId
-                preferredStore = editingItem.preferredStore ?? .others
+                preferredStore = editingItem.preferredStore ?? ""
                 if let due = editingItem.dueDate {
                     dueDate = due
                     hasDueDate = true
@@ -6634,7 +6614,7 @@ struct QuickAddShoppingItemView: View {
     @Binding var isPresented: Bool
     @State private var name = ""
     @State private var quantity = ""
-    @State private var preferredStore: ShoppingStore = .others
+    @State private var preferredStore: String = ""
     @State private var assignedMemberId: UUID? = nil
     @State private var hasDueDate = false
     @State private var dueDate = Date()
@@ -6649,11 +6629,7 @@ struct QuickAddShoppingItemView: View {
                 Section("Shopping Item") {
                     TextField("Item name", text: $name)
                     TextField("Quantity", text: $quantity)
-                    Picker("Buy At", selection: $preferredStore) {
-                        ForEach(ShoppingStore.allCases, id: \.self) { store in
-                            Label(store.rawValue, systemImage: store.icon).tag(store)
-                        }
-                    }
+                    TextField("Preferred store (optional)", text: $preferredStore)
                     Picker("Responsible", selection: $assignedMemberId) {
                         Text("Anyone").tag(UUID?.none)
                         ForEach(store.members) { member in
