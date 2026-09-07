@@ -3860,8 +3860,7 @@ struct ContentView: View {
     @State private var showQuickGrocery = false
     @State private var showAddMember = false
     @State private var showGroupMembers = false
-    @State private var showJoinOrCreateGroup = false
-    @State private var joinOrCreateMode: JoinOrCreateGroupView.Mode = .create
+    @State private var showGroupsHub = false
     @State private var eventDraftPreset: EventDraftPreset? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
@@ -3904,34 +3903,17 @@ struct ContentView: View {
                 }
                 if store.hasServerSession && store.hasServerGroups {
                     HStack {
-                        Menu {
-                            ForEach(store.serverGroups) { record in
-                                Button {
-                                    store.setActiveServerGroup(id: record.group.id)
-                                } label: {
-                                    Label("\(record.group.name) · \(record.membership.role)", systemImage: record.group.id == store.activeServerGroupId ? "checkmark.circle.fill" : "circle")
-                                }
-                            }
-                            Divider()
-                            Button {
-                                joinOrCreateMode = .create
-                                showJoinOrCreateGroup = true
-                            } label: {
-                                Label("Create New Group", systemImage: "plus.circle")
-                            }
-                            Button {
-                                joinOrCreateMode = .join
-                                showJoinOrCreateGroup = true
-                            } label: {
-                                Label("Join Another Group", systemImage: "person.badge.key")
-                            }
+                        Button {
+                            showGroupsHub = true
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.stack.3d.up.fill")
                                 Text(store.activeServerGroupName)
                                     .lineLimit(1)
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 11, weight: .semibold))
+                                if store.serverGroups.count > 1 {
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
                             }
                             .font(.system(size: 12, weight: .semibold))
                             .padding(.horizontal, 12)
@@ -3960,8 +3942,8 @@ struct ContentView: View {
                 GroupMembersView()
                     .environmentObject(store)
             }
-            .sheet(isPresented: $showJoinOrCreateGroup) {
-                JoinOrCreateGroupView(isPresented: $showJoinOrCreateGroup, mode: joinOrCreateMode)
+            .sheet(isPresented: $showGroupsHub) {
+                GroupsHubView(isPresented: $showGroupsHub)
                     .environmentObject(store)
             }
 
@@ -6815,6 +6797,153 @@ struct JoinOrCreateGroupView: View {
     }
 }
 
+func groupTypeIcon(_ type: String) -> String {
+    switch type {
+    case "Family": return "house.fill"
+    case "Roommates": return "person.2.fill"
+    case "Couple": return "heart.fill"
+    case "Church": return "building.columns.fill"
+    case "Travel": return "airplane"
+    case "Study": return "book.fill"
+    default: return "square.stack.3d.up.fill"
+    }
+}
+
+struct GroupsHubView: View {
+    @EnvironmentObject var store: EventStore
+    @Binding var isPresented: Bool
+    @State private var joinOrCreateMode: JoinOrCreateGroupView.Mode = .create
+    @State private var showJoinOrCreate = false
+
+    var columns: [GridItem] { [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)] }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                AuraAtmosphericBackground()
+                ScrollView {
+                    if store.serverGroups.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "square.stack.3d.up.slash")
+                                .font(.system(size: 30))
+                                .foregroundColor(.secondary.opacity(0.4))
+                            Text("No groups yet")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("Create one, or join with a code from someone who already has one.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.top, 60)
+                        .padding(.horizontal, 30)
+                    } else {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(store.serverGroups) { record in
+                                Button {
+                                    if record.group.id != store.activeServerGroupId {
+                                        AuraHaptics.tap(.medium)
+                                        store.setActiveServerGroup(id: record.group.id)
+                                    }
+                                    isPresented = false
+                                } label: {
+                                    GroupCard(record: record, isActive: record.group.id == store.activeServerGroupId)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(16)
+                    }
+
+                    VStack(spacing: 10) {
+                        Button {
+                            joinOrCreateMode = .create
+                            showJoinOrCreate = true
+                        } label: {
+                            Label("Create New Group", systemImage: "plus.circle")
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .background(Color(.secondarySystemBackground).opacity(0.7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                        Button {
+                            joinOrCreateMode = .join
+                            showJoinOrCreate = true
+                        } label: {
+                            Label("Join Another Group", systemImage: "person.badge.key")
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .background(Color(.secondarySystemBackground).opacity(0.7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Groups")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { isPresented = false }
+                }
+            }
+        }
+        .sheet(isPresented: $showJoinOrCreate) {
+            JoinOrCreateGroupView(isPresented: $showJoinOrCreate, mode: joinOrCreateMode)
+                .environmentObject(store)
+        }
+    }
+}
+
+struct GroupCard: View {
+    let record: AuraRemoteGroupRecord
+    let isActive: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                            startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: groupTypeIcon(record.group.type))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(AuraThemePalette.current.accentStart)
+                }
+            }
+            Text(record.group.name)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            Text(record.group.type)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            Text(record.membership.role)
+                .font(.system(size: 10, weight: .bold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color(.tertiarySystemBackground), in: Capsule())
+                .foregroundColor(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground).opacity(0.7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isActive ? AuraThemePalette.current.accentStart.opacity(0.6) : Color.clear, lineWidth: 1.5)
+        )
+    }
+}
+
 struct AuraInAppBannerView: View {
     let payload: InAppBannerPayload
     let palette: AuraThemePalette
@@ -6895,6 +7024,23 @@ struct AgendaView: View {
         Array(filtered.prefix(40))
     }
 
+    var conflicts: [AgendaConflict] {
+        guard q.isEmpty else { return [] }
+        var result: [AgendaConflict] = []
+        for (_, evts) in grouped {
+            let sorted = evts.filter { !$0.isAllDay }.sorted { $0.startDate < $1.startDate }
+            for i in 0..<sorted.count {
+                for j in (i + 1)..<sorted.count {
+                    let a = sorted[i], b = sorted[j]
+                    if a.startDate < b.endDate && b.startDate < a.endDate {
+                        result.append(AgendaConflict(first: a, second: b))
+                    }
+                }
+            }
+        }
+        return result
+    }
+
     var headerScale: CGFloat {
         let collapse = min(max(-scrollOffset / 180, 0), 1)
         return 1 - (collapse * 0.12)
@@ -6929,6 +7075,16 @@ struct AgendaView: View {
                             .padding(.top, 10)
                             .padding(.bottom, 8)
                             .animation(AuraMotion.smooth, value: headerScale)
+
+                            if !conflicts.isEmpty {
+                                AgendaConflictsCard(conflicts: conflicts) { event in
+                                    AuraHaptics.tap(.light)
+                                    withAnimation(AuraMotion.spring) { selected = event }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                         if store.isBootstrapping {
                             AgendaSkeletonView()
@@ -7015,6 +7171,77 @@ struct AgendaView: View {
             )
             .environmentObject(shareManager)
         }
+    }
+}
+
+struct AgendaConflict: Identifiable {
+    let id = UUID()
+    let first: CalendarEvent
+    let second: CalendarEvent
+
+    var severityLabel: String {
+        let overlapStart = max(first.startDate, second.startDate)
+        let overlapEnd = min(first.endDate, second.endDate)
+        let overlap = overlapEnd.timeIntervalSince(overlapStart)
+        let shorterDuration = min(
+            first.endDate.timeIntervalSince(first.startDate),
+            second.endDate.timeIntervalSince(second.startDate)
+        )
+        guard shorterDuration > 0 else { return "Overlap" }
+        return overlap / shorterDuration >= 0.5 ? "High" : "Medium"
+    }
+
+    var severityColor: Color {
+        switch severityLabel {
+        case "High": return .red
+        case "Medium": return .orange
+        default: return .yellow
+        }
+    }
+}
+
+struct AgendaConflictsCard: View {
+    let conflicts: [AgendaConflict]
+    var onSelect: (CalendarEvent) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.orange)
+                Text("\(conflicts.count) scheduling conflict\(conflicts.count == 1 ? "" : "s") today")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            VStack(spacing: 8) {
+                ForEach(conflicts.prefix(5)) { conflict in
+                    Button {
+                        onSelect(conflict.first)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(conflict.severityLabel)
+                                .font(.system(size: 10, weight: .bold))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(conflict.severityColor.opacity(0.2), in: Capsule())
+                                .foregroundColor(conflict.severityColor)
+                            Text("\(conflict.first.title) overlaps \(conflict.second.title)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemBackground).opacity(0.7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.orange.opacity(0.25), lineWidth: 1))
     }
 }
 
@@ -7424,6 +7651,20 @@ enum CalendarScope: String, CaseIterable {
     case year = "Year"
 }
 
+enum CalendarSourceFilter: String, CaseIterable {
+    case thisGroup = "This Group"
+    case personalOnly = "Personal Only"
+    case allGroups = "All Groups"
+
+    var icon: String {
+        switch self {
+        case .thisGroup: return "person.3.fill"
+        case .personalOnly: return "person.fill"
+        case .allGroups: return "square.stack.3d.up.fill"
+        }
+    }
+}
+
 struct CalendarView: View {
     @EnvironmentObject var store: EventStore
     @Binding var showCreate: Bool
@@ -7431,6 +7672,7 @@ struct CalendarView: View {
     @State private var month = Date()
     @State private var selected: CalendarEvent?
     @State private var scope: CalendarScope = .month
+    @State private var sourceFilter: CalendarSourceFilter = .thisGroup
 
     var cal: Calendar { .current }
     var weekStart: Date {
@@ -7443,6 +7685,34 @@ struct CalendarView: View {
             ZStack {
                 AuraAtmosphericBackground()
                 VStack(spacing: 0) {
+                    if store.hasServerGroups {
+                        HStack {
+                            Menu {
+                                ForEach(availableFilters, id: \.self) { f in
+                                    Button {
+                                        sourceFilter = f
+                                    } label: {
+                                        Label(f.rawValue, systemImage: f == sourceFilter ? "checkmark" : f.icon)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: sourceFilter.icon)
+                                    Text(sourceFilter.rawValue)
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(.secondarySystemBackground).opacity(0.7), in: Capsule())
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    }
+
                     Picker("Scope", selection: $scope) {
                         ForEach(CalendarScope.allCases, id: \.self) { s in
                             Text(s.rawValue).tag(s)
@@ -7452,17 +7722,23 @@ struct CalendarView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 10)
+                    .opacity(sourceFilter == .allGroups ? 0.4 : 1)
+                    .disabled(sourceFilter == .allGroups)
 
                     Group {
-                        switch scope {
-                        case .day:
-                            dayScope
-                        case .week:
-                            weekScope
-                        case .month:
-                            monthScope
-                        case .year:
-                            yearScope
+                        if sourceFilter == .allGroups {
+                            MergedGroupsCalendarList(onSelect: { event in selected = event })
+                        } else {
+                            switch scope {
+                            case .day:
+                                dayScope
+                            case .week:
+                                weekScope
+                            case .month:
+                                monthScope
+                            case .year:
+                                yearScope
+                            }
                         }
                     }
                 }
@@ -7473,6 +7749,17 @@ struct CalendarView: View {
         .sheet(item: $selected) { e in
             EventDetailView(event: e).environmentObject(store)
         }
+        .onChange(of: sourceFilter) { newValue in
+            if newValue == .allGroups && store.personalMasterCalendarItems.isEmpty && !store.isLoadingPersonalLayer {
+                Task { await store.refreshPersonalLayer() }
+            }
+        }
+    }
+
+    var availableFilters: [CalendarSourceFilter] {
+        store.serverGroups.count > 1
+            ? CalendarSourceFilter.allCases
+            : [.thisGroup, .personalOnly]
     }
 
     var dayLabel: String {
@@ -7520,7 +7807,7 @@ struct CalendarView: View {
     var monthScope: some View {
         MonthNav(month: $month)
         WeekdayRow()
-        MonthGrid(month: month, selected: $selectedDate)
+        MonthGrid(month: month, selected: $selectedDate, personalOnly: sourceFilter == .personalOnly)
             .padding(.horizontal, 8)
         Divider().padding(.top, 6)
         dayPanel(for: selectedDate)
@@ -7570,7 +7857,7 @@ struct CalendarView: View {
                     }
                 }
                 Spacer()
-                let count = store.events(for: date).count
+                let count = filteredEvents(for: date).count
                 if count > 0 {
                     Text("\(count) event\(count == 1 ? "" : "s")")
                         .font(.system(size: 12, weight: .semibold))
@@ -7581,7 +7868,7 @@ struct CalendarView: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
 
-            if store.events(for: date).isEmpty {
+            if filteredEvents(for: date).isEmpty {
                 HStack {
                     Spacer()
                     VStack(spacing: 8) {
@@ -7598,7 +7885,7 @@ struct CalendarView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 8) {
-                        ForEach(store.events(for: date)) { e in
+                        ForEach(filteredEvents(for: date)) { e in
                             EventRow(event: e)
                                 .padding(.horizontal, 16)
                                 .onTapGesture { selected = e }
@@ -7632,16 +7919,97 @@ struct CalendarView: View {
 
     func eventsCountForMonth(monthIndex: Int, yearDate: Date) -> Int {
         let y = cal.component(.year, from: yearDate)
-        return store.visibleEvents.filter {
+        let base = sourceFilter == .personalOnly
+            ? store.visibleEvents.filter { $0.visibility == .personal }
+            : store.visibleEvents
+        return base.filter {
             let c = cal.dateComponents([.year, .month], from: $0.startDate)
             return c.year == y && c.month == monthIndex
         }.count
+    }
+
+    func filteredEvents(for date: Date) -> [CalendarEvent] {
+        let base = store.events(for: date)
+        return sourceFilter == .personalOnly ? base.filter { $0.visibility == .personal } : base
     }
 
     func isCurrentMonth(monthIndex: Int, yearDate: Date) -> Bool {
         let now = Date()
         return cal.component(.year, from: now) == cal.component(.year, from: yearDate)
             && cal.component(.month, from: now) == monthIndex
+    }
+}
+
+/// Reads from the same cross-group personal aggregate the Personal tab uses
+/// (server-computed across every group the user belongs to). Read-only: items
+/// from a group other than the currently active one won't resolve to a local
+/// `CalendarEvent`, so tapping them just falls back to a status message
+/// instead of opening the full detail sheet.
+struct MergedGroupsCalendarList: View {
+    @EnvironmentObject var store: EventStore
+    var onSelect: (CalendarEvent) -> Void
+    @State private var statusMessage: String? = nil
+
+    var groupedByDay: [(String, [AuraRemotePersonalAggregateItem])] {
+        let calendarItems = store.personalMasterCalendarItems
+        let df = DateFormatter()
+        df.dateFormat = "EEEE, MMM d"
+        let iso = ISO8601DateFormatter()
+        let groups = Dictionary(grouping: calendarItems) { item -> String in
+            guard let raw = item.payload["startDate"], let d = iso.date(from: raw) else { return "Undated" }
+            return df.string(from: d)
+        }
+        return groups.sorted { $0.key < $1.key }
+    }
+
+    var body: some View {
+        if store.isLoadingPersonalLayer {
+            VStack { Spacer(); ProgressView(); Spacer() }
+        } else if store.personalMasterCalendarItems.isEmpty {
+            VStack(spacing: 8) {
+                Spacer()
+                Image(systemName: "square.stack.3d.up.slash")
+                    .font(.system(size: 28))
+                    .foregroundColor(.secondary.opacity(0.4))
+                Text("Nothing across your groups yet")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let statusMessage {
+                        Text(statusMessage)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
+                    }
+                    ForEach(groupedByDay, id: \.0) { day, items in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(day)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 16)
+                            VStack(spacing: 8) {
+                                ForEach(items) { item in
+                                    PersonalAggregateRow(item: item, fallbackIcon: "calendar") {
+                                        if let event = store.eventFromPayload(item.payload) {
+                                            onSelect(event)
+                                        } else {
+                                            statusMessage = "That event belongs to a different group -- switch to it to open full details."
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .padding(.top, 12)
+                .padding(.bottom, 90)
+            }
+        }
     }
 }
 
@@ -7829,6 +8197,7 @@ struct WeekdayRow: View {
 struct MonthGrid: View {
     let month: Date
     @Binding var selected: Date
+    var personalOnly: Bool = false
     @EnvironmentObject var store: EventStore
 
     var days: [Date?] {
@@ -7848,7 +8217,7 @@ struct MonthGrid: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 2) {
             ForEach(Array(days.enumerated()), id: \.offset) { _, date in
                 if let date = date {
-                    DayCell(date: date, selected: $selected)
+                    DayCell(date: date, selected: $selected, personalOnly: personalOnly)
                 } else {
                     Color.clear.frame(height: 46)
                 }
@@ -7862,12 +8231,16 @@ struct MonthGrid: View {
 struct DayCell: View {
     let date: Date
     @Binding var selected: Date
+    var personalOnly: Bool = false
     @EnvironmentObject var store: EventStore
 
     var isSel:     Bool  { Calendar.current.isDate(date, inSameDayAs: selected) }
     var isToday:   Bool  { Calendar.current.isDateInToday(date) }
     var day:       Int   { Calendar.current.component(.day, from: date) }
-    var evts:      [CalendarEvent] { store.events(for: date) }
+    var evts:      [CalendarEvent] {
+        let base = store.events(for: date)
+        return personalOnly ? base.filter { $0.visibility == .personal } : base
+    }
     var hasEvents: Bool  { !evts.isEmpty }
     var dots:      [Color] {
         evts.prefix(3).compactMap { store.category(for: $0.categoryId)?.color }
