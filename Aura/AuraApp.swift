@@ -1946,6 +1946,16 @@ actor AuraServerSyncEngine {
         )
     }
 
+    func deleteAccount(baseURL: String, token: String, password: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/me",
+            method: "DELETE",
+            token: token,
+            payload: ["password": password]
+        )
+    }
+
     func groupConflictHistory(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupConflictHistoryResponse {
         try await request(baseURL: baseURL, path: "/groups/\(groupId)/conflicts/history", token: token)
     }
@@ -3502,6 +3512,28 @@ class EventStore: ObservableObject {
             return .success(())
         } catch {
             return .failure(mapServerError(error, fallbackStatus: "Password change failed"))
+        }
+    }
+
+    func deleteServerAccount(password: String) async -> Result<Void, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Sign in before deleting your account."))
+        }
+        guard !password.isEmpty else {
+            return .failure(AuraServerError.requestFailed("Enter your password to confirm."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.deleteAccount(
+                baseURL: currentBackendBaseURL,
+                token: backendAuthToken,
+                password: password
+            )
+            await MainActor.run {
+                clearServerSession()
+            }
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Account deletion failed"))
         }
     }
 
@@ -6696,6 +6728,91 @@ struct AddMemberView: View {
     }
 }
 
+struct DeleteAccountView: View {
+    @EnvironmentObject var store: EventStore
+    @Binding var isPresented: Bool
+    @State private var password = ""
+    @State private var isWorking = false
+    @State private var errorMessage = ""
+    @State private var showFinalConfirm = false
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                AuraAtmosphericBackground()
+                Form {
+                    Section {
+                        Label("This cannot be undone", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Any group only you belong to is deleted along with your account. Groups you share with others stay -- ownership passes to another member instead.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+                    Section {
+                        SecureField("Confirm your password", text: $password)
+                    } footer: {
+                        Text("For your security, confirm your password to continue.")
+                    }
+                    if !errorMessage.isEmpty {
+                        Section {
+                            Text(errorMessage)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.red)
+                        }
+                    }
+                    Section {
+                        Button(role: .destructive) {
+                            showFinalConfirm = true
+                        } label: {
+                            if isWorking {
+                                ProgressView()
+                            } else {
+                                Text("Delete My Account")
+                            }
+                        }
+                        .disabled(password.isEmpty || isWorking)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle("Delete Account")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+            .confirmationDialog(
+                "Permanently delete your account?",
+                isPresented: $showFinalConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete My Account", role: .destructive) {
+                    isWorking = true
+                    errorMessage = ""
+                    Task {
+                        let result = await store.deleteServerAccount(password: password)
+                        await MainActor.run {
+                            isWorking = false
+                            switch result {
+                            case .success:
+                                AuraHaptics.success()
+                                isPresented = false
+                            case .failure(let error):
+                                errorMessage = error.localizedDescription
+                            }
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This is your last chance to back out.")
+            }
+        }
+    }
+}
+
 struct JoinOrCreateGroupView: View {
     enum Mode { case create, join }
 
@@ -9497,6 +9614,7 @@ struct SettingsView: View {
     @State private var newPassword = ""
     @State private var serverMessage = ""
     @State private var isServerWorking = false
+    @State private var showDeleteAccount = false
 
     var allThemes: [WidgetGradientTheme] { WidgetGradientTheme.presets + customThemes }
     var selectedTheme: WidgetGradientTheme? { allThemes.first { $0.id == selectedThemeId } }
@@ -9823,6 +9941,16 @@ struct SettingsView: View {
                         }
                     } footer: {
                         Text("\"Refresh Account Info\" re-fetches your profile and role from the server -- use it if something looks out of date.")
+                    }
+
+                    Section {
+                        Button(role: .destructive) {
+                            showDeleteAccount = true
+                        } label: {
+                            Label("Delete Account", systemImage: "trash.fill")
+                        }
+                    } footer: {
+                        Text("Permanently deletes your account. Groups only you belong to are deleted with it; groups you share are handed to another member instead.")
                     }
 
                     if isServerWorking {
@@ -10242,6 +10370,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showAddMember) {
                 AddMemberView(isPresented: $showAddMember).environmentObject(store)
+            }
+            .sheet(isPresented: $showDeleteAccount) {
+                DeleteAccountView(isPresented: $showDeleteAccount).environmentObject(store)
             }
             .onChange(of: enableActionableReminders) { _ in
                 NotificationManager.shared.configureReminderCategories()

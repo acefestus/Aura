@@ -187,6 +187,10 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8)
 });
 
+const deleteAccountSchema = z.object({
+  password: z.string().min(1)
+});
+
 const adminRoleSchema = z.object({
   role: z.enum(["Owner", "Admin", "Member", "Junior"])
 });
@@ -262,6 +266,58 @@ function logGroupAuditEntry(
     createdAt: new Date().toISOString()
   };
   db.audits.push(entry);
+}
+
+/// Deletes a user's account and every group they solely own with no other
+/// members; for a group they own alongside other members, ownership passes
+/// to another member first (preferring an existing Admin, then earliest to
+/// join) rather than leaving the group ownerless. Content the user created
+/// in groups that live on (events, lists, plans, routines) is left in place
+/// for the remaining members -- only their own account and memberships are
+/// removed, matching the privacy policy's "shared content isn't erased when
+/// one person deletes their account" commitment.
+function deleteUserAccount(db: DatabaseShape, userId: string) {
+  const myMemberships = db.groupMemberships.filter((m) => m.userId === userId);
+  const groupsToDeleteEntirely: string[] = [];
+
+  for (const membership of myMemberships) {
+    if (membership.role !== "Owner") {
+      continue;
+    }
+    const otherMembers = db.groupMemberships.filter(
+      (m) => m.groupId === membership.groupId && m.userId !== userId
+    );
+    if (otherMembers.length === 0) {
+      groupsToDeleteEntirely.push(membership.groupId);
+      continue;
+    }
+    const roleRank = (role: GroupRole) => (role === "Admin" ? 0 : role === "Member" ? 1 : 2);
+    const promoted = otherMembers.slice().sort((a, b) => {
+      const rankDiff = roleRank(a.role) - roleRank(b.role);
+      return rankDiff !== 0 ? rankDiff : a.joinedAt.localeCompare(b.joinedAt);
+    })[0];
+    promoted.role = "Owner";
+    logGroupAuditEntry(db, userId, membership.groupId, "owner_account_deleted_ownership_transferred", {
+      targetUserId: promoted.userId
+    });
+  }
+
+  db.groupMemberships = db.groupMemberships.filter((m) => m.userId !== userId);
+
+  for (const groupId of groupsToDeleteEntirely) {
+    db.groups = db.groups.filter((g) => g.id !== groupId);
+    db.groupEvents = db.groupEvents.filter((e) => e.groupId !== groupId);
+    db.groupLists = db.groupLists.filter((l) => l.groupId !== groupId);
+    db.groupPlans = db.groupPlans.filter((p) => p.groupId !== groupId);
+    db.groupRoutines = db.groupRoutines.filter((r) => r.groupId !== groupId);
+    db.households = db.households.filter((h) => h.id !== groupId);
+    db.memberships = db.memberships.filter((m) => m.householdId !== groupId);
+    db.snapshots = db.snapshots.filter((s) => s.householdId !== groupId);
+    db.audits = db.audits.filter((a) => a.groupId !== groupId && a.householdId !== groupId);
+  }
+
+  db.memberships = db.memberships.filter((m) => m.userId !== userId);
+  db.users = db.users.filter((u) => u.id !== userId);
 }
 
 function normalizeRole(role: string): GroupRole {
@@ -926,6 +982,31 @@ app.patch("/me/password", requireAuth, async (req: AuthRequest, res) => {
   }
 
   user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  await store.write(db);
+  res.json({ ok: true });
+});
+
+app.delete("/me", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = deleteAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const db = await readDbWithGroupBridge();
+  const user = db.users.find((candidate) => candidate.id === req.userId);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const matches = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!matches) {
+    res.status(401).json({ error: "Password is incorrect" });
+    return;
+  }
+
+  deleteUserAccount(db, user.id);
   await store.write(db);
   res.json({ ok: true });
 });
