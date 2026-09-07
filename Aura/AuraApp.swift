@@ -1202,6 +1202,18 @@ enum VisibilityScope: String, Codable, CaseIterable {
         case .custom: return "Visible to selected members"
         }
     }
+
+    /// User-facing label. Kept separate from rawValue (which stays "Family" for
+    /// backward compatibility with already-persisted/synced data) since this app's
+    /// groups aren't always families -- the same option applies to a Church group,
+    /// a Roommates group, etc., so the visible text shouldn't assume otherwise.
+    var displayName: String {
+        switch self {
+        case .personal: return "Personal"
+        case .family: return "Whole Group"
+        case .custom: return "Custom"
+        }
+    }
 }
 
 enum GroupActivityKind: String, Codable, CaseIterable {
@@ -2124,31 +2136,24 @@ enum AppSound: String, Codable, CaseIterable {
 // MARK: - Default Categories
 
 extension EventCategory {
+    // A deliberately neutral starter set: it needs to make sense whether someone's
+    // group is a family, a couple, roommates, a church small group, a travel crew,
+    // or a study group -- and since categories are personal (shared across every
+    // group a user belongs to, not duplicated per group), they can't assume any one
+    // of those. No gendered family roles, no real organization/institution names.
     static let defaults: [EventCategory] = [
-        // Doctors
-        .init(name: "Doctor · Mama",       colorHex: "FF6B9D", icon: "heart.fill"),
-        .init(name: "Doctor · Papa",        colorHex: "4A90D9", icon: "heart.fill"),
-        .init(name: "Doctor · Children",    colorHex: "5DD39E", icon: "heart.fill"),
-        // Meetings
-        .init(name: "Meeting · Work",       colorHex: "8B5CF6", icon: "person.3.fill"),
-        .init(name: "Meeting · Personal",   colorHex: "A78BFA", icon: "person.2.fill"),
-        .init(name: "Meeting · Team",       colorHex: "6366F1", icon: "person.3.sequence.fill"),
-        // Life
-        .init(name: "Holiday",              colorHex: "F59E0B", icon: "sun.max.fill"),
-        .init(name: "Job Interview",        colorHex: "14B8A6", icon: "briefcase.fill"),
-        .init(name: "Class",                colorHex: "06B6D4", icon: "book.fill"),
-        .init(name: "Kindergarten",         colorHex: "22C55E", icon: "figure.and.child.holdinghands"),
-        .init(name: "Family",               colorHex: "F97316", icon: "house.heart.fill"),
-        .init(name: "Work",                 colorHex: "1F2937", icon: "briefcase.fill"),
-        .init(name: "Nuvisan",              colorHex: "0EA5E9", icon: "building.2.fill"),
-        // Choir
-        .init(name: "Choir · Church",       colorHex: "7C3AED", icon: "music.note"),
-        .init(name: "Choir · One Sound",    colorHex: "EC4899", icon: "music.mic"),
-        .init(name: "Choir · New Wine",     colorHex: "9F1239", icon: "music.note.list"),
-        // More
-        .init(name: "Sunday Service",       colorHex: "D97706", icon: "book.closed.fill"),
-        .init(name: "Job",                  colorHex: "475569", icon: "briefcase"),
-        .init(name: "Birthday",             colorHex: "FF6347", icon: "gift.fill"),
+        .init(name: "Personal",       colorHex: "A78BFA", icon: "person.fill"),
+        .init(name: "Work",           colorHex: "1F2937", icon: "briefcase.fill"),
+        .init(name: "Appointment",    colorHex: "FF6B9D", icon: "heart.fill"),
+        .init(name: "Meeting",        colorHex: "6366F1", icon: "person.3.sequence.fill"),
+        .init(name: "Errand",         colorHex: "22C55E", icon: "cart.fill"),
+        .init(name: "Class · Study",  colorHex: "06B6D4", icon: "book.fill"),
+        .init(name: "Travel",         colorHex: "0EA5E9", icon: "airplane"),
+        .init(name: "Health",         colorHex: "5DD39E", icon: "cross.case.fill"),
+        .init(name: "Home · Chores",  colorHex: "D97706", icon: "house.fill"),
+        .init(name: "Social",         colorHex: "EC4899", icon: "person.2.fill"),
+        .init(name: "Celebration",    colorHex: "FF6347", icon: "gift.fill"),
+        .init(name: "Finance",        colorHex: "475569", icon: "banknote.fill"),
     ]
 }
 
@@ -2761,17 +2766,13 @@ class EventStore: ObservableObject {
 
     // ── Group Members ──────────────────────────────────────
     func loadMembers() {
+        // No auto-seeded names here on purpose: this app is used by families,
+        // couples, roommates, church groups, travel crews, and study groups alike,
+        // so there's no universal default roster that makes sense for everyone.
+        // Local profiles start empty; each user adds their own via "Add Local Profile".
         if let d = shared.data(forKey: mKey),
-           let v = try? JSONDecoder().decode([GroupMember].self, from: d),
-           !v.isEmpty {
+           let v = try? JSONDecoder().decode([GroupMember].self, from: d) {
             members = v
-        } else {
-            members = [
-                .init(name: "Mama", colorHex: "FF6B9D", role: "Parent"),
-                .init(name: "Papa", colorHex: "4A90D9", role: "Parent"),
-                .init(name: "Children", colorHex: "22C55E", role: "Kids")
-            ]
-            saveMembers()
         }
     }
 
@@ -5388,9 +5389,9 @@ struct WeekPlanningAssistantSheet: View {
 
         var plan: [WeekPlanDraft] = []
         let templates: [(RoutineAutomationTemplate, Int, String)] = [
-            (.schoolMorning, 1, "Morning structure improves school-day consistency."),
+            (.morningRoutine, 1, "A consistent morning routine reduces day-to-day friction."),
             (.weeklyGrocery, 2, "Shopping batch prevents mid-week rush."),
-            (.familyDevotion, 3, "Dedicated family reflection strengthens weekly rhythm.")
+            (.weeklyCheckIn, 3, "A regular check-in keeps everyone aligned for the week.")
         ]
 
         for (template, dayOffset, reason) in templates {
@@ -5415,11 +5416,11 @@ struct WeekPlanningAssistantSheet: View {
            let memberId = leastLoadedMemberId() ?? store.members.first?.id {
             let start = nextDate(dayOffset: 4, hour: 18)
             plan.append(.init(
-                title: "Family Walk Session",
+                title: "Group Walk Session",
                 notes: "Light movement and catch-up time.",
                 start: start,
                 end: start.addingTimeInterval(45 * 60),
-                categoryId: categoryId(for: "Family"),
+                categoryId: categoryId(for: "Health"),
                 recurrence: .none,
                 assignedMemberIds: [memberId],
                 reason: "Low recent activity detected."
@@ -5463,36 +5464,48 @@ struct WeekPlanningAssistantSheet: View {
     }
 }
 
+// A diverse set on purpose: this app's groups aren't always families, so the
+// quick-schedule suggestions shouldn't assume kids/school/church for everyone --
+// there's something relevant here whether the group is a family, roommates,
+// a study group, a travel crew, or a church small group.
 enum HomeEventQuickTemplate: CaseIterable {
-    case schoolDropOff
     case doctorVisit
-    case familyDinner
-    case choirPractice
+    case groceryRun
+    case groupMeal
+    case studySession
+    case workMeeting
+    case tripDeparture
 
     var label: String {
         switch self {
-        case .schoolDropOff: return "School Drop Off"
         case .doctorVisit: return "Doctor Visit"
-        case .familyDinner: return "Family Dinner"
-        case .choirPractice: return "Choir Practice"
+        case .groceryRun: return "Grocery Run"
+        case .groupMeal: return "Group Meal"
+        case .studySession: return "Study Session"
+        case .workMeeting: return "Work Meeting"
+        case .tripDeparture: return "Trip Departure"
         }
     }
 
     var durationMinutes: Int {
         switch self {
-        case .schoolDropOff: return 30
         case .doctorVisit: return 60
-        case .familyDinner: return 90
-        case .choirPractice: return 120
+        case .groceryRun: return 30
+        case .groupMeal: return 90
+        case .studySession: return 90
+        case .workMeeting: return 60
+        case .tripDeparture: return 30
         }
     }
 
     var categoryHint: String {
         switch self {
-        case .schoolDropOff: return "Kindergarten"
-        case .doctorVisit: return "Doctor · Children"
-        case .familyDinner: return "Family"
-        case .choirPractice: return "Choir · Church"
+        case .doctorVisit: return "Appointment"
+        case .groceryRun: return "Errand"
+        case .groupMeal: return "Social"
+        case .studySession: return "Class · Study"
+        case .workMeeting: return "Meeting"
+        case .tripDeparture: return "Travel"
         }
     }
 
@@ -5501,62 +5514,70 @@ enum HomeEventQuickTemplate: CaseIterable {
     }
 }
 
+// Same reasoning as the quick templates above: a mix that's useful whether
+// the group is a family, a roommate household, or a small group that meets
+// weekly for any reason (study, church, hobby) -- no single one is assumed.
 enum RoutineAutomationTemplate: CaseIterable {
-    case schoolMorning
+    case morningRoutine
     case medicationCheck
     case weeklyGrocery
-    case familyDevotion
+    case choreRotation
+    case weeklyCheckIn
 
     var label: String {
         switch self {
-        case .schoolMorning: return "School Morning Routine"
+        case .morningRoutine: return "Morning Routine"
         case .medicationCheck: return "Medication Check"
         case .weeklyGrocery: return "Weekly Grocery Run"
-        case .familyDevotion: return "Family Devotion Time"
+        case .choreRotation: return "Chore Rotation"
+        case .weeklyCheckIn: return "Weekly Check-In"
         }
     }
 
     var durationMinutes: Int {
         switch self {
-        case .schoolMorning: return 45
+        case .morningRoutine: return 45
         case .medicationCheck: return 15
         case .weeklyGrocery: return 90
-        case .familyDevotion: return 40
+        case .choreRotation: return 30
+        case .weeklyCheckIn: return 40
         }
     }
 
     var categoryHint: String {
         switch self {
-        case .schoolMorning: return "Kindergarten"
-        case .medicationCheck: return "Doctor · Children"
-        case .weeklyGrocery: return "Family"
-        case .familyDevotion: return "Sunday Service"
+        case .morningRoutine: return "Personal"
+        case .medicationCheck: return "Health"
+        case .weeklyGrocery: return "Errand"
+        case .choreRotation: return "Home · Chores"
+        case .weeklyCheckIn: return "Social"
         }
     }
 
     var recurrence: Recurrence {
         switch self {
         case .medicationCheck: return .daily
-        case .weeklyGrocery, .familyDevotion: return .weekly
-        case .schoolMorning: return .weekly
+        case .weeklyGrocery, .choreRotation, .weeklyCheckIn, .morningRoutine: return .weekly
         }
     }
 
     var notes: String {
         switch self {
-        case .schoolMorning: return "Prep clothes, bags, and quick breakfast checklist."
+        case .morningRoutine: return "Prep for the day: bags, essentials, quick checklist."
         case .medicationCheck: return "Confirm medication taken and log any notes."
         case .weeklyGrocery: return "Top-up core pantry items and produce for the week."
-        case .familyDevotion: return "Shared prayer, reflection, and weekly gratitude."
+        case .choreRotation: return "Rotate shared chores and check off completed tasks."
+        case .weeklyCheckIn: return "Catch up, share updates, and plan the week ahead."
         }
     }
 
     var preferredHour: Int {
         switch self {
-        case .schoolMorning: return 7
+        case .morningRoutine: return 7
         case .medicationCheck: return 20
         case .weeklyGrocery: return 17
-        case .familyDevotion: return 19
+        case .choreRotation: return 18
+        case .weeklyCheckIn: return 19
         }
     }
 
@@ -5834,7 +5855,7 @@ struct AddGroupListView: View {
                 Section("Visibility") {
                     Picker("Who can see this", selection: $visibility) {
                         ForEach(VisibilityScope.allCases, id: \.self) { s in
-                            Label(s.rawValue, systemImage: s.icon).tag(s)
+                            Label(s.displayName, systemImage: s.icon).tag(s)
                         }
                     }
                     Text(visibility.subtitle)
@@ -6443,7 +6464,7 @@ struct AddActivityView: View {
                 Section("Visibility") {
                     Picker("Who can see this", selection: $visibility) {
                         ForEach(VisibilityScope.allCases, id: \.self) { s in
-                            Label(s.rawValue, systemImage: s.icon).tag(s)
+                            Label(s.displayName, systemImage: s.icon).tag(s)
                         }
                     }
                     Text(visibility.subtitle)
@@ -6563,7 +6584,7 @@ struct StartLiveActivityView: View {
                 Section("Visibility") {
                     Picker("Who can see this", selection: $visibility) {
                         ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                            Label(scope.rawValue, systemImage: scope.icon).tag(scope)
+                            Label(scope.displayName, systemImage: scope.icon).tag(scope)
                         }
                     }
                 }
@@ -6728,6 +6749,7 @@ struct JoinOrCreateGroupView: View {
     @Binding var isPresented: Bool
     @State var mode: Mode
     @State private var groupName = ""
+    @State private var groupType = "Family"
     @State private var joinCode = ""
     @State private var isWorking = false
     @State private var message = ""
@@ -6747,6 +6769,15 @@ struct JoinOrCreateGroupView: View {
                 if mode == .create {
                     Section {
                         TextField("Group name", text: $groupName)
+                        Picker("Group type", selection: $groupType) {
+                            Text("Family").tag("Family")
+                            Text("Roommates").tag("Roommates")
+                            Text("Couple").tag("Couple")
+                            Text("Church").tag("Church")
+                            Text("Travel").tag("Travel")
+                            Text("Study").tag("Study")
+                            Text("Custom").tag("Custom")
+                        }
                     } footer: {
                         Text("Creates a brand new, isolated group workspace. You'll be its Owner.")
                     }
@@ -6784,7 +6815,7 @@ struct JoinOrCreateGroupView: View {
                         Task {
                             let result: Result<Void, Error>
                             if mode == .create {
-                                let createResult = await store.createServerGroup(name: groupName, type: "Family")
+                                let createResult = await store.createServerGroup(name: groupName, type: groupType)
                                 result = createResult.map { _ in () }
                             } else {
                                 result = await store.joinServerGroup(code: joinCode)
@@ -8108,7 +8139,7 @@ struct EventDetailView: View {
         case .personal:
             return "Personal"
         case .family:
-            return "Whole family"
+            return "Whole Group"
         case .custom:
             let custom = event.sharedWithNames.joined(separator: ", ")
             return custom.isEmpty ? "Custom" : "Shared with \(custom)"
@@ -8367,7 +8398,7 @@ struct CreateEventView: View {
         Section("Visibility") {
             Picker("Who can see this", selection: $visibility) {
                 ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                    Label(scope.rawValue, systemImage: scope.icon).tag(scope)
+                    Label(scope.displayName, systemImage: scope.icon).tag(scope)
                 }
             }
             Text(visibility.subtitle)
@@ -9294,7 +9325,7 @@ struct SettingsView: View {
                         }
                     )) {
                         ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                            Label(scope.rawValue, systemImage: scope.icon).tag(scope)
+                            Label(scope.displayName, systemImage: scope.icon).tag(scope)
                         }
                     }
 
