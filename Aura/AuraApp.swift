@@ -9013,7 +9013,6 @@ struct SettingsView: View {
     @State private var showSharedManager = false
     @State private var showSharedActivityLog = false
     @State private var showAddMember = false
-    @State private var showJoinOrCreateGroup = false
     @State private var stepCustomNames: Set<String> = []
     @State private var customThemes: [WidgetGradientTheme] = []
     @State private var selectedThemeId: UUID? = WidgetGradientTheme.presets.first?.id
@@ -9623,53 +9622,40 @@ struct SettingsView: View {
                             ? "Integrity sweep complete. No issues found."
                             : "Integrity sweep fixed \(report.totalFixes) issue\(report.totalFixes == 1 ? "" : "s")."
                     } label: {
-                        Label("Run Integrity Sweep", systemImage: "checkmark.shield")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Run Integrity Sweep", systemImage: "checkmark.shield")
+                            Text("Checks this device's own data for broken references -- e.g. events pointing at a deleted category -- and fixes them.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
                     }
 
                     Button {
                         store.rebuildScheduledNotifications()
                         serverMessage = "Notifications rebuilt from current events."
                     } label: {
-                        Label("Rebuild Event Notifications", systemImage: "bell.and.waveform")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Rebuild Event Notifications", systemImage: "bell.and.waveform")
+                            Text("Re-schedules all reminder notifications from your current events. Use this if reminders stop firing.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 } header: {
                     Text("Maintenance")
                 } footer: {
-                    Text("Data integrity checks and notification rebuilds -- use these if something looks out of sync.")
+                    Text("These only affect your own device's data, not other members of your group.")
                 }
 
                 // ── Groups ─────────────────────────────
-                Section {
-                    if store.hasServerSession {
-                        if !store.serverGroupName.isEmpty || !backendStoredGroupName.isEmpty {
-                            LabeledContent("Active group", value: store.serverGroupName.isEmpty ? backendStoredGroupName : store.serverGroupName)
-                        }
-                        HStack {
-                            Label("Status", systemImage: "arrow.triangle.2.circlepath")
-                            Spacer()
-                            Text(store.syncStatus)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.secondary)
-                        }
-                        Button {
-                            store.forceSyncNow()
-                        } label: {
-                            Label("Sync Now", systemImage: "arrow.clockwise")
-                        }
-                        Button {
-                            showJoinOrCreateGroup = true
-                        } label: {
-                            Label("Create or Join Another Group", systemImage: "person.badge.key")
-                        }
-                    } else {
-                        Label("Sign in to sync groups across devices.", systemImage: "person.crop.circle.badge.exclamationmark")
+                if store.hasServerSession {
+                    Section {
+                        Label("Manage groups, join codes, and members from the Group Members screen -- tap the people icon at the top of the app.", systemImage: "person.2.circle")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
+                    } header: {
+                        Text("Groups")
                     }
-                } header: {
-                    Text("Groups")
-                } footer: {
-                    Text("The join code for your active group, along with member management, lives on the Group Members screen (tap the people icon at the top of the app).")
                 }
 
                 // ── Profile ─────────────────────────────
@@ -9748,9 +9734,6 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showAddMember) {
                 AddMemberView(isPresented: $showAddMember).environmentObject(store)
-            }
-            .sheet(isPresented: $showJoinOrCreateGroup) {
-                JoinOrCreateGroupView(isPresented: $showJoinOrCreateGroup, mode: .create).environmentObject(store)
             }
             .onChange(of: enableActionableReminders) { _ in
                 NotificationManager.shared.configureReminderCategories()
