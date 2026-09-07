@@ -1019,22 +1019,22 @@ struct AuraAtmosphericBackground: View {
         let palette = AuraThemePalette.current
         ZStack {
             LinearGradient(
-                colors: [palette.backgroundStart.opacity(0.2), Color(.systemBackground), palette.backgroundEnd.opacity(0.16)],
+                colors: [palette.backgroundStart.opacity(0.38), Color(.systemBackground), palette.backgroundEnd.opacity(0.32)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
             Circle()
-                .fill(palette.accentStart.opacity(0.15))
+                .fill(palette.accentStart.opacity(0.24))
                 .frame(width: 320, height: 320)
-                .blur(radius: 30)
+                .blur(radius: 34)
                 .offset(x: 130, y: -280)
 
             Circle()
-                .fill(palette.accentEnd.opacity(0.12))
+                .fill(palette.accentEnd.opacity(0.2))
                 .frame(width: 260, height: 260)
-                .blur(radius: 26)
+                .blur(radius: 30)
                 .offset(x: -140, y: 340)
         }
         .allowsHitTesting(false)
@@ -5589,78 +5589,98 @@ struct ListsView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                Section {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            FilterChip(title: "All", selected: selectedKind == nil) {
-                                selectedKind = nil
-                            }
-                            ForEach(GroupListKind.allCases, id: \.self) { kind in
-                                FilterChip(title: kind.rawValue, selected: selectedKind == kind) {
-                                    selectedKind = kind
-                                }
-                            }
-                        }
-                        .padding(.vertical, 3)
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            FilterChip(title: "Visible", selected: selectedVisibility == nil) {
-                                selectedVisibility = nil
-                            }
-                            ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                                FilterChip(title: scope.rawValue, selected: selectedVisibility == scope) {
-                                    selectedVisibility = scope
-                                }
-                            }
-                        }
-                        .padding(.vertical, 3)
-                    }
-                }
-
-                if filteredLists.isEmpty {
+            ZStack {
+                AuraAtmosphericBackground()
+                List {
                     Section {
-                        Text("No lists yet. Create your first shared group list.")
-                            .foregroundColor(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                FilterChip(title: "All", selected: selectedKind == nil) {
+                                    selectedKind = nil
+                                }
+                                ForEach(GroupListKind.allCases, id: \.self) { kind in
+                                    FilterChip(title: kind.rawValue, selected: selectedKind == kind) {
+                                        selectedKind = kind
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 3)
+                        }
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                FilterChip(title: "Visible", selected: selectedVisibility == nil) {
+                                    selectedVisibility = nil
+                                }
+                                ForEach(VisibilityScope.allCases, id: \.self) { scope in
+                                    FilterChip(title: scope.rawValue, selected: selectedVisibility == scope) {
+                                        selectedVisibility = scope
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 3)
+                        }
                     }
-                } else {
-                    Section("Group Lists") {
-                        ForEach(filteredLists) { list in
-                            Button {
-                                selectedList = list
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: list.kind.icon)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(AuraThemePalette.current.accentStart)
-                                        .frame(width: 30, height: 30)
-                                        .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(list.title)
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.primary)
-                                        Text(summary(for: list))
-                                            .font(.system(size: 12))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+
+                    if filteredLists.isEmpty {
+                        Section {
+                            Text("No lists yet. Create your first shared group list.")
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(AuraDesignTokens.Spacing.sm)
+                                .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else {
+                        Section {
+                            ForEach(filteredLists) { list in
+                                Button {
+                                    selectedList = list
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: list.kind.icon)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(AuraThemePalette.current.accentStart)
+                                            .frame(width: 30, height: 30)
+                                            .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(list.title)
+                                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                            Text(summary(for: list))
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: list.visibility.icon)
+                                            .font(.system(size: 12, weight: .semibold))
                                             .foregroundColor(.secondary)
                                     }
-                                    Spacer()
-                                    Image(systemName: list.visibility.icon)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.secondary)
+                                    .padding(AuraDesignTokens.Spacing.sm)
+                                    .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        store.deleteGroupList(id: list.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
                             }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    store.deleteGroupList(id: list.id)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
+                        } header: {
+                            Text("GROUP LISTS")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Lists")
             .toolbar {
@@ -8600,12 +8620,16 @@ struct GroupMembersView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                joinCodeSection
-                membersSection
-                if store.isActiveGroupOwner {
-                    activitySection
+            ZStack {
+                AuraAtmosphericBackground()
+                List {
+                    joinCodeSection
+                    membersSection
+                    if store.isActiveGroupOwner {
+                        activitySection
+                    }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle(store.activeServerGroupName)
             .navigationBarTitleDisplayMode(.inline)
@@ -8646,10 +8670,11 @@ struct GroupMembersView: View {
     }
 
     private var joinCodeSection: some View {
-        Section("Join Code") {
+        Section {
             HStack {
                 Text(householdCode.isEmpty ? "——————" : householdCode)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(size: 20, weight: .black, design: .monospaced))
+                    .foregroundColor(AuraThemePalette.current.accentStart)
                     .tracking(2)
                 Spacer()
                 if store.isActiveGroupOwner {
@@ -8673,21 +8698,37 @@ struct GroupMembersView: View {
                     Image(systemName: "square.and.arrow.up")
                 }
             }
+            .padding(.vertical, 4)
+            .listRowBackground(Color.clear)
+            .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("JOIN CODE")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(.secondary)
         }
     }
 
     private var membersSection: some View {
-        Section("Members") {
+        Section {
             if store.isLoadingActiveGroupAdmin && store.activeGroupMemberRecords.isEmpty {
                 ProgressView()
+                    .listRowBackground(Color.clear)
             } else if store.activeGroupMemberRecords.isEmpty {
                 Text("No members yet.")
                     .foregroundColor(.secondary)
+                    .listRowBackground(Color.clear)
             } else {
                 ForEach(store.activeGroupMemberRecords) { record in
                     memberRow(record)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
+        } header: {
+            Text("MEMBERS")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(.secondary)
         }
     }
 
@@ -8696,7 +8737,7 @@ struct GroupMembersView: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.user?.displayName.isEmpty == false ? record.user!.displayName : "Member")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                 if let email = record.user?.email {
                     Text(email)
                         .font(.system(size: 11))
@@ -8706,6 +8747,8 @@ struct GroupMembersView: View {
             Spacer()
             roleMenu(for: record, isSelf: isSelf)
         }
+        .padding(AuraDesignTokens.Spacing.sm)
+        .auraGlassCard(radius: AuraDesignTokens.Radius.md)
         .swipeActions(edge: .trailing) {
             if store.isActiveGroupOwner && !isSelf {
                 Button(role: .destructive) { pendingRemoval = record } label: {
@@ -8742,17 +8785,22 @@ struct GroupMembersView: View {
 
     private func roleBadge(_ role: String) -> some View {
         Text(role)
-            .font(.system(size: 11, weight: .bold))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundColor(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.secondary.opacity(0.15), in: Capsule())
+            .background(
+                LinearGradient(colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd], startPoint: .leading, endPoint: .trailing),
+                in: Capsule()
+            )
     }
 
     private var activitySection: some View {
-        Section("Activity Log") {
+        Section {
             if store.activeGroupAuditEntries.isEmpty {
                 Text("No activity yet.")
                     .foregroundColor(.secondary)
+                    .listRowBackground(Color.clear)
             } else {
                 ForEach(store.activeGroupAuditEntries.prefix(20)) { entry in
                     VStack(alignment: .leading, spacing: 2) {
@@ -8765,8 +8813,13 @@ struct GroupMembersView: View {
                         }
                     }
                     .padding(.vertical, 2)
+                    .listRowBackground(Color.clear)
                 }
             }
+        } header: {
+            Text("ACTIVITY LOG")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(.secondary)
         }
     }
 }

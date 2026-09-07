@@ -22,6 +22,10 @@
     <true/>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Aura uses your photo library to attach images to events.</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Aura reads your daily step count so you can share it with your family group.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Aura does not write any health data. This permission is required by the system because Aura reads step count data.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
