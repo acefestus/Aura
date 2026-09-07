@@ -3,81 +3,163 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#08111F" />
+  <meta name="theme-color" content="#070E1A" />
   <title>Aurenda — Coordination for any group</title>
   <meta name="description" content="Aurenda is a shared calendar, agenda, and lists app for any small group — family, roommates, couples, church groups, travel crews, and study groups." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Aurenda — Coordination for any group" />
+  <meta property="og:description" content="One shared calendar, agenda, and lists app for family, roommates, couples, church groups, travel crews, or study groups." />
+  <meta property="og:image" content="/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Aurenda — Coordination for any group" />
+  <meta name="twitter:description" content="One shared calendar, agenda, and lists app for family, roommates, couples, church groups, travel crews, or study groups." />
+  <meta name="twitter:image" content="/icon-512.png" />
+
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="wrap">
-    <header class="site">
-      <div class="brand">
-        <img src="/icon-180.png" alt="Aurenda" />
-        Aurenda
-      </div>
-      <nav class="site">
-        <a href="#features">Features</a>
-        <a href="/privacy.html">Privacy</a>
-        <a href="mailto:dhamyc245@gmail.com">Contact</a>
-      </nav>
-    </header>
+  <div class="aurora" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <div class="noise" aria-hidden="true"></div>
 
+  <header class="site" id="siteHeader">
+    <div class="brand">
+      <img src="/icon-180.png" alt="Aurenda" />
+      Aurenda
+    </div>
+    <nav class="site">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="/privacy.html">Privacy</a>
+      <a class="nav-cta" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Access</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
     <section class="hero">
-      <span class="eyebrow">Coordination for any group</span>
-      <h1 class="hero-title">Your circle,<br /><span class="accent">beautifully organized</span></h1>
-      <p class="hero-sub">
-        One shared calendar, agenda, and lists app for family, roommates, couples,
-        church groups, travel crews, or study groups — built around whichever
-        circles you're actually part of, not just one.
-      </p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Beta Access</a>
-        <a class="btn btn-secondary" href="#features">See what it does</a>
+      <div class="hero-copy" data-reveal>
+        <span class="eyebrow"><span class="dot"></span>Coordination for any group</span>
+        <h1 class="hero-title">Your circle,<br /><span class="accent">beautifully organized</span></h1>
+        <p class="hero-sub">
+          One shared calendar, agenda, and lists app for family, roommates, couples,
+          church groups, travel crews, or study groups — built around whichever
+          circles you're actually part of, not just one.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">
+            Request Beta Access
+          </a>
+          <a class="btn btn-ghost" href="#features">
+            See what it does
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+          </a>
+        </div>
+        <div class="trust-row">
+          <span class="avatars"><span>F</span><span>R</span><span>C</span></span>
+          Built for whoever your circle actually is
+        </div>
       </div>
+
+      <div class="hero-visual" data-reveal>
+        <div class="phone">
+          <div class="phone-glow"></div>
+          <div class="phone-screen">
+            <div class="phone-island"></div>
+            <img src="/media/hero-screenshot.png" alt="Aurenda home screen" />
+          </div>
+          <div class="float-card card-a">
+            <span class="icon-dot"><svg viewBox="0 0 24 24" fill="none" stroke="#06120F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            No conflicts today
+          </div>
+          <div class="float-card card-b">
+            <span class="icon-dot"><svg viewBox="0 0 24 24" fill="none" stroke="#06120F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            Church Group synced
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="groups-band" data-reveal>
+      <div class="groups-label">Works great for</div>
       <div class="groups-row">
-        <span class="group-chip">Family</span>
-        <span class="group-chip">Roommates</span>
-        <span class="group-chip">Couples</span>
-        <span class="group-chip">Church Groups</span>
-        <span class="group-chip">Travel Crews</span>
-        <span class="group-chip">Study Groups</span>
-        <span class="group-chip">Any Small Group</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Family</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Roommates</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>Couples</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V9l6-5 6 5v12M10 21v-6h4v6"/></svg>Church Groups</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1 .1-1.3.5l-.7.8c-.4.5-.3 1.1.2 1.5L9 13l-2 3H4l-1 2 2 2 2-1v-3l3-2 3.8 6.2c.4.5 1 .6 1.5.2l.8-.7c.4-.3.6-.8.5-1.3z"/></svg>Travel Crews</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Study Groups</span>
+        <span class="group-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M5.6 5.6l2.2 2.2m8.4 8.4l2.2 2.2M3 12h3m12 0h3M5.6 18.4l2.2-2.2m8.4-8.4l2.2-2.2"/></svg>Any Small Group</span>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <div class="section-head" data-reveal>
+        <div class="section-kicker">How it works</div>
+        <h2 class="section-title">Set up in minutes, not meetings</h2>
+        <p class="section-sub">No lengthy onboarding — create or join a group, and Aurenda takes it from there.</p>
+      </div>
+      <div class="how-grid">
+        <div class="how-step" data-reveal>
+          <div class="how-num">01</div>
+          <h3>Create or join a group</h3>
+          <p>Start a group for whoever it actually is — family, roommates, a church group, a trip — and invite people with a code.</p>
+        </div>
+        <div class="how-step" data-reveal>
+          <div class="how-num">02</div>
+          <h3>Add what matters</h3>
+          <p>Events, shared lists, routines — added by anyone, visible to the whole group or just the people you choose.</p>
+        </div>
+        <div class="how-step" data-reveal>
+          <div class="how-num">03</div>
+          <h3>Stay in sync automatically</h3>
+          <p>Everyone sees changes as they happen, conflicts get flagged before they become a problem, and nothing falls through the cracks.</p>
+        </div>
       </div>
     </section>
 
     <section class="features" id="features">
-      <h2 class="section-title">Everything your group actually needs</h2>
-      <p class="section-sub">No assumptions about who you are — just the coordination tools every small group needs, with the flexibility to fit yours.</p>
+      <div class="section-head" data-reveal>
+        <div class="section-kicker">Features</div>
+        <h2 class="section-title">Everything your group actually needs</h2>
+        <p class="section-sub">No assumptions about who you are — just the coordination tools every small group needs, with the flexibility to fit yours.</p>
+      </div>
       <div class="feature-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📅</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
           <h3>Shared Calendar</h3>
           <p>Day, week, month, and year views. Filter by Personal, one specific group, or merge everything across every group you belong to.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">👥</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           <h3>Group Workspaces</h3>
           <p>Belong to more than one group? Switch between them from a single screen — each with its own members, lists, and calendar.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg></div>
           <h3>Agenda &amp; Conflict Detection</h3>
           <p>See what's next at a glance, and get flagged automatically when two plans overlap so nothing gets double-booked.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">✅</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
           <h3>Shared Lists</h3>
           <p>Flexible lists for shopping, tasks, or anything else — free-text, not locked to any one kind of errand.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">🚶</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <h3>Activity Tracking</h3>
           <p>Log and share activities with your group, with optional step-count sharing you control.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔔</div>
+        <div class="feature-card" data-reveal>
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
           <h3>Reminders That Stand Out</h3>
           <p>Themed notification cards that match your group's look, not a generic system alert.</p>
         </div>
@@ -85,9 +167,13 @@
     </section>
 
     <section class="closing">
-      <h2>Ready to bring your circle together?</h2>
-      <p>Aurenda is currently in private beta ahead of its App Store launch. Reach out and we'll get you set up.</p>
-      <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Beta Access</a>
+      <div class="closing-panel" data-reveal>
+        <h2>Ready to bring your circle together?</h2>
+        <p>Aurenda is currently in private beta ahead of its App Store launch. Reach out and we'll get you set up.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="mailto:dhamyc245@gmail.com?subject=Aurenda%20beta%20access">Request Beta Access</a>
+        </div>
+      </div>
     </section>
 
     <footer class="site">
@@ -100,5 +186,32 @@
       </div>
     </footer>
   </div>
+
+  <script>
+    (function () {
+      var header = document.getElementById("siteHeader");
+      var onScroll = function () {
+        if (window.scrollY > 12) header.classList.add("scrolled");
+        else header.classList.remove("scrolled");
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+
+      var targets = document.querySelectorAll("[data-reveal]");
+      if ("IntersectionObserver" in window && targets.length) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+        targets.forEach(function (t) { io.observe(t); });
+      } else {
+        targets.forEach(function (t) { t.classList.add("is-visible"); });
+      }
+    })();
+  </script>
 </body>
 </html>
