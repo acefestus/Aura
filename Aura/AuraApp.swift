@@ -5752,7 +5752,7 @@ struct ListsView: View {
                                     selectedVisibility = nil
                                 }
                                 ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                                    FilterChip(title: scope.rawValue, selected: selectedVisibility == scope) {
+                                    FilterChip(title: scope.displayName, selected: selectedVisibility == scope) {
                                         selectedVisibility = scope
                                     }
                                 }
