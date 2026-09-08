@@ -75,21 +75,21 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0294901E68EA8B42A028BA36 /* Chime.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Chime.caf; sourceTree = "<group>"; };
+		0294901E68EA8B42A028BA36 /* Chime.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Chime.caf; sourceTree = "<group>"; };
 		0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AuraShareImport.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		232A7F4C2B5E8A9100000003 /* AuraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraApp.swift; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000008 /* Aura.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aura.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Glass.caf; sourceTree = "<group>"; };
-		39C8AA5713021461C6F80FDF /* Melody.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Melody.caf; sourceTree = "<group>"; };
-		40312F7BE644E75599A415BD /* Sunrise.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Sunrise.caf; sourceTree = "<group>"; };
+		2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Glass.caf; sourceTree = "<group>"; };
+		39C8AA5713021461C6F80FDF /* Melody.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Melody.caf; sourceTree = "<group>"; };
+		40312F7BE644E75599A415BD /* Sunrise.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Sunrise.caf; sourceTree = "<group>"; };
 		5AE6A03586A47486342AC600 /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
-		6118E718BF720C4B1FFD6D38 /* Harmony.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Harmony.caf; sourceTree = "<group>"; };
+		6118E718BF720C4B1FFD6D38 /* Harmony.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Harmony.caf; sourceTree = "<group>"; };
 		80B5DB69F4F3EBB439A775CE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		8AA85B865697A9F3AE113825 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		94E3741E09C7790EA7FCC923 /* Ding.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Ding.caf; sourceTree = "<group>"; };
-		AE7525FF301144870EF051A9 /* Fanfare.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Fanfare.caf; sourceTree = "<group>"; };
+		94E3741E09C7790EA7FCC923 /* Ding.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Ding.caf; sourceTree = "<group>"; };
+		AE7525FF301144870EF051A9 /* Fanfare.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Fanfare.caf; sourceTree = "<group>"; };
 		AN00000101 /* NotificationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViewController.swift; sourceTree = "<group>"; };
 		AN00000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AN00000103 /* UserNotificationsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotificationsUI.framework; path = System/Library/Frameworks/UserNotificationsUI.framework; sourceTree = SDKROOT; };
@@ -103,9 +103,9 @@
 		AW00000106 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AW00000107 /* Aura.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Aura.entitlements; sourceTree = "<group>"; };
 		AW00000108 /* AuraWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AuraWidget.entitlements; sourceTree = "<group>"; };
-		B023B0364B0405A88A474D5F /* Bell.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Bell.caf; sourceTree = "<group>"; };
-		CFB79FBED64AFF8956A97E56 /* Electronic.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Electronic.caf; sourceTree = "<group>"; };
-		D40029B8EAD89D2A3EFD594B /* Serenade.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Serenade.caf; sourceTree = "<group>"; };
+		B023B0364B0405A88A474D5F /* Bell.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Bell.caf; sourceTree = "<group>"; };
+		CFB79FBED64AFF8956A97E56 /* Electronic.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Electronic.caf; sourceTree = "<group>"; };
+		D40029B8EAD89D2A3EFD594B /* Serenade.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Serenade.caf; sourceTree = "<group>"; };
 		DED33CEBB314A6844985AD06 /* AuraShareImport.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = AuraShareImport.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -196,7 +196,6 @@
 				40312F7BE644E75599A415BD /* Sunrise.caf */,
 				6118E718BF720C4B1FFD6D38 /* Harmony.caf */,
 			);
-			name = Sounds;
 			path = Sounds;
 			sourceTree = "<group>";
 		};
@@ -247,7 +246,6 @@
 				8AA85B865697A9F3AE113825 /* Info.plist */,
 				DED33CEBB314A6844985AD06 /* AuraShareImport.entitlements */,
 			);
-			name = AuraShareImport;
 			path = AuraShareImport;
 			sourceTree = "<group>";
 		};
@@ -338,6 +336,9 @@
 				TargetAttributes = {
 					232A7F4C2B5E8A9100000002 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					6862E8607C0C4FE9F8049DD4 = {
+						CreatedOnToolsVersion = 16.0;
 					};
 					AN00000200 = {
 						CreatedOnToolsVersion = 15.0;
@@ -581,7 +582,7 @@
 				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -611,7 +612,7 @@
 				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -639,7 +640,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraShareImport/AuraShareImport.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -656,7 +657,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.shareimport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AuraShareImport App Store";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -670,7 +671,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -700,7 +701,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -730,7 +731,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -760,7 +761,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -790,7 +791,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraShareImport/AuraShareImport.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -807,7 +808,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.shareimport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "AuraShareImport App Store";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
