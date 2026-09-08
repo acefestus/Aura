@@ -493,7 +493,7 @@
 				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -523,7 +523,7 @@
 				CODE_SIGN_ENTITLEMENTS = Aura/Aura.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -551,7 +551,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -581,7 +581,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraNotificationContent/AuraNotificationContent.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -611,7 +611,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
@@ -641,7 +641,7 @@
 				CODE_SIGN_ENTITLEMENTS = AuraWidget/AuraWidget.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
 				ENABLE_PREVIEWS = YES;
