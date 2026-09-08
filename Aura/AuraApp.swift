@@ -96,7 +96,14 @@ struct AuraAppShellView: View {
                     hasSeenOnboarding = true
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if !store.hasServerSession && !allowOfflineMode {
+            } else if (!store.hasServerSession || !store.hasServerGroups) && !allowOfflineMode {
+                // A session with zero groups still needs AuraAuthGatewayView --
+                // it's the same view, but once hasServerSession is true it
+                // switches to showing "Create Group" / "Join Group" instead of
+                // the sign-in form. Previously this only checked hasServerSession,
+                // so a brand-new account landed straight on ContentView with no
+                // group and no way to create/join one (that section of
+                // AuraAuthGatewayView existed but was never reachable).
                 AuraAuthGatewayView()
                     .transition(.opacity)
             } else {
@@ -7714,13 +7721,18 @@ struct AgendaView: View {
         todayEvents.first { $0.startDate >= Date() } ?? todayEvents.first
     }
 
+    // Agenda is a forward-looking list -- an event that's already over has
+    // nothing to do with "upcoming" and shouldn't sit mixed in with it.
+    // Search still reaches past events, since deliberately looking something
+    // up is a different intent than browsing what's ahead.
     var filtered: [CalendarEvent] {
-        q.isEmpty ? store.visibleEvents :
-        store.visibleEvents.filter {
-            $0.title.localizedCaseInsensitiveContains(q) ||
-            $0.notes.localizedCaseInsensitiveContains(q) ||
-            (store.category(for: $0.categoryId)?.name.localizedCaseInsensitiveContains(q) ?? false)
-        }
+        q.isEmpty
+            ? store.visibleEvents.filter { $0.endDate >= Calendar.current.startOfDay(for: Date()) }
+            : store.visibleEvents.filter {
+                $0.title.localizedCaseInsensitiveContains(q) ||
+                $0.notes.localizedCaseInsensitiveContains(q) ||
+                (store.category(for: $0.categoryId)?.name.localizedCaseInsensitiveContains(q) ?? false)
+            }
     }
 
     var grouped: [(Date, [CalendarEvent])] {
