@@ -4477,29 +4477,41 @@ struct ContentView: View {
                         Button {
                             showGroupsHub = true
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 7) {
                                 Image(systemName: "square.stack.3d.up.fill")
+                                    .font(.system(size: 13, weight: .bold))
                                 Text(store.activeServerGroupName)
                                     .lineLimit(1)
                                 if store.serverGroups.count > 1 {
                                     Image(systemName: "chevron.down")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.system(size: 11, weight: .bold))
                                 }
                             }
-                            .font(.system(size: 12, weight: .semibold))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.24), in: Capsule())
-                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ),
+                                in: Capsule()
+                            )
+                            .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
                             .foregroundStyle(.white)
+                            .shadow(color: Color(hex: "6366F1").opacity(0.45), radius: 10, y: 4)
                         }
                         Spacer()
                         Button {
                             showGroupMembers = true
                         } label: {
-                            Image(systemName: "person.2.circle.fill")
-                                .font(.system(size: 22))
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(.white)
+                                .frame(width: 36, height: 36)
+                                .background(Color.black.opacity(0.28), in: Circle())
+                                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
                         }
                     }
                     .padding(.horizontal, 14)
