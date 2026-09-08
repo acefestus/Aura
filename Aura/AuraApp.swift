@@ -432,11 +432,7 @@ struct AuraAuthGatewayView: View {
                             }
 
                             authField(icon: "lock.fill") {
-                                SecureField(
-                                    "",
-                                    text: $password,
-                                    prompt: Text("Password").foregroundColor(.white.opacity(0.9))
-                                )
+                                AuraSecureField(placeholder: "Password", text: $password, promptColor: .white.opacity(0.9))
                             }
 
                             if mode == .create {
@@ -806,6 +802,49 @@ struct AuraAuthGatewayView: View {
                     message = evalError?.localizedDescription ?? "Biometric authentication failed."
                 }
             }
+        }
+    }
+}
+
+/// A password field with a show/hide toggle -- plain SecureField/TextField
+/// give no way to check what you typed before submitting. `promptColor` is
+/// only for fields on a dark/custom background (like the auth gateway); leave
+/// it nil for a plain Form row, which already gets the right color for free.
+struct AuraSecureField: View {
+    let placeholder: String
+    @Binding var text: String
+    var promptColor: Color? = nil
+
+    @State private var isRevealed = false
+
+    var body: some View {
+        HStack {
+            Group {
+                if let promptColor {
+                    if isRevealed {
+                        TextField("", text: $text, prompt: Text(placeholder).foregroundColor(promptColor))
+                    } else {
+                        SecureField("", text: $text, prompt: Text(placeholder).foregroundColor(promptColor))
+                    }
+                } else {
+                    if isRevealed {
+                        TextField(placeholder, text: $text)
+                    } else {
+                        SecureField(placeholder, text: $text)
+                    }
+                }
+            }
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled(true)
+
+            Button {
+                isRevealed.toggle()
+            } label: {
+                Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(promptColor?.opacity(0.7) ?? .secondary)
+            }
+            .buttonStyle(.plain)
         }
     }
 }
@@ -7360,7 +7399,7 @@ struct DeleteAccountView: View {
                         Text("Downloads a copy of your account and group data as a file you can save or share.")
                     }
                     Section {
-                        SecureField("Confirm your password", text: $password)
+                        AuraSecureField(placeholder: "Confirm your password", text: $password)
                     } footer: {
                         Text("For your security, confirm your password to continue.")
                     }
@@ -10694,8 +10733,8 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        SecureField("Current password", text: $currentPassword)
-                        SecureField("New password (min 8)", text: $newPassword)
+                        AuraSecureField(placeholder: "Current password", text: $currentPassword)
+                        AuraSecureField(placeholder: "New password (min 8)", text: $newPassword)
                         Button {
                             isServerWorking = true
                             serverMessage = ""
@@ -10803,7 +10842,7 @@ struct SettingsView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
                             .keyboardType(.emailAddress)
-                        SecureField("Password", text: $serverPassword)
+                        AuraSecureField(placeholder: "Password", text: $serverPassword)
                         TextField("Display name", text: $serverDisplayName)
 
                         Button {
