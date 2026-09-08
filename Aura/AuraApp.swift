@@ -870,6 +870,7 @@ final class AlarmFiringManager: ObservableObject {
         let title: String
         let body: String
         let categoryColor: Color
+        let categoryIcon: String
         let content: UNNotificationContent
     }
 
@@ -883,10 +884,11 @@ final class AlarmFiringManager: ObservableObject {
         let soundRaw = content.userInfo[NotificationManager.ReminderKeys.soundRaw] as? String
         let appSound = soundRaw.flatMap(AppSound.init(rawValue:)) ?? .systemDefault
         let colorHex = content.userInfo[NotificationManager.ReminderKeys.colorHex] as? String ?? "6366F1"
+        let icon = content.userInfo[NotificationManager.ReminderKeys.icon] as? String ?? "bell.fill"
 
-        firing = FiringAlarm(title: title, body: body, categoryColor: Color(hex: colorHex), content: content)
+        firing = FiringAlarm(title: title, body: body, categoryColor: Color(hex: colorHex), categoryIcon: icon, content: content)
         playLoop(appSound)
-        AuraHaptics.warning()
+        AuraHaptics.tap(.medium)
     }
 
     func dismiss() {
@@ -936,70 +938,98 @@ struct AlarmFiringView: View {
     var snoozeEnabled: Bool
 
     @State private var pulse = false
+    private var palette: AuraThemePalette { .current }
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [alarm.categoryColor.opacity(0.85), alarm.categoryColor.opacity(0.4), Color.black.opacity(0.9)],
-                startPoint: .top, endPoint: .bottom
+                colors: [palette.backgroundStart, palette.backgroundEnd],
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 28) {
+            // Soft, low-opacity glow in the category color -- a calm accent
+            // rather than a full-bleed alert color, matching the app's other
+            // hero surfaces (splash screen, group headers).
+            Circle()
+                .fill(alarm.categoryColor.opacity(0.30))
+                .frame(width: 320, height: 320)
+                .blur(radius: 60)
+                .offset(y: -140)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image("AppIconGraphic")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 26, height: 26)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    Text("Aurenda")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+                .padding(.top, 18)
+
                 Spacer()
 
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(0.15))
-                        .frame(width: 180, height: 180)
-                        .scaleEffect(pulse ? 1.15 : 0.9)
-                        .opacity(pulse ? 0.0 : 0.7)
-                        .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: pulse)
+                        .fill(alarm.categoryColor.opacity(0.18))
+                        .frame(width: 148, height: 148)
+                        .scaleEffect(pulse ? 1.08 : 1.0)
+                        .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: pulse)
                     Circle()
-                        .fill(Color.white.opacity(0.18))
-                        .frame(width: 140, height: 140)
-                    Image(systemName: "alarm.fill")
-                        .font(.system(size: 52, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 108, height: 108)
+                    Image(systemName: alarm.categoryIcon)
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(alarm.categoryColor)
                 }
                 .onAppear { pulse = true }
+                .padding(.bottom, 32)
 
                 VStack(spacing: 8) {
                     Text(alarm.title)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                     Text(alarm.body)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.65))
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 32)
 
                 Spacer()
+                Spacer()
 
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     if snoozeEnabled {
                         Button(action: onSnooze) {
                             Text("Snooze \(snoozeMinutes)m")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .padding(.vertical, 15)
+                                .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous)
+                                        .stroke(.white.opacity(0.18), lineWidth: AuraDesignTokens.Stroke.subtle)
+                                )
                         }
                     }
                     Button(action: onDismiss) {
                         Text("Dismiss")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(alarm.categoryColor)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(palette.backgroundStart)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .padding(.vertical, 15)
+                            .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.md, style: .continuous))
                     }
                 }
                 .padding(.horizontal, 28)
-                .padding(.bottom, 40)
+                .padding(.bottom, 36)
             }
         }
         .transition(.opacity)
@@ -3987,6 +4017,7 @@ class NotificationManager {
         static let body = "aura.body"
         static let soundRaw = "aura.soundRaw"
         static let colorHex = "aura.colorHex"
+        static let icon = "aura.icon"
     }
 
     private enum ReminderActions {
@@ -4096,7 +4127,8 @@ class NotificationManager {
             ReminderKeys.title: event.title,
             ReminderKeys.body: c.body,
             ReminderKeys.soundRaw: appSound.rawValue,
-            ReminderKeys.colorHex: cat?.colorHex ?? "6366F1"
+            ReminderKeys.colorHex: cat?.colorHex ?? "6366F1",
+            ReminderKeys.icon: cat?.icon ?? "bell.fill"
         ]
 
         let fire: Date
