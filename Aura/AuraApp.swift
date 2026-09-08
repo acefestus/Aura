@@ -34,12 +34,45 @@ struct AuraApp: App {
     }
 }
 
+struct ImportPresetItem: Identifiable {
+    let id = UUID()
+    let preset: EventDraftPreset
+}
+
 struct AuraAppShellView: View {
     @EnvironmentObject var store: EventStore
     @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
     @State private var showSplash = true
     @ObservedObject private var alarmManager = AlarmFiringManager.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var importQueue: [AuraImportedEventDraft] = []
+    @State private var currentImportItem: ImportPresetItem?
+
+    private var readyForImports: Bool {
+        !showSplash && hasSeenOnboarding && (store.hasServerSession || allowOfflineMode)
+    }
+
+    private func checkPendingImports() {
+        guard currentImportItem == nil, importQueue.isEmpty else { return }
+        let drafts = SharedImportInbox.takeAll()
+        guard !drafts.isEmpty else { return }
+        importQueue = drafts
+        presentNextQueuedImport()
+    }
+
+    private func presentNextQueuedImport() {
+        guard !importQueue.isEmpty else { return }
+        let draft = importQueue.removeFirst()
+        var preset = EventDraftPreset.defaultForActiveMember(in: store)
+        preset.title = draft.title
+        preset.notes = draft.sourceLabel.isEmpty ? draft.notes : "Imported from \(draft.sourceLabel)\n\n\(draft.notes)"
+        preset.location = draft.location
+        preset.start = draft.startDate
+        preset.end = draft.endDate
+        preset.categoryId = store.categories.first(where: { $0.name == "Personal" })?.id ?? preset.categoryId
+        currentImportItem = ImportPresetItem(preset: preset)
+    }
 
     private var snoozeMinutes: Int {
         let saved = UserDefaults.standard.integer(forKey: "reminderSnoozeMinutes")
@@ -92,6 +125,22 @@ struct AuraAppShellView: View {
                 snoozeMinutes: snoozeMinutes,
                 snoozeEnabled: snoozeEnabled
             )
+        }
+        .sheet(item: $currentImportItem) { item in
+            CreateEventView(
+                isPresented: Binding(get: { true }, set: { _ in currentImportItem = nil }),
+                preset: item.preset
+            )
+            .environmentObject(store)
+        }
+        .onChange(of: currentImportItem?.id) { newValue in
+            if newValue == nil { presentNextQueuedImport() }
+        }
+        .onChange(of: readyForImports) { ready in
+            if ready { checkPendingImports() }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active && readyForImports { checkPendingImports() }
         }
     }
 }
@@ -2461,6 +2510,36 @@ enum CustomSoundStore {
         if let url = fileURL { try? FileManager.default.removeItem(at: url) }
         UserDefaults.standard.removeObject(forKey: filenameKey)
         UserDefaults.standard.removeObject(forKey: displayNameKey)
+    }
+}
+
+// MARK: - Share Extension Import Inbox
+//
+// AuraShareImport (the "Add to Aurenda" share extension) parses an .ics
+// invite or a shared text snippet in its own sandboxed process and drops
+// the result here via the shared App Group container -- it has no way to
+// call into this app's EventStore directly. This struct's shape must stay
+// in sync with the identically-named one duplicated in
+// AuraShareImport/ShareViewController.swift.
+struct AuraImportedEventDraft: Codable, Identifiable {
+    var id = UUID()
+    var title: String
+    var notes: String = ""
+    var location: String = ""
+    var startDate: Date
+    var endDate: Date
+    var sourceLabel: String = "Import"
+}
+
+enum SharedImportInbox {
+    private static let key = "aura.pendingImportedEvents"
+    private static var shared: UserDefaults { UserDefaults(suiteName: "group.com.personal.aura") ?? .standard }
+
+    /// Reads and clears every draft waiting from the share extension.
+    static func takeAll() -> [AuraImportedEventDraft] {
+        defer { shared.removeObject(forKey: key) }
+        guard let data = shared.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([AuraImportedEventDraft].self, from: data)) ?? []
     }
 }
 

@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		066CD3F39A352187A3FED570 /* Serenade.caf in Resources */ = {isa = PBXBuildFile; fileRef = D40029B8EAD89D2A3EFD594B /* Serenade.caf */; };
+		15D794ECB2950109AEF43EBB /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE6A03586A47486342AC600 /* ShareViewController.swift */; };
 		232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000003 /* AuraApp.swift */; };
 		232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000005 /* Assets.xcassets */; };
 		36A677BDE2E450D59676BF87 /* Bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = B023B0364B0405A88A474D5F /* Bell.caf */; };
+		51A645B637AC5DA000208AC3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
 		60300B9EA5AA3C71890F2A85 /* Fanfare.caf in Resources */ = {isa = PBXBuildFile; fileRef = AE7525FF301144870EF051A9 /* Fanfare.caf */; };
 		6DD90CE40BD2A5DAF2E8536D /* Ding.caf in Resources */ = {isa = PBXBuildFile; fileRef = 94E3741E09C7790EA7FCC923 /* Ding.caf */; };
+		7F33A819F41AA13CDF0218A6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80B5DB69F4F3EBB439A775CE /* Foundation.framework */; };
+		A4A6FA1C735106B6D5530EB8 /* AuraShareImport.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AN00000001 /* NotificationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AN00000101 /* NotificationViewController.swift */; };
 		AN00000002 /* AuraNotificationContent.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AN00000105 /* AuraNotificationContent.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AN00000003 /* UserNotificationsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AN00000103 /* UserNotificationsUI.framework */; };
@@ -31,6 +35,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1A7D0943F3DFCC6FC1CDA588 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 232A7F4C2B5E8A9100000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6862E8607C0C4FE9F8049DD4;
+			remoteInfo = AuraShareImport;
+		};
 		AN00000006 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 232A7F4C2B5E8A9100000001 /* Project object */;
@@ -56,6 +67,7 @@
 			files = (
 				AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */,
 				AN00000002 /* AuraNotificationContent.appex in Embed Foundation Extensions */,
+				A4A6FA1C735106B6D5530EB8 /* AuraShareImport.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -64,6 +76,7 @@
 
 /* Begin PBXFileReference section */
 		0294901E68EA8B42A028BA36 /* Chime.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Chime.caf; sourceTree = "<group>"; };
+		0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AuraShareImport.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		232A7F4C2B5E8A9100000003 /* AuraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraApp.swift; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -71,7 +84,10 @@
 		2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Glass.caf; sourceTree = "<group>"; };
 		39C8AA5713021461C6F80FDF /* Melody.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Melody.caf; sourceTree = "<group>"; };
 		40312F7BE644E75599A415BD /* Sunrise.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Sunrise.caf; sourceTree = "<group>"; };
+		5AE6A03586A47486342AC600 /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		6118E718BF720C4B1FFD6D38 /* Harmony.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Harmony.caf; sourceTree = "<group>"; };
+		80B5DB69F4F3EBB439A775CE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		8AA85B865697A9F3AE113825 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		94E3741E09C7790EA7FCC923 /* Ding.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Ding.caf; sourceTree = "<group>"; };
 		AE7525FF301144870EF051A9 /* Fanfare.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Fanfare.caf; sourceTree = "<group>"; };
 		AN00000101 /* NotificationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViewController.swift; sourceTree = "<group>"; };
@@ -90,6 +106,7 @@
 		B023B0364B0405A88A474D5F /* Bell.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Bell.caf; sourceTree = "<group>"; };
 		CFB79FBED64AFF8956A97E56 /* Electronic.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Electronic.caf; sourceTree = "<group>"; };
 		D40029B8EAD89D2A3EFD594B /* Serenade.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Serenade.caf; sourceTree = "<group>"; };
+		DED33CEBB314A6844985AD06 /* AuraShareImport.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = AuraShareImport.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +114,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C8B8838EF4B1A8DD028B77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F33A819F41AA13CDF0218A6 /* Foundation.framework in Frameworks */,
+				51A645B637AC5DA000208AC3 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,6 +155,7 @@
 				AN00000400 /* AuraNotificationContent */,
 				AW00000401 /* Frameworks */,
 				232A7F4C2B5E8A910000000B /* Products */,
+				F2E1F98C9F4570F9A69063ED /* AuraShareImport */,
 			);
 			sourceTree = "<group>";
 		};
@@ -150,6 +177,7 @@
 				232A7F4C2B5E8A9100000008 /* Aura.app */,
 				AW00000105 /* AuraWidgetExtension.appex */,
 				AN00000105 /* AuraNotificationContent.appex */,
+				0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -170,6 +198,14 @@
 			);
 			name = Sounds;
 			path = Sounds;
+			sourceTree = "<group>";
+		};
+		5F123E06D578DA2E3BCC9825 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				80B5DB69F4F3EBB439A775CE /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		AN00000400 /* AuraNotificationContent */ = {
@@ -199,8 +235,20 @@
 				AW00000103 /* WidgetKit.framework */,
 				AW00000104 /* SwiftUI.framework */,
 				AN00000103 /* UserNotificationsUI.framework */,
+				5F123E06D578DA2E3BCC9825 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F2E1F98C9F4570F9A69063ED /* AuraShareImport */ = {
+			isa = PBXGroup;
+			children = (
+				5AE6A03586A47486342AC600 /* ShareViewController.swift */,
+				8AA85B865697A9F3AE113825 /* Info.plist */,
+				DED33CEBB314A6844985AD06 /* AuraShareImport.entitlements */,
+			);
+			name = AuraShareImport;
+			path = AuraShareImport;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -220,11 +268,29 @@
 			dependencies = (
 				AW00000500 /* PBXTargetDependency */,
 				AN00000500 /* PBXTargetDependency */,
+				8DA98DAC97A72D656FA70CE9 /* PBXTargetDependency */,
 			);
 			name = Aura;
 			productName = Aura;
 			productReference = 232A7F4C2B5E8A9100000008 /* Aura.app */;
 			productType = "com.apple.product-type.application";
+		};
+		6862E8607C0C4FE9F8049DD4 /* AuraShareImport */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EEB3241997F693A7EFFCE01A /* Build configuration list for PBXNativeTarget "AuraShareImport" */;
+			buildPhases = (
+				DFB34A7B666DB0416227FCBD /* Sources */,
+				A6C8B8838EF4B1A8DD028B77 /* Frameworks */,
+				133D7A7FBE92059C336974B5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuraShareImport;
+			productName = AuraShareImport;
+			productReference = 0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		AN00000200 /* AuraNotificationContent */ = {
 			isa = PBXNativeTarget;
@@ -297,11 +363,19 @@
 				232A7F4C2B5E8A9100000002 /* Aura */,
 				AW00000200 /* AuraWidgetExtension */,
 				AN00000200 /* AuraNotificationContent */,
+				6862E8607C0C4FE9F8049DD4 /* AuraShareImport */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		133D7A7FBE92059C336974B5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		232A7F4C2B5E8A910000000E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -362,9 +436,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DFB34A7B666DB0416227FCBD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15D794ECB2950109AEF43EBB /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		8DA98DAC97A72D656FA70CE9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AuraShareImport;
+			target = 6862E8607C0C4FE9F8049DD4 /* AuraShareImport */;
+			targetProxy = 1A7D0943F3DFCC6FC1CDA588 /* PBXContainerItemProxy */;
+		};
 		AN00000500 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AN00000200 /* AuraNotificationContent */;
@@ -545,6 +633,37 @@
 			};
 			name = Release;
 		};
+		521EB04C0F32CA8A80DD7BF5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraShareImport/AuraShareImport.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraShareImport/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Add to Aurenda";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.shareimport;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		AN00000601 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -665,6 +784,37 @@
 			};
 			name = Release;
 		};
+		FFDE3C184233D1C1BF57349F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = AuraShareImport/AuraShareImport.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = AP997F4T9G;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AuraShareImport/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Add to Aurenda";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.personal.aura.shareimport;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Aura Reminders App Store";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -700,6 +850,15 @@
 			buildConfigurations = (
 				AW00000601 /* Debug */,
 				AW00000602 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EEB3241997F693A7EFFCE01A /* Build configuration list for PBXNativeTarget "AuraShareImport" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				521EB04C0F32CA8A80DD7BF5 /* Release */,
+				FFDE3C184233D1C1BF57349F /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
