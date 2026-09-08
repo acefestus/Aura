@@ -12,6 +12,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 import HealthKit
 import LocalAuthentication
+import AVFoundation
 
 // MARK: - App Entry
 
@@ -38,6 +39,19 @@ struct AuraAppShellView: View {
     @AppStorage("aura.hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("aura.allowOfflineMode") private var allowOfflineMode = false
     @State private var showSplash = true
+    @ObservedObject private var alarmManager = AlarmFiringManager.shared
+
+    private var snoozeMinutes: Int {
+        let saved = UserDefaults.standard.integer(forKey: "reminderSnoozeMinutes")
+        return saved == 0 ? 10 : saved
+    }
+    private var snoozeEnabled: Bool {
+        let actionable = UserDefaults.standard.object(forKey: "enableActionableReminders") == nil
+            ? true : UserDefaults.standard.bool(forKey: "enableActionableReminders")
+        let snooze = UserDefaults.standard.object(forKey: "enableReminderSnooze") == nil
+            ? true : UserDefaults.standard.bool(forKey: "enableReminderSnooze")
+        return actionable && snooze
+    }
 
     var body: some View {
         ZStack {
@@ -69,6 +83,15 @@ struct AuraAppShellView: View {
             withAnimation(AuraMotion.smooth) {
                 showSplash = false
             }
+        }
+        .fullScreenCover(item: $alarmManager.firing) { alarm in
+            AlarmFiringView(
+                alarm: alarm,
+                onSnooze: { alarmManager.snooze(minutes: snoozeMinutes) },
+                onDismiss: { alarmManager.dismiss() },
+                snoozeMinutes: snoozeMinutes,
+                snoozeEnabled: snoozeEnabled
+            )
         }
     }
 }
@@ -829,6 +852,160 @@ private extension View {
     }
 }
 
+// MARK: - Alarm Firing Manager
+//
+// Real alarm-like behavior is only possible while the app is in the
+// foreground: a UNNotificationCenterDelegate's willPresent(_:) only fires
+// then, and third-party apps have no entitlement to take over the Lock
+// Screen the way the system Clock app can. So when a reminder's fire time
+// arrives with Aurenda open, this suppresses the plain banner and instead
+// loops a real sound + shows a full-screen alarm card until the user acts.
+// When the app is backgrounded/locked, none of this runs -- iOS delivers
+// the standard notification banner + one-shot sound instead, same as before.
+final class AlarmFiringManager: ObservableObject {
+    static let shared = AlarmFiringManager()
+
+    struct FiringAlarm: Identifiable {
+        let id = UUID()
+        let title: String
+        let body: String
+        let categoryColor: Color
+        let content: UNNotificationContent
+    }
+
+    @Published var firing: FiringAlarm?
+    private var player: AVAudioPlayer?
+
+    func present(notification: UNNotification) {
+        let content = notification.request.content
+        let title = content.userInfo[NotificationManager.ReminderKeys.title] as? String ?? content.title
+        let body = content.userInfo[NotificationManager.ReminderKeys.body] as? String ?? content.body
+        let soundRaw = content.userInfo[NotificationManager.ReminderKeys.soundRaw] as? String
+        let appSound = soundRaw.flatMap(AppSound.init(rawValue:)) ?? .systemDefault
+        let colorHex = content.userInfo[NotificationManager.ReminderKeys.colorHex] as? String ?? "6366F1"
+
+        firing = FiringAlarm(title: title, body: body, categoryColor: Color(hex: colorHex), content: content)
+        playLoop(appSound)
+        AuraHaptics.warning()
+    }
+
+    func dismiss() {
+        stopLoop()
+        firing = nil
+    }
+
+    func snooze(minutes: Int) {
+        guard let content = firing?.content else { dismiss(); return }
+        stopLoop()
+        NotificationManager.shared.scheduleSnooze(from: content, minutes: minutes)
+        firing = nil
+    }
+
+    private func playLoop(_ sound: AppSound) {
+        stopLoop()
+        guard sound != .silent else { return }
+        // .systemDefault has no bundle-accessible file to loop (it's a private
+        // system asset), so it falls back to our own Chime tone for the
+        // repeating alarm ring -- still respects an explicit Silent choice.
+        let filename = sound == .systemDefault ? AppSound.chime.rawValue : sound.rawValue
+        guard let url = Bundle.main.url(forResource: filename, withExtension: "caf") else { return }
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            let p = try AVAudioPlayer(contentsOf: url)
+            p.numberOfLoops = -1
+            p.play()
+            player = p
+        } catch {
+            print("[Aurenda] Couldn't loop alarm sound: \(error)")
+        }
+    }
+
+    private func stopLoop() {
+        player?.stop()
+        player = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}
+
+struct AlarmFiringView: View {
+    let alarm: AlarmFiringManager.FiringAlarm
+    let onSnooze: () -> Void
+    let onDismiss: () -> Void
+    var snoozeMinutes: Int
+    var snoozeEnabled: Bool
+
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [alarm.categoryColor.opacity(0.85), alarm.categoryColor.opacity(0.4), Color.black.opacity(0.9)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 28) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.15))
+                        .frame(width: 180, height: 180)
+                        .scaleEffect(pulse ? 1.15 : 0.9)
+                        .opacity(pulse ? 0.0 : 0.7)
+                        .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: pulse)
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 140, height: 140)
+                    Image(systemName: "alarm.fill")
+                        .font(.system(size: 52, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .onAppear { pulse = true }
+
+                VStack(spacing: 8) {
+                    Text(alarm.title)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                    Text(alarm.body)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+
+                VStack(spacing: 14) {
+                    if snoozeEnabled {
+                        Button(action: onSnooze) {
+                            Text("Snooze \(snoozeMinutes)m")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    }
+                    Button(action: onDismiss) {
+                        Text("Dismiss")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(alarm.categoryColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 40)
+            }
+        }
+        .transition(.opacity)
+    }
+}
+
 // MARK: - App Delegate  (shows banner even when app is open)
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
@@ -840,24 +1017,26 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let content = notification.request.content
         let enabled = UserDefaults.standard.object(forKey: "enableInAppBanner") == nil
             ? true
             : UserDefaults.standard.bool(forKey: "enableInAppBanner")
 
-        if enabled {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: .auraInAppBanner,
-                    object: nil,
-                    userInfo: [
-                        "title": content.title,
-                        "message": content.body
-                    ]
-                )
-            }
+        guard enabled else {
+            completionHandler([.banner, .list, .sound, .badge])
+            return
         }
-        completionHandler([.banner, .list, .sound, .badge])
+
+        // The app is in the foreground right now -- this is the one moment a
+        // third-party app can show something more than a banner, so a real
+        // full-screen alarm card takes over instead (with its own looping
+        // sound), and the plain system banner/one-shot sound are suppressed
+        // to avoid overlapping with it. Locked/backgrounded delivery never
+        // reaches this delegate method, so it still falls through to the
+        // standard notification banner + sound exactly as before.
+        DispatchQueue.main.async {
+            AlarmFiringManager.shared.present(notification: notification)
+        }
+        completionHandler([.list, .badge])
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -2150,7 +2329,7 @@ enum AppSound: String, Codable, CaseIterable {
         case .silent:        return nil
         case .systemDefault: return .default
         default:
-            return UNNotificationSound(named: UNNotificationSoundName(rawValue))
+            return UNNotificationSound(named: UNNotificationSoundName(rawValue: "\(rawValue).caf"))
         }
     }
 }
@@ -3802,11 +3981,12 @@ class EventStore: ObservableObject {
 class NotificationManager {
     static let shared = NotificationManager()
 
-    private enum ReminderKeys {
+    enum ReminderKeys {
         static let eventId = "aura.eventId"
         static let title = "aura.title"
         static let body = "aura.body"
         static let soundRaw = "aura.soundRaw"
+        static let colorHex = "aura.colorHex"
     }
 
     private enum ReminderActions {
@@ -3915,7 +4095,8 @@ class NotificationManager {
             ReminderKeys.eventId: event.id.uuidString,
             ReminderKeys.title: event.title,
             ReminderKeys.body: c.body,
-            ReminderKeys.soundRaw: appSound.rawValue
+            ReminderKeys.soundRaw: appSound.rawValue,
+            ReminderKeys.colorHex: cat?.colorHex ?? "6366F1"
         ]
 
         let fire: Date
@@ -3947,7 +4128,7 @@ class NotificationManager {
         }
     }
 
-    private func scheduleSnooze(from content: UNNotificationContent, minutes: Int) {
+    func scheduleSnooze(from content: UNNotificationContent, minutes: Int) {
         guard minutes > 0 else { return }
         let snoozeContent = UNMutableNotificationContent()
         snoozeContent.title = content.userInfo[ReminderKeys.title] as? String ?? content.title
