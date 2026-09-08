@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		066CD3F39A352187A3FED570 /* Serenade.caf in Resources */ = {isa = PBXBuildFile; fileRef = D40029B8EAD89D2A3EFD594B /* Serenade.caf */; };
 		232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000003 /* AuraApp.swift */; };
 		232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000005 /* Assets.xcassets */; };
 		36A677BDE2E450D59676BF87 /* Bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = B023B0364B0405A88A474D5F /* Bell.caf */; };
@@ -22,8 +23,11 @@
 		AW00000004 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
 		AW00000005 /* AuraWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AW00000105 /* AuraWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC076C5D70E2268C44719DCA /* Chime.caf in Resources */ = {isa = PBXBuildFile; fileRef = 0294901E68EA8B42A028BA36 /* Chime.caf */; };
+		C68F1FCE1BD14E9F39740DC9 /* Harmony.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6118E718BF720C4B1FFD6D38 /* Harmony.caf */; };
+		E2D35AD48774B62EBD9C6531 /* Sunrise.caf in Resources */ = {isa = PBXBuildFile; fileRef = 40312F7BE644E75599A415BD /* Sunrise.caf */; };
 		F11521FCDD935B2C5A5A2CB8 /* Electronic.caf in Resources */ = {isa = PBXBuildFile; fileRef = CFB79FBED64AFF8956A97E56 /* Electronic.caf */; };
 		FB64F1FE2D3D08022897A048 /* Glass.caf in Resources */ = {isa = PBXBuildFile; fileRef = 2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */; };
+		FF753076C42853E69930EFCA /* Melody.caf in Resources */ = {isa = PBXBuildFile; fileRef = 39C8AA5713021461C6F80FDF /* Melody.caf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +69,9 @@
 		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000008 /* Aura.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aura.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Glass.caf; sourceTree = "<group>"; };
+		39C8AA5713021461C6F80FDF /* Melody.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Melody.caf; sourceTree = "<group>"; };
+		40312F7BE644E75599A415BD /* Sunrise.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Sunrise.caf; sourceTree = "<group>"; };
+		6118E718BF720C4B1FFD6D38 /* Harmony.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Harmony.caf; sourceTree = "<group>"; };
 		94E3741E09C7790EA7FCC923 /* Ding.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Ding.caf; sourceTree = "<group>"; };
 		AE7525FF301144870EF051A9 /* Fanfare.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Fanfare.caf; sourceTree = "<group>"; };
 		AN00000101 /* NotificationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViewController.swift; sourceTree = "<group>"; };
@@ -82,6 +89,7 @@
 		AW00000108 /* AuraWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AuraWidget.entitlements; sourceTree = "<group>"; };
 		B023B0364B0405A88A474D5F /* Bell.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Bell.caf; sourceTree = "<group>"; };
 		CFB79FBED64AFF8956A97E56 /* Electronic.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Electronic.caf; sourceTree = "<group>"; };
+		D40029B8EAD89D2A3EFD594B /* Serenade.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = Serenade.caf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +163,10 @@
 				2E4DA6A1C5FACF22ECD54A31 /* Glass.caf */,
 				AE7525FF301144870EF051A9 /* Fanfare.caf */,
 				CFB79FBED64AFF8956A97E56 /* Electronic.caf */,
+				39C8AA5713021461C6F80FDF /* Melody.caf */,
+				D40029B8EAD89D2A3EFD594B /* Serenade.caf */,
+				40312F7BE644E75599A415BD /* Sunrise.caf */,
+				6118E718BF720C4B1FFD6D38 /* Harmony.caf */,
 			);
 			name = Sounds;
 			path = Sounds;
@@ -301,6 +313,10 @@
 				FB64F1FE2D3D08022897A048 /* Glass.caf in Resources */,
 				60300B9EA5AA3C71890F2A85 /* Fanfare.caf in Resources */,
 				F11521FCDD935B2C5A5A2CB8 /* Electronic.caf in Resources */,
+				FF753076C42853E69930EFCA /* Melody.caf in Resources */,
+				066CD3F39A352187A3FED570 /* Serenade.caf in Resources */,
+				E2D35AD48774B62EBD9C6531 /* Sunrise.caf in Resources */,
+				C68F1FCE1BD14E9F39740DC9 /* Harmony.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

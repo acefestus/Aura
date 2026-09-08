@@ -906,11 +906,20 @@ final class AlarmFiringManager: ObservableObject {
     private func playLoop(_ sound: AppSound) {
         stopLoop()
         guard sound != .silent else { return }
-        // .systemDefault has no bundle-accessible file to loop (it's a private
-        // system asset), so it falls back to our own Chime tone for the
-        // repeating alarm ring -- still respects an explicit Silent choice.
-        let filename = sound == .systemDefault ? AppSound.chime.rawValue : sound.rawValue
-        guard let url = Bundle.main.url(forResource: filename, withExtension: "caf") else { return }
+        let url: URL?
+        if sound == .custom {
+            // Falls through to Chime if the user picked Custom but never
+            // actually imported a file (or it went missing).
+            url = CustomSoundStore.fileURL ?? Bundle.main.url(forResource: AppSound.chime.rawValue, withExtension: "caf")
+        } else if sound == .systemDefault {
+            // .systemDefault has no bundle-accessible file to loop (it's a
+            // private system asset), so it falls back to our own Chime tone
+            // for the repeating alarm ring -- still respects Silent above.
+            url = Bundle.main.url(forResource: AppSound.chime.rawValue, withExtension: "caf")
+        } else {
+            url = Bundle.main.url(forResource: sound.rawValue, withExtension: "caf")
+        }
+        guard let url else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
@@ -2342,6 +2351,16 @@ enum AppSound: String, Codable, CaseIterable {
     case glass         = "Glass"
     case fanfare       = "Fanfare"
     case electronic    = "Electronic"
+    case melody        = "Melody"
+    case serenade      = "Serenade"
+    case sunrise       = "Sunrise"
+    case harmony       = "Harmony"
+    case custom        = "Custom"
+
+    /// The two groups shown in the picker -- short alert tones vs. the
+    /// longer original melodies.
+    static var tones:    [AppSound] { [.systemDefault, .silent, .chime, .bell, .ding, .glass, .fanfare, .electronic] }
+    static var melodies: [AppSound] { [.melody, .serenade, .sunrise, .harmony] }
 
     var icon: String {
         switch self {
@@ -2351,6 +2370,8 @@ enum AppSound: String, Codable, CaseIterable {
         case .glass:                     return "waveform"
         case .fanfare:                   return "music.note.list"
         case .electronic:                return "waveform.path"
+        case .melody, .serenade, .sunrise, .harmony: return "music.note"
+        case .custom:                    return "waveform.badge.plus"
         }
     }
 
@@ -2358,8 +2379,106 @@ enum AppSound: String, Codable, CaseIterable {
         switch self {
         case .silent:        return nil
         case .systemDefault: return .default
+        case .custom:
+            // A user-picked file lives in the app's Documents directory, not
+            // the app bundle -- UNNotificationSound(named:) can only resolve
+            // bundled files, so the *locked/backgrounded* system notification
+            // always falls back to the default tone here. AlarmFiringManager
+            // plays the real custom file directly for the foreground alarm.
+            return .default
         default:
             return UNNotificationSound(named: UNNotificationSoundName(rawValue: "\(rawValue).caf"))
+        }
+    }
+
+    /// A short, one-shot player for auditioning a sound in the picker --
+    /// distinct from AlarmFiringManager's looping alarm playback.
+    func preview() {
+        guard self != .silent else { return }
+        let url: URL?
+        if self == .custom {
+            url = CustomSoundStore.fileURL
+        } else if self == .systemDefault {
+            url = Bundle.main.url(forResource: AppSound.chime.rawValue, withExtension: "caf")
+        } else {
+            url = Bundle.main.url(forResource: rawValue, withExtension: "caf")
+        }
+        guard let url else { return }
+        SoundPreviewPlayer.shared.play(url: url)
+    }
+}
+
+/// Keeps exactly one user-imported custom alarm sound (v1 scope: one global
+/// file, not a per-event library) copied into the app's own sandbox so it
+/// stays playable across launches without holding a security-scoped bookmark.
+enum CustomSoundStore {
+    private static let filenameKey = "aura.customSoundFilename"
+    private static let displayNameKey = "aura.customSoundDisplayName"
+
+    private static var documentsDirectory: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    static var fileURL: URL? {
+        guard let filename = UserDefaults.standard.string(forKey: filenameKey) else { return nil }
+        let url = documentsDirectory.appendingPathComponent(filename)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    static var hasCustomSound: Bool { fileURL != nil }
+
+    static var displayName: String {
+        UserDefaults.standard.string(forKey: displayNameKey) ?? "Custom Sound"
+    }
+
+    @discardableResult
+    static func importSound(from sourceURL: URL) -> Bool {
+        guard sourceURL.startAccessingSecurityScopedResource() else { return false }
+        defer { sourceURL.stopAccessingSecurityScopedResource() }
+
+        // Clear out any previously-imported file first (different extension
+        // than last time would otherwise leave an orphaned copy behind).
+        if let existing = fileURL { try? FileManager.default.removeItem(at: existing) }
+
+        let ext = sourceURL.pathExtension.isEmpty ? "m4a" : sourceURL.pathExtension
+        let filename = "custom-alarm-sound.\(ext)"
+        let dest = documentsDirectory.appendingPathComponent(filename)
+        do {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: sourceURL, to: dest)
+            UserDefaults.standard.set(filename, forKey: filenameKey)
+            UserDefaults.standard.set(sourceURL.lastPathComponent, forKey: displayNameKey)
+            return true
+        } catch {
+            print("[Aurenda] Couldn't import custom sound: \(error)")
+            return false
+        }
+    }
+
+    static func remove() {
+        if let url = fileURL { try? FileManager.default.removeItem(at: url) }
+        UserDefaults.standard.removeObject(forKey: filenameKey)
+        UserDefaults.standard.removeObject(forKey: displayNameKey)
+    }
+}
+
+/// One-shot playback for auditioning a sound in the picker, kept separate
+/// from AlarmFiringManager's looping alarm player.
+final class SoundPreviewPlayer {
+    static let shared = SoundPreviewPlayer()
+    private var player: AVAudioPlayer?
+
+    func play(url: URL) {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            let p = try AVAudioPlayer(contentsOf: url)
+            p.play()
+            player = p
+        } catch {
+            print("[Aurenda] Couldn't preview sound: \(error)")
         }
     }
 }
@@ -9655,74 +9774,92 @@ struct SoundPickerSheet: View {
     var onSelect:        (AppSound) -> Void
     var onClear:         (() -> Void)? = nil
 
+    @State private var showFileImporter = false
+    @State private var hasCustomSound = CustomSoundStore.hasCustomSound
+    @State private var customDisplayName = CustomSoundStore.displayName
+    @State private var importFailed = false
+
     var body: some View {
         NavigationView {
             List {
                 if showClearOption {
-                    Button {
-                        AuraHaptics.tap(.medium)
-                        onClear?()
-                        isPresented = false
-                    } label: {
-                        HStack(spacing: 14) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color(.tertiarySystemBackground))
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Color(hex: "6366F1"))
+                    Section {
+                        Button {
+                            AuraHaptics.tap(.medium)
+                            onClear?()
+                            isPresented = false
+                        } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color(.tertiarySystemBackground))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color(hex: "6366F1"))
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Same as Category")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text("Uses the sound set for this event's category")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
                             }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Same as Category")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                Text("Uses the sound set for this event's category")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-                ForEach(AppSound.allCases, id: \.self) { s in
-                    Button {
-                        AuraHaptics.tap(.medium)
-                        onSelect(s)
-                        isPresented = false
-                    } label: {
-                        HStack(spacing: 14) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(currentSound == s
-                                          ? LinearGradient(colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
-                                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                                          : LinearGradient(colors: [Color(.tertiarySystemBackground), Color(.tertiarySystemBackground)],
-                                                           startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: s.icon)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(currentSound == s ? .white : Color(hex: "6366F1"))
-                            }
-                            Text(s.rawValue)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if currentSound == s {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(LinearGradient(
-                                        colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .font(.system(size: 20))
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
+
+                Section("Tones") {
+                    ForEach(AppSound.tones, id: \.self) { s in
+                        soundRow(s)
                     }
-                    .buttonStyle(.plain)
+                }
+
+                Section {
+                    ForEach(AppSound.melodies, id: \.self) { s in
+                        soundRow(s)
+                    }
+                } header: {
+                    Text("Melodies")
+                } footer: {
+                    Text("Original tunes made for Aurenda -- not copies of any commercial ringtone.")
+                }
+
+                Section {
+                    if hasCustomSound {
+                        soundRow(.custom, subtitle: customDisplayName)
+                        Button {
+                            AuraHaptics.tap(.light)
+                            showFileImporter = true
+                        } label: {
+                            Label("Replace Custom Sound", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button(role: .destructive) {
+                            AuraHaptics.tap(.light)
+                            CustomSoundStore.remove()
+                            hasCustomSound = false
+                            if currentSound == .custom { onSelect(.systemDefault) }
+                        } label: {
+                            Label("Remove Custom Sound", systemImage: "trash")
+                        }
+                    } else {
+                        Button {
+                            AuraHaptics.tap(.light)
+                            showFileImporter = true
+                        } label: {
+                            Label("Import a Sound from Files…", systemImage: "waveform.badge.plus")
+                        }
+                    }
+                } header: {
+                    Text("Your Own Sound")
+                } footer: {
+                    Text("Plays in full when Aurenda is open. When your phone is locked, iOS only allows sounds built into the app, so this falls back to Chime.")
                 }
             }
             .listStyle(.insetGrouped)
@@ -9733,9 +9870,83 @@ struct SoundPickerSheet: View {
                     Button("Done") { isPresented = false }.fontWeight(.semibold)
                 }
             }
+            .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.audio]) { result in
+                switch result {
+                case .success(let url):
+                    if CustomSoundStore.importSound(from: url) {
+                        hasCustomSound = true
+                        customDisplayName = CustomSoundStore.displayName
+                        AuraHaptics.success()
+                        onSelect(.custom)
+                    } else {
+                        importFailed = true
+                    }
+                case .failure:
+                    importFailed = true
+                }
+            }
+            .alert("Couldn't Import Sound", isPresented: $importFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("That file couldn't be used as an alert sound. Try a different audio file.")
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func soundRow(_ s: AppSound, subtitle: String? = nil) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(currentSound == s
+                          ? LinearGradient(colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                          : LinearGradient(colors: [Color(.tertiarySystemBackground), Color(.tertiarySystemBackground)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 40)
+                Image(systemName: s.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(currentSound == s ? .white : Color(hex: "6366F1"))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(s.rawValue)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            if s != .silent {
+                Button {
+                    AuraHaptics.tap(.light)
+                    s.preview()
+                } label: {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            if currentSound == s {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(LinearGradient(
+                        colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .font(.system(size: 20))
+            }
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            AuraHaptics.tap(.medium)
+            onSelect(s)
+            isPresented = false
+        }
     }
 }
 
