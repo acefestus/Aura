@@ -4146,6 +4146,21 @@ class EventStore: ObservableObject {
     private func pushSnapshot() async {
         do {
             if hasServerGroup {
+                // The server only ever stores one whole snapshot per group, so a
+                // naive push here would overwrite anything another device added
+                // since this device's last pull -- e.g. member A creates an
+                // event, and moments later member B's own unrelated edit pushes
+                // *their* stale local array and silently erases it. Pulling and
+                // merging additions in first closes most of that window: this
+                // only ever ADDS records this device doesn't have yet, it never
+                // lets a remote copy overwrite a local edit to the same record,
+                // and (the tradeoff) it can't distinguish "never had it" from
+                // "deleted it" -- a deletion on one device can still reappear if
+                // another device re-pushes its pre-deletion copy.
+                if let remote = try? await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken),
+                   remote.updatedAt.timeIntervalSince1970 > groupLastSnapshot {
+                    mergeMissingFromRemote(remote)
+                }
                 _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, payload: snapshotPayload())
             } else {
                 // CloudKit fallback disabled: the app ships with no iCloud/CloudKit
@@ -4158,6 +4173,38 @@ class EventStore: ObservableObject {
         } catch {
             _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync upload failed" : "Sync upload failed")
         }
+    }
+
+    /// Adds any record present remotely but missing locally -- never removes
+    /// or overwrites a local record, so it can't clobber an in-flight local
+    /// edit, only fail to see a remote deletion (see pushSnapshot's comment).
+    @MainActor
+    private func mergeMissingFromRemote(_ incoming: HouseholdSyncPayload) {
+        applyingRemoteSnapshot = true
+        let localEventIds = Set(events.map { $0.id })
+        events.append(contentsOf: incoming.events.filter { !localEventIds.contains($0.id) })
+        events.sort { $0.startDate < $1.startDate }
+
+        let localCatIds = Set(categories.map { $0.id })
+        categories.append(contentsOf: incoming.categories.filter { !localCatIds.contains($0.id) })
+
+        let localMemberIds = Set(members.map { $0.id })
+        members.append(contentsOf: incoming.members.filter { !localMemberIds.contains($0.id) })
+
+        let localListIds = Set(groupLists.map { $0.id })
+        groupLists.append(contentsOf: incoming.groupLists.filter { !localListIds.contains($0.id) })
+        groupLists.sort { $0.createdAt > $1.createdAt }
+
+        let localActivityIds = Set(groupActivities.map { $0.id })
+        groupActivities.append(contentsOf: incoming.groupActivities.filter { !localActivityIds.contains($0.id) })
+        groupActivities.sort { $0.date > $1.date }
+
+        saveEvents()
+        saveCats()
+        saveMembers()
+        saveGroupLists()
+        saveGroupActivities()
+        applyingRemoteSnapshot = false
     }
 
     @MainActor
@@ -6266,33 +6313,46 @@ struct ListsView: View {
                 AuraAtmosphericBackground()
                 List {
                     Section {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                FilterChip(title: "All", selected: selectedKind == nil) {
-                                    selectedKind = nil
-                                }
-                                ForEach(GroupListKind.allCases, id: \.self) { kind in
-                                    FilterChip(title: kind.rawValue, selected: selectedKind == kind) {
-                                        selectedKind = kind
+                        VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("TYPE")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .tracking(1.0)
+                                    .foregroundColor(.secondary)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        FilterChip(title: "All", selected: selectedKind == nil) {
+                                            selectedKind = nil
+                                        }
+                                        ForEach(GroupListKind.allCases, id: \.self) { kind in
+                                            FilterChip(title: kind.rawValue, selected: selectedKind == kind) {
+                                                selectedKind = kind
+                                            }
+                                        }
                                     }
                                 }
                             }
-                            .padding(.vertical, 3)
-                        }
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                FilterChip(title: "Visible", selected: selectedVisibility == nil) {
-                                    selectedVisibility = nil
-                                }
-                                ForEach(VisibilityScope.allCases, id: \.self) { scope in
-                                    FilterChip(title: scope.displayName, selected: selectedVisibility == scope) {
-                                        selectedVisibility = scope
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("VISIBILITY")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .tracking(1.0)
+                                    .foregroundColor(.secondary)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        FilterChip(title: "All", selected: selectedVisibility == nil) {
+                                            selectedVisibility = nil
+                                        }
+                                        ForEach(VisibilityScope.allCases, id: \.self) { scope in
+                                            FilterChip(title: scope.displayName, selected: selectedVisibility == scope) {
+                                                selectedVisibility = scope
+                                            }
+                                        }
                                     }
                                 }
                             }
-                            .padding(.vertical, 3)
                         }
+                        .padding(.vertical, 4)
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -6394,9 +6454,9 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundColor(selected ? .white : .primary)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(
                     selected
@@ -6404,6 +6464,10 @@ struct FilterChip: View {
                         : AnyShapeStyle(Color(.tertiarySystemFill)),
                     in: Capsule()
                 )
+                .overlay(
+                    Capsule().stroke(selected ? Color.clear : Color.primary.opacity(0.08), lineWidth: 1)
+                )
+                .shadow(color: selected ? AuraThemePalette.current.accentStart.opacity(0.3) : .clear, radius: 6, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -6422,6 +6486,15 @@ struct AddGroupListView: View {
             ZStack {
                 AuraAtmosphericBackground()
                 Form {
+                if store.serverGroups.count > 1 {
+                    Section {
+                        Label("Creating in **\(store.activeServerGroupName)**", systemImage: "square.stack.3d.up.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    } footer: {
+                        Text("To put this list in a different group, switch groups first using the pill at the top of the screen, then create it from there.")
+                    }
+                }
                 Section("List Name") {
                     TextField("e.g. Weekly Grocery", text: $title)
                 }
@@ -7242,6 +7315,7 @@ struct QuickAddShoppingItemView: View {
     @State private var assignedMemberId: UUID? = nil
     @State private var hasDueDate = false
     @State private var dueDate = Date()
+    @State private var newListVisibility: VisibilityScope = .family
 
     var firstSupermarketList: GroupList? {
         store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first
@@ -7271,9 +7345,14 @@ struct QuickAddShoppingItemView: View {
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     } else {
-                        Text("No list found. A Shopping List will be created automatically.")
+                        Text("No list found. A Shopping List will be created in \(store.activeServerGroupName).")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
+                        Picker("Who can see it", selection: $newListVisibility) {
+                            ForEach([VisibilityScope.family, .personal], id: \.self) { s in
+                                Label(s.displayName, systemImage: s.icon).tag(s)
+                            }
+                        }
                     }
                 }
             }
@@ -7287,7 +7366,7 @@ struct QuickAddShoppingItemView: View {
                     Button("Add") {
                         AuraHaptics.success()
                         if firstSupermarketList == nil {
-                            store.addGroupList(title: "Shopping List", kind: .supermarket, visibility: .family, sharedWithNames: [])
+                            store.addGroupList(title: "Shopping List", kind: .supermarket, visibility: newListVisibility, sharedWithNames: [])
                         }
                         if let target = store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first {
                             store.addItem(to: target.id, item: .init(name: name, quantity: quantity, note: "", isDone: false, assignedMemberId: assignedMemberId, preferredStore: preferredStore, dueDate: hasDueDate ? dueDate : nil, completedByName: nil, boughtAt: nil))
