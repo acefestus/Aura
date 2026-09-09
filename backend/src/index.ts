@@ -199,6 +199,10 @@ const transferOwnerSchema = z.object({
   userId: z.string().min(1)
 });
 
+const renameGroupSchema = z.object({
+  name: z.string().trim().min(1).max(80)
+});
+
 type AuthRequest = express.Request & { userId?: string };
 
 function isConfiguredAdminEmail(email: string) {
@@ -1406,6 +1410,33 @@ app.post("/groups/:groupId/transfer-owner", requireAuth, async (req: AuthRequest
   });
   await store.write(context.db);
   res.json({ membership: targetMembership });
+});
+
+app.patch("/groups/:groupId", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = renameGroupSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const context = await getGroupMemberContext(req, res, ["Owner"]);
+  if (!context) {
+    return;
+  }
+
+  const previousName = context.group.name;
+  context.group.name = parsed.data.name;
+
+  const legacyHousehold = context.db.households.find((h) => h.id === context.group.id);
+  if (legacyHousehold) {
+    legacyHousehold.name = parsed.data.name;
+  }
+
+  logGroupAuditEntry(context.db, context.userId, context.group.id, "group_renamed", {
+    details: `${previousName} -> ${parsed.data.name}`
+  });
+  await store.write(context.db);
+  res.json({ group: context.group });
 });
 
 app.post("/groups/:groupId/regenerate-code", requireAuth, async (req: AuthRequest, res) => {

@@ -2338,6 +2338,16 @@ actor AuraServerSyncEngine {
         try await request(baseURL: baseURL, path: "/groups/\(groupId)/regenerate-code", method: "POST", token: token, payload: EmptyPayload())
     }
 
+    func renameGroup(baseURL: String, token: String, groupId: String, name: String) async throws -> AuraRemoteGroupEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/groups/\(groupId)",
+            method: "PATCH",
+            token: token,
+            payload: ["name": name]
+        )
+    }
+
     func groupAudit(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteAuditResponse {
         try await request(baseURL: baseURL, path: "/groups/\(groupId)/audit", token: token)
     }
@@ -3946,6 +3956,30 @@ class EventStore: ObservableObject {
             return .success(response.group.code)
         } catch {
             return .failure(mapServerError(error, fallbackStatus: "Regenerate code failed"))
+        }
+    }
+
+    func renameGroup(groupId: String, name: String) async -> Result<Void, Error> {
+        guard hasServerSession else {
+            return .failure(AuraServerError.requestFailed("Sign in before renaming a group."))
+        }
+        guard serverGroups.first(where: { $0.group.id == groupId })?.membership.role == "Owner" else {
+            return .failure(AuraServerError.requestFailed("Only the group's owner can rename it."))
+        }
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else {
+            return .failure(AuraServerError.requestFailed("Group name cannot be empty."))
+        }
+        do {
+            _ = try await AuraServerSyncEngine.shared.renameGroup(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId, name: clean)
+            await refreshServerGroups()
+            if groupId == activeServerGroupId {
+                syncActiveGroupNameToWidget(clean)
+            }
+            syncStatus = "Group renamed"
+            return .success(())
+        } catch {
+            return .failure(mapServerError(error, fallbackStatus: "Rename group failed"))
         }
     }
 
@@ -7658,6 +7692,10 @@ struct GroupsHubView: View {
     @Binding var isPresented: Bool
     @State private var joinOrCreateMode: JoinOrCreateGroupView.Mode = .create
     @State private var showJoinOrCreate = false
+    @State private var renamingGroup: AuraRemoteGroupRecord?
+    @State private var renameText = ""
+    @State private var renameError = ""
+    @State private var isRenaming = false
 
     var columns: [GridItem] { [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)] }
 
@@ -7693,6 +7731,17 @@ struct GroupsHubView: View {
                                     GroupCard(record: record, isActive: record.group.id == store.activeServerGroupId)
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    if record.membership.role == "Owner" {
+                                        Button {
+                                            renameText = record.group.name
+                                            renameError = ""
+                                            renamingGroup = record
+                                        } label: {
+                                            Label("Rename Group", systemImage: "pencil")
+                                        }
+                                    }
+                                }
                             }
                         }
                         .padding(16)
@@ -7736,6 +7785,53 @@ struct GroupsHubView: View {
         .sheet(isPresented: $showJoinOrCreate) {
             JoinOrCreateGroupView(isPresented: $showJoinOrCreate, mode: joinOrCreateMode)
                 .environmentObject(store)
+        }
+        .sheet(item: $renamingGroup) { record in
+            NavigationView {
+                Form {
+                    Section {
+                        TextField("Group name", text: $renameText)
+                    }
+                    if !renameError.isEmpty {
+                        Section {
+                            Text(renameError).foregroundColor(.red).font(.system(size: 13))
+                        }
+                    }
+                }
+                .navigationTitle("Rename Group")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") { renamingGroup = nil }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        if isRenaming {
+                            ProgressView()
+                        } else {
+                            Button("Save") {
+                                let groupId = record.group.id
+                                let name = renameText
+                                isRenaming = true
+                                Task {
+                                    let result = await store.renameGroup(groupId: groupId, name: name)
+                                    await MainActor.run {
+                                        isRenaming = false
+                                        switch result {
+                                        case .success:
+                                            renamingGroup = nil
+                                        case .failure(let error):
+                                            renameError = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            }
+                            .fontWeight(.semibold)
+                            .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.height(220)])
         }
     }
 }
