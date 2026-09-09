@@ -2227,18 +2227,18 @@ actor AuraServerSyncEngine {
         )
     }
 
-    func uploadSnapshot(baseURL: String, token: String, payload: HouseholdSyncPayload) async throws -> AuraRemoteSnapshotEnvelope {
+    func uploadSnapshot(baseURL: String, token: String, groupId: String, payload: HouseholdSyncPayload) async throws -> AuraRemoteSnapshotEnvelope {
         try await request(
             baseURL: baseURL,
-            path: "/sync/snapshot",
+            path: "/sync/snapshot?groupId=\(groupId)",
             method: "PUT",
             token: token,
             payload: ["payload": payload]
         )
     }
 
-    func downloadSnapshot(baseURL: String, token: String) async throws -> HouseholdSyncPayload? {
-        let response: AuraRemoteSnapshotEnvelope = try await request(baseURL: baseURL, path: "/sync/snapshot", token: token)
+    func downloadSnapshot(baseURL: String, token: String, groupId: String) async throws -> HouseholdSyncPayload? {
+        let response: AuraRemoteSnapshotEnvelope = try await request(baseURL: baseURL, path: "/sync/snapshot?groupId=\(groupId)", token: token)
         return response.snapshot?.payload
     }
 
@@ -4191,11 +4191,11 @@ class EventStore: ObservableObject {
                 // and (the tradeoff) it can't distinguish "never had it" from
                 // "deleted it" -- a deletion on one device can still reappear if
                 // another device re-pushes its pre-deletion copy.
-                if let remote = try? await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken),
+                if let remote = try? await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId),
                    remote.updatedAt.timeIntervalSince1970 > groupLastSnapshot {
                     mergeMissingFromRemote(remote)
                 }
-                _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, payload: snapshotPayload())
+                _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId, payload: snapshotPayload())
             } else {
                 // CloudKit fallback disabled: the app ships with no iCloud/CloudKit
                 // entitlement, so CKContainer.default() traps immediately. Server
@@ -4246,7 +4246,7 @@ class EventStore: ObservableObject {
         do {
             let incoming: HouseholdSyncPayload?
             if hasServerGroup {
-                incoming = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken)
+                incoming = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId)
             } else {
                 // CloudKit fallback disabled: see pushSnapshot().
                 return

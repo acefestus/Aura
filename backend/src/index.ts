@@ -1802,17 +1802,50 @@ app.get("/households/current", requireAuth, async (req: AuthRequest, res) => {
   res.json({ household, membership });
 });
 
+// Resolves which snapshot bucket this request targets. Historically
+// /sync/snapshot only ever used the legacy single-household mapping
+// (Membership.householdId), which is only ever populated for a user's very
+// first group in their account's history -- any group created or joined
+// after that has no legacy household row at all, so this endpoint silently
+// read/wrote the WRONG group's data (or 404'd) for every group beyond a
+// user's first. This is why two members of the same (non-first) group never
+// saw each other's changes: they were never sharing a snapshot in the first
+// place. A client that sends ?groupId= gets scoped to that real group via
+// GroupMembership, checked properly for membership; a client that doesn't
+// (an older, not-yet-updated build) falls back to the old legacy lookup so
+// its primary group keeps working exactly as before.
+function resolveSnapshotGroupId(
+  db: Awaited<ReturnType<typeof store.read>>,
+  userId: string,
+  requestedGroupId: unknown
+): { groupId: string } | { error: string; status: number } {
+  if (typeof requestedGroupId === "string" && requestedGroupId.length > 0) {
+    const isMember = db.groupMemberships.some(
+      (candidate) => candidate.userId === userId && candidate.groupId === requestedGroupId
+    );
+    if (!isMember) {
+      return { error: "Not a member of this group", status: 403 };
+    }
+    return { groupId: requestedGroupId };
+  }
+  const membership = db.memberships.find((candidate) => candidate.userId === userId);
+  if (!membership) {
+    return { error: "No household membership", status: 404 };
+  }
+  return { groupId: membership.householdId };
+}
+
 app.get("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   const db = await store.read();
   if (enforceAdminOwnerMembership(db, req.userId!)) {
     await store.write(db);
   }
-  const membership = db.memberships.find((candidate) => candidate.userId === req.userId) ?? null;
-  if (!membership) {
-    res.status(404).json({ error: "No household membership" });
+  const resolved = resolveSnapshotGroupId(db, req.userId!, req.query.groupId);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
     return;
   }
-  const snapshot = db.snapshots.find((candidate) => candidate.householdId === membership.householdId) ?? null;
+  const snapshot = db.snapshots.find((candidate) => candidate.householdId === resolved.groupId) ?? null;
   res.json({ snapshot });
 });
 
@@ -1826,20 +1859,20 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   if (enforceAdminOwnerMembership(db, req.userId!)) {
     await store.write(db);
   }
-  const membership = db.memberships.find((m) => m.userId === req.userId);
-  if (!membership) {
-    res.status(404).json({ error: "No household membership" });
+  const resolved = resolveSnapshotGroupId(db, req.userId!, req.query.groupId);
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
     return;
   }
   const user = db.users.find((candidate) => candidate.id === req.userId);
   const snapshot: HouseholdSnapshot = {
-    householdId: membership.householdId,
+    householdId: resolved.groupId,
     updatedAt: new Date().toISOString(),
     updatedBy: user?.displayName ?? "Unknown",
     payload: parsed.data.payload
   };
 
-  const index = db.snapshots.findIndex((candidate) => candidate.householdId === membership.householdId);
+  const index = db.snapshots.findIndex((candidate) => candidate.householdId === resolved.groupId);
   if (index >= 0) {
     db.snapshots[index] = snapshot;
   } else {
