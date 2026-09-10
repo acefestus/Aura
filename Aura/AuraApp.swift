@@ -3722,11 +3722,19 @@ class EventStore: ObservableObject {
                 syncStatus = "Network unavailable"
                 return serverError
             default:
-                syncStatus = fallbackStatus
+                // The fallback string alone ("Server sync pull failed") gave no
+                // way to tell a 403/404 from a decoding error from a timeout --
+                // every distinct failure looked identical in the UI, which is
+                // exactly what made this genuinely hard to diagnose remotely.
+                if let detail = serverError.errorDescription, !detail.isEmpty {
+                    syncStatus = "\(fallbackStatus): \(detail)"
+                } else {
+                    syncStatus = fallbackStatus
+                }
                 return serverError
             }
         }
-        syncStatus = fallbackStatus
+        syncStatus = "\(fallbackStatus): \(error.localizedDescription)"
         return error
     }
 
