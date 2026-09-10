@@ -4305,6 +4305,19 @@ class EventStore: ObservableObject {
             groupLastSnapshot = incoming.updatedAt.timeIntervalSince1970
             syncStatus = hasServerGroup ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
         } catch {
+            if case AuraServerError.invalidResponse = error {
+                // The stored snapshot's JSON didn't decode as HouseholdSyncPayload --
+                // some field this build's Codable conformance requires wasn't there
+                // (an older/incompatible copy, most likely from before this session's
+                // schema changes). That blob will fail to decode on EVERY future pull
+                // too, from either device, forever, unless something overwrites it --
+                // so rather than surface a permanent, unactionable "sync failed"
+                // error, push this device's current valid data over it so the next
+                // pull (from either side) succeeds.
+                print("[Aurenda] Pulled snapshot didn't decode -- pushing current data to replace it.")
+                await pushSnapshot()
+                return
+            }
             _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync pull failed" : "Sync pull failed")
         }
     }
