@@ -2001,7 +2001,27 @@ actor AuraServerSyncEngine {
     ) async throws -> Response {
         let base = try normalizedBaseURL(baseURL)
         let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        let url = base.appending(path: cleanPath)
+        // URL.appending(path:) treats its argument as one literal path segment --
+        // it percent-encodes "?" rather than treating it as the query delimiter,
+        // so a path like "sync/snapshot?groupId=..." silently became a URL with
+        // "%3F" baked into the path itself and matched no server route at all.
+        // Split off any query string first and attach it properly.
+        let pathOnly: String
+        let queryString: String?
+        if let qIndex = cleanPath.firstIndex(of: "?") {
+            pathOnly = String(cleanPath[cleanPath.startIndex..<qIndex])
+            queryString = String(cleanPath[cleanPath.index(after: qIndex)...])
+        } else {
+            pathOnly = cleanPath
+            queryString = nil
+        }
+        var url = base.appending(path: pathOnly)
+        if let queryString, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.percentEncodedQuery = queryString
+            if let composed = components.url {
+                url = composed
+            }
+        }
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
