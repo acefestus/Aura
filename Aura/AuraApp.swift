@@ -147,7 +147,14 @@ struct AuraAppShellView: View {
             if ready { checkPendingImports() }
         }
         .onChange(of: scenePhase) { phase in
-            if phase == .active && readyForImports { checkPendingImports() }
+            if phase == .active && readyForImports {
+                checkPendingImports()
+                // Pulling right when the app comes back to the foreground
+                // means whatever another group member added while this
+                // device was away shows up immediately, instead of waiting
+                // for the next periodic poll (up to ~6s later).
+                store.forceSyncNow()
+            }
         }
     }
 }
