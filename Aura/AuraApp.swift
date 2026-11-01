@@ -1,6 +1,5 @@
 // ============================================================
 //  Aura — Premium Calendar & Reminder App
-//  Single-file SwiftUI implementation
 //  Minimum: iOS 16  |  No third-party dependencies
 //  Sideload via AltStore, Sideloadly, or direct Xcode install
 // ============================================================
@@ -186,7 +185,7 @@ struct AuraSplashScreen: View {
     }
 }
 
-private struct AuraHeroGroupImage: View {
+struct AuraHeroGroupImage: View {
     let fallbackIcon: String
 
     var body: some View {
@@ -392,6 +391,7 @@ struct AuraAuthGatewayView: View {
     @State private var message = ""
     @State private var isWorking = false
     @State private var biometricLabel = ""
+    @State private var showForgotPassword = false
 
     var body: some View {
         ZStack {
@@ -440,6 +440,13 @@ struct AuraAuthGatewayView: View {
 
                             authField(icon: "lock.fill") {
                                 AuraSecureField(placeholder: "Password", text: $password, promptColor: .white.opacity(0.9))
+                            }
+
+                            if mode == .signIn {
+                                Button("Forgot password?") { showForgotPassword = true }
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
 
                             if mode == .create {
@@ -665,6 +672,9 @@ struct AuraAuthGatewayView: View {
             store.updateBackendBaseURL(backendBaseURL)
             updateBiometricLabel()
         }
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView(email: email).environmentObject(store)
+        }
     }
 
     private var modeToggle: some View {
@@ -813,6 +823,107 @@ struct AuraAuthGatewayView: View {
     }
 }
 
+/// Reset by emailed code: request a code, then enter it with a new password.
+/// Success signs the user straight in.
+struct ForgotPasswordView: View {
+    @EnvironmentObject var store: EventStore
+    @Environment(\.dismiss) var dismiss
+    @State var email: String
+    @State private var code = ""
+    @State private var newPassword = ""
+    @State private var codeSent = false
+    @State private var isWorking = false
+    @State private var message = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.emailAddress)
+                        .disabled(codeSent)
+                } footer: {
+                    Text(codeSent
+                         ? "If an account uses this email, a 6-digit code is on its way. It expires in 15 minutes."
+                         : "We'll email you a 6-digit code.")
+                }
+                if codeSent {
+                    Section {
+                        TextField("6-digit code", text: $code)
+                            .keyboardType(.numberPad)
+                            .textContentType(.oneTimeCode)
+                        AuraSecureField(placeholder: "New password (min 8)", text: $newPassword)
+                    }
+                }
+                if !message.isEmpty {
+                    Section {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                }
+                Section {
+                    Button(codeSent ? "Reset Password" : "Send Code") {
+                        Task { await submit() }
+                    }
+                    .disabled(isWorking || !canSubmit)
+                    if codeSent {
+                        Button("Send a new code") {
+                            code = ""
+                            Task { await sendCode() }
+                        }
+                        .disabled(isWorking)
+                    }
+                }
+            }
+            .navigationTitle("Reset Password")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var canSubmit: Bool {
+        let hasEmail = email.contains("@")
+        return codeSent ? hasEmail && code.count == 6 && newPassword.count >= 8 : hasEmail
+    }
+
+    private func submit() async {
+        if codeSent {
+            isWorking = true
+            let result = await store.resetPassword(email: email, code: code, newPassword: newPassword)
+            isWorking = false
+            switch result {
+            case .success:
+                AuraHaptics.success()
+                dismiss()
+            case .failure(let error):
+                message = error.localizedDescription
+            }
+        } else {
+            await sendCode()
+        }
+    }
+
+    private func sendCode() async {
+        isWorking = true
+        message = ""
+        let result = await store.requestPasswordReset(email: email)
+        isWorking = false
+        switch result {
+        case .success:
+            codeSent = true
+        case .failure(let error):
+            message = error.localizedDescription
+        }
+    }
+}
+
 /// A password field with a show/hide toggle -- plain SecureField/TextField
 /// give no way to check what you typed before submitting. `promptColor` is
 /// only for fields on a dark/custom background (like the auth gateway); leave
@@ -856,7 +967,7 @@ struct AuraSecureField: View {
     }
 }
 
-private struct AuraAuthBackgroundSlideshow: View {
+struct AuraAuthBackgroundSlideshow: View {
     let mode: String
     @State private var slideIndex = 0
 
@@ -939,7 +1050,7 @@ private struct AuraAuthBackgroundSlideshow: View {
     }
 }
 
-private extension View {
+extension View {
     func authInputStyle() -> some View {
         self
             .foregroundColor(.white)
@@ -1153,11 +1264,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NotificationManager.shared.configureReminderCategories()
+        application.registerForRemoteNotifications()
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        UserDefaults.standard.set(token, forKey: "aura.apnsToken")
+        NotificationCenter.default.post(name: .auraPushTokenUpdated, object: nil)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("[Aurenda] Push registration failed: \(error.localizedDescription)")
+    }
+
+    private func isGroupPush(_ notification: UNNotification) -> Bool {
+        notification.request.trigger is UNPushNotificationTrigger
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Another member's change, not a reminder: a normal banner, and pull it in.
+        if isGroupPush(notification) {
+            NotificationCenter.default.post(name: .auraRemoteChange, object: nil)
+            completionHandler([.banner, .list, .sound])
+            return
+        }
+
         let enabled = UserDefaults.standard.object(forKey: "enableInAppBanner") == nil
             ? true
             : UserDefaults.standard.bool(forKey: "enableInAppBanner")
@@ -1183,7 +1316,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        NotificationManager.shared.handleNotificationResponse(response)
+        if isGroupPush(response.notification) {
+            NotificationCenter.default.post(name: .auraRemoteChange, object: nil)
+        } else {
+            NotificationManager.shared.handleNotificationResponse(response)
+        }
         completionHandler()
     }
 }
@@ -1298,7 +1435,7 @@ struct AuraSoftPressButtonStyle: ButtonStyle {
     }
 }
 
-private extension View {
+extension View {
     func auraGlassCard(radius: CGFloat = AuraDesignTokens.Radius.md) -> some View {
         let p = AuraThemePalette.current
         return self
@@ -1366,6 +1503,10 @@ struct AuraAtmosphericBackground: View {
 
 extension Notification.Name {
     static let auraInAppBanner = Notification.Name("AuraInAppBanner")
+    /// A push said another member changed shared data.
+    static let auraRemoteChange = Notification.Name("AuraRemoteChange")
+    /// APNs handed this device a (new) push token.
+    static let auraPushTokenUpdated = Notification.Name("AuraPushTokenUpdated")
 }
 
 enum AuraMotion {
@@ -1424,6 +1565,9 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     var visibility:      VisibilityScope = .family
     var sharedWithNames: [String]     = []
     var assignedMemberIds: [UUID]     = []
+    // Optional so payloads written before these existed still decode.
+    var createdByUserId: String?      = nil
+    var modifiedAt:      Date?        = nil
 
     static func == (l: Self, r: Self) -> Bool { l.id == r.id }
 }
@@ -1583,6 +1727,8 @@ struct GroupListItem: Identifiable, Codable, Equatable {
     var dueDate: Date? = nil
     var completedByName: String? = nil
     var boughtAt: Date? = nil
+    var createdByUserId: String? = nil
+    var modifiedAt: Date? = nil
 }
 
 struct GroupList: Identifiable, Codable, Equatable {
@@ -1594,6 +1740,8 @@ struct GroupList: Identifiable, Codable, Equatable {
     var ownerName: String = ""
     var visibility: VisibilityScope = .family
     var sharedWithNames: [String] = []
+    var createdByUserId: String? = nil
+    var modifiedAt: Date? = nil
 }
 
 /// A multi-step project with a target date -- distinct from a CalendarEvent
@@ -1610,11 +1758,46 @@ struct GroupPlan: Identifiable, Codable, Equatable {
     var ownerName: String = ""
     var visibility: VisibilityScope = .family
     var sharedWithNames: [String] = []
+    var createdByUserId: String? = nil
+    var modifiedAt: Date? = nil
 
     var progress: Double {
         guard !items.isEmpty else { return 0 }
         return Double(items.filter(\.isDone).count) / Double(items.count)
     }
+}
+
+/// A shop items can be bought at. Each group builds its own list.
+struct GroupStore: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var name: String
+    var createdByUserId: String? = nil
+    var modifiedAt: Date? = nil
+}
+
+/// A member's suggested change to something someone else created. Only the
+/// creator can approve (which applies it) or decline it.
+struct EditProposal: Identifiable, Codable, Equatable {
+    enum Kind: String, Codable { case event, listItem, planItem, listTitle, planTitle }
+    enum Status: String, Codable { case pending, approved, declined, withdrawn }
+
+    var id = UUID()
+    var kind: Kind
+    var targetId: UUID
+    /// The list or plan an item belongs to.
+    var parentId: UUID? = nil
+    var targetTitle: String
+    var proposedEvent: CalendarEvent? = nil
+    var proposedItem: GroupListItem? = nil
+    var proposedTitle: String? = nil
+    var proposerUserId: String
+    var proposerName: String
+    var targetOwnerUserId: String? = nil
+    var targetOwnerName: String
+    var status: Status = .pending
+    var createdAt: Date
+    var resolvedAt: Date? = nil
+    var modifiedAt: Date? = nil
 }
 
 struct GroupStepSnapshot: Identifiable, Codable, Equatable {
@@ -1647,6 +1830,12 @@ struct HouseholdSyncPayload: Codable {
     var groupLists: [GroupList]
     var groupActivities: [GroupActivity]
     var stepSnapshots: [GroupStepSnapshot]
+    var groupPlans: [GroupPlan] = []
+    var stores: [GroupStore] = []
+    var proposals: [EditProposal] = []
+    /// Deleted record id -> when. A record missing from a snapshot only means
+    /// that device never had it; a tombstone is what makes a delete stick.
+    var deletedIds: [String: Date] = [:]
 
     private enum CodingKeys: String, CodingKey {
         case updatedAt
@@ -1659,6 +1848,10 @@ struct HouseholdSyncPayload: Codable {
         case stepSnapshots
         case familyLists
         case familyActivities
+        case groupPlans
+        case stores
+        case proposals
+        case deletedIds
     }
 
     init(
@@ -1669,7 +1862,11 @@ struct HouseholdSyncPayload: Codable {
         members: [GroupMember],
         groupLists: [GroupList],
         groupActivities: [GroupActivity],
-        stepSnapshots: [GroupStepSnapshot]
+        stepSnapshots: [GroupStepSnapshot],
+        groupPlans: [GroupPlan] = [],
+        stores: [GroupStore] = [],
+        proposals: [EditProposal] = [],
+        deletedIds: [String: Date] = [:]
     ) {
         self.updatedAt = updatedAt
         self.updatedBy = updatedBy
@@ -1679,6 +1876,10 @@ struct HouseholdSyncPayload: Codable {
         self.groupLists = groupLists
         self.groupActivities = groupActivities
         self.stepSnapshots = stepSnapshots
+        self.groupPlans = groupPlans
+        self.stores = stores
+        self.proposals = proposals
+        self.deletedIds = deletedIds
     }
 
     init(from decoder: Decoder) throws {
@@ -1695,6 +1896,10 @@ struct HouseholdSyncPayload: Codable {
             ?? container.decodeIfPresent([GroupActivity].self, forKey: .familyActivities)
             ?? []
         stepSnapshots = try container.decodeIfPresent([GroupStepSnapshot].self, forKey: .stepSnapshots) ?? []
+        groupPlans = try container.decodeIfPresent([GroupPlan].self, forKey: .groupPlans) ?? []
+        stores = try container.decodeIfPresent([GroupStore].self, forKey: .stores) ?? []
+        proposals = try container.decodeIfPresent([EditProposal].self, forKey: .proposals) ?? []
+        deletedIds = try container.decodeIfPresent([String: Date].self, forKey: .deletedIds) ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1708,6 +1913,10 @@ struct HouseholdSyncPayload: Codable {
         try container.encode(groupLists, forKey: .familyLists)
         try container.encode(groupActivities, forKey: .familyActivities)
         try container.encode(stepSnapshots, forKey: .stepSnapshots)
+        try container.encode(groupPlans, forKey: .groupPlans)
+        try container.encode(stores, forKey: .stores)
+        try container.encode(proposals, forKey: .proposals)
+        try container.encode(deletedIds, forKey: .deletedIds)
     }
 }
 
@@ -1788,38 +1997,6 @@ struct AuraRemoteGroupPayloadRecord: Codable, Identifiable {
     var payload: [String: String]
 }
 
-struct AuraRemoteGroupEventsResponse: Codable {
-    var events: [AuraRemoteGroupPayloadRecord]
-}
-
-struct AuraRemoteGroupListsResponse: Codable {
-    var lists: [AuraRemoteGroupPayloadRecord]
-}
-
-struct AuraRemoteGroupPlansResponse: Codable {
-    var plans: [AuraRemoteGroupPayloadRecord]
-}
-
-struct AuraRemoteGroupRoutinesResponse: Codable {
-    var routines: [AuraRemoteGroupPayloadRecord]
-}
-
-struct AuraRemoteGroupEventEnvelope: Codable {
-    var event: AuraRemoteGroupPayloadRecord
-}
-
-struct AuraRemoteGroupListEnvelope: Codable {
-    var list: AuraRemoteGroupPayloadRecord
-}
-
-struct AuraRemoteGroupPlanEnvelope: Codable {
-    var plan: AuraRemoteGroupPayloadRecord
-}
-
-struct AuraRemoteGroupRoutineEnvelope: Codable {
-    var routine: AuraRemoteGroupPayloadRecord
-}
-
 struct AuraRemotePersonalAggregateItem: Codable, Identifiable {
     var id: String
     var groupId: String
@@ -1883,13 +2060,17 @@ struct AuraRemoteCurrentHouseholdResponse: Codable {
 
 struct AuraRemoteSnapshotRecord: Codable {
     var householdId: String
-    var updatedAt: Date
+    /// Kept as the server's exact string: it's echoed back as `since` to ask
+    /// "anything new?", which the server answers by string equality.
+    var updatedAt: String
     var updatedBy: String
     var payload: HouseholdSyncPayload
 }
 
 struct AuraRemoteSnapshotEnvelope: Codable {
     var snapshot: AuraRemoteSnapshotRecord?
+    /// Set when the request passed `since` and nothing has changed.
+    var unchanged: Bool? = nil
 }
 
 struct AuraRemoteUserEnvelope: Codable {
@@ -2141,6 +2322,33 @@ actor AuraServerSyncEngine {
         try await request(baseURL: baseURL, path: "/me", token: token)
     }
 
+    func requestPasswordReset(baseURL: String, email: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(baseURL: baseURL, path: "/auth/forgot-password", method: "POST", payload: ["email": email])
+    }
+
+    func resetPassword(baseURL: String, email: String, code: String, newPassword: String) async throws -> AuraRemoteAuthResponse {
+        try await request(
+            baseURL: baseURL,
+            path: "/auth/reset-password",
+            method: "POST",
+            payload: ["email": email, "code": code, "newPassword": newPassword]
+        )
+    }
+
+    func registerDevice(baseURL: String, token: String, deviceToken: String, environment: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(
+            baseURL: baseURL,
+            path: "/me/devices",
+            method: "POST",
+            token: token,
+            payload: ["token": deviceToken, "environment": environment]
+        )
+    }
+
+    func unregisterDevice(baseURL: String, token: String, deviceToken: String) async throws -> AuraRemoteOkEnvelope {
+        try await request(baseURL: baseURL, path: "/me/devices/\(deviceToken)", method: "DELETE", token: token)
+    }
+
     func currentHousehold(baseURL: String, token: String) async throws -> AuraRemoteCurrentHouseholdResponse {
         try await request(baseURL: baseURL, path: "/households/current", token: token)
     }
@@ -2169,62 +2377,6 @@ actor AuraServerSyncEngine {
         )
     }
 
-    func groupEvents(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupEventsResponse {
-        try await request(baseURL: baseURL, path: "/groups/\(groupId)/events", token: token)
-    }
-
-    func createGroupEvent(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupEventEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/groups/\(groupId)/events",
-            method: "POST",
-            token: token,
-            payload: ["payload": payload]
-        )
-    }
-
-    func groupLists(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupListsResponse {
-        try await request(baseURL: baseURL, path: "/groups/\(groupId)/lists", token: token)
-    }
-
-    func createGroupList(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupListEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/groups/\(groupId)/lists",
-            method: "POST",
-            token: token,
-            payload: ["payload": payload]
-        )
-    }
-
-    func groupPlans(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupPlansResponse {
-        try await request(baseURL: baseURL, path: "/groups/\(groupId)/plans", token: token)
-    }
-
-    func createGroupPlan(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupPlanEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/groups/\(groupId)/plans",
-            method: "POST",
-            token: token,
-            payload: ["payload": payload]
-        )
-    }
-
-    func groupRoutines(baseURL: String, token: String, groupId: String) async throws -> AuraRemoteGroupRoutinesResponse {
-        try await request(baseURL: baseURL, path: "/groups/\(groupId)/routines", token: token)
-    }
-
-    func createGroupRoutine(baseURL: String, token: String, groupId: String, payload: [String: String]) async throws -> AuraRemoteGroupRoutineEnvelope {
-        try await request(
-            baseURL: baseURL,
-            path: "/groups/\(groupId)/routines",
-            method: "POST",
-            token: token,
-            payload: ["payload": payload]
-        )
-    }
-
     func personalMasterCalendar(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
         try await request(baseURL: baseURL, path: "/me/master-calendar", token: token)
     }
@@ -2239,10 +2391,6 @@ actor AuraServerSyncEngine {
 
     func personalRoutines(baseURL: String, token: String) async throws -> AuraRemotePersonalAggregateResponse {
         try await request(baseURL: baseURL, path: "/me/routines", token: token)
-    }
-
-    func personalConflicts(baseURL: String, token: String) async throws -> AuraRemoteConflictsResponse {
-        try await request(baseURL: baseURL, path: "/me/conflicts", token: token)
     }
 
     func conflictCheck(baseURL: String, token: String) async throws -> AuraRemoteConflictsResponse {
@@ -2288,9 +2436,12 @@ actor AuraServerSyncEngine {
         )
     }
 
-    func downloadSnapshot(baseURL: String, token: String, groupId: String) async throws -> HouseholdSyncPayload? {
-        let response: AuraRemoteSnapshotEnvelope = try await request(baseURL: baseURL, path: "/sync/snapshot?groupId=\(groupId)", token: token)
-        return response.snapshot?.payload
+    func downloadSnapshot(baseURL: String, token: String, groupId: String, since: String?) async throws -> AuraRemoteSnapshotEnvelope {
+        var path = "/sync/snapshot?groupId=\(groupId)"
+        if let since, let encoded = since.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            path += "&since=\(encoded)"
+        }
+        return try await request(baseURL: baseURL, path: path, token: token)
     }
 
     func updateProfile(baseURL: String, token: String, displayName: String) async throws -> AuraRemoteUserEnvelope {
@@ -2404,7 +2555,7 @@ actor AuraServerSyncEngine {
     }
 }
 
-private struct EmptyPayload: Encodable {}
+struct EmptyPayload: Encodable {}
 
 @MainActor
 final class ShareManager: ObservableObject {
@@ -2702,6 +2853,10 @@ class EventStore: ObservableObject {
     @Published var members: [GroupMember] = []
     @Published var groupLists: [GroupList] = []
     @Published var groupPlans: [GroupPlan] = []
+    @Published var groupStores: [GroupStore] = []
+    @Published var proposals: [EditProposal] = []
+    private(set) var deletedIds: [String: Date] = [:]
+    private var hasPendingPush = false
     @Published var groupActivities: [GroupActivity] = []
     @Published var groupStepSnapshots: [GroupStepSnapshot] = []
     @Published var activeActivitySession: LiveGroupActivitySession? = nil
@@ -2727,14 +2882,13 @@ class EventStore: ObservableObject {
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
     @AppStorage("activeFamilyMemberId") private var activeMemberId = ""
     @AppStorage("householdCode") private var householdCode = ""
-    @AppStorage("householdLastSnapshot") private var groupLastSnapshot = 0.0
+    @AppStorage("backendUserId") private var storedUserId = ""
     @AppStorage("backendBaseURL") private var backendBaseURL = ""
     @AppStorage("backendAuthToken") private var backendAuthToken = ""
     @AppStorage("backendAccountEmail") private var backendAccountEmail = ""
     @AppStorage("backendHouseholdId") private var backendGroupId = ""
     @AppStorage("backendHouseholdName") private var backendStoredGroupName = ""
     @AppStorage("activeGroupId") private var activeGroupId = ""
-    @AppStorage("viewAsMemberName") private var viewAsMemberName = ""
     @AppStorage("shareDailySteps") private var shareDailySteps = false
     @AppStorage("dailyStepVisibility") private var dailyStepVisibilityRaw = VisibilityScope.personal.rawValue
     @AppStorage("dailyStepSharedWithNames") private var dailyStepSharedWithNamesRaw = ""
@@ -2748,6 +2902,9 @@ class EventStore: ObservableObject {
     private let fKey = "aura.familyActivities"
     private let sKey = "aura.familyStepSnapshots"
     private let liveActivityKey = "aura.liveFamilyActivity"
+    private let storesKey = "aura.groupStores"
+    private let proposalsKey = "aura.proposals"
+    private let deletedKey = "aura.deletedIds"
     private var shared: UserDefaults { UserDefaults(suiteName: "group.com.personal.aura") ?? .standard }
     private var syncDebounceTask: Task<Void, Never>? = nil
     private var periodicPullTask: Task<Void, Never>? = nil
@@ -2766,10 +2923,7 @@ class EventStore: ObservableObject {
         return members.first(where: { $0.id == id })
     }
 
-    var currentViewerName: String {
-        let clean = viewAsMemberName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return clean.isEmpty ? activeProfileName : clean
-    }
+    var currentViewerName: String { activeProfileName }
 
     var dailyStepVisibility: VisibilityScope {
         VisibilityScope(rawValue: dailyStepVisibilityRaw) ?? .personal
@@ -2824,7 +2978,7 @@ class EventStore: ObservableObject {
 
     func setActiveServerGroup(id: String) {
         guard let selected = serverGroups.first(where: { $0.group.id == id }) else { return }
-        activeGroupId = selected.group.id
+        changeActiveGroup(to: selected.group.id)
         backendGroupId = selected.group.id
         backendStoredGroupName = selected.group.name
         serverGroupName = selected.group.name
@@ -2864,7 +3018,11 @@ class EventStore: ObservableObject {
         loadGroupPlans()
         loadGroupActivities()
         loadGroupStepSnapshots()
+        loadGroupStores()
+        loadProposals()
+        loadDeletedIds()
         loadLiveActivitySession()
+        serverUserId = storedUserId
         serverAccountEmail = backendAccountEmail
         serverGroupName = backendStoredGroupName
         if hasServerSession {
@@ -2873,6 +3031,12 @@ class EventStore: ObservableObject {
             }
         }
         _ = runDataIntegritySweep()
+        NotificationCenter.default.addObserver(forName: .auraRemoteChange, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.pullSnapshot() }
+        }
+        NotificationCenter.default.addObserver(forName: .auraPushTokenUpdated, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.registerPushTokenIfPossible() }
+        }
         startPeriodicPull()
         queueSyncPush()
         refreshDailyStepsIfEnabled()
@@ -2934,6 +3098,7 @@ class EventStore: ObservableObject {
             events[i].categoryId = replacement
         }
         categories.removeAll { $0.id == id }
+        recordDeletion([id])
         saveCats()
         saveEvents()
     }
@@ -2953,21 +3118,36 @@ class EventStore: ObservableObject {
         if !applyingRemoteSnapshot { queueSyncPush() }
     }
     func addEvent(_ e: CalendarEvent) {
+        var e = e
+        e.createdByUserId = currentUserId.isEmpty ? nil : currentUserId
+        e.modifiedAt = Date()
         events.append(e)
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
         scheduleReminderIfNeeded(e)
-        pushEventToActiveGroup(e)
     }
-    func updateEvent(_ e: CalendarEvent) {
-        guard let i = events.firstIndex(where: { $0.id == e.id }) else { return }
-        guard events[i].sharePermission == .edit else { return }
+
+    enum EditOutcome { case applied, proposed, notAllowed }
+
+    /// The creator's edits apply directly; anyone else's become a request the
+    /// creator approves or declines.
+    @discardableResult
+    func updateEvent(_ e: CalendarEvent) -> EditOutcome {
+        guard let i = events.firstIndex(where: { $0.id == e.id }) else { return .notAllowed }
+        guard events[i].sharePermission == .edit else { return .notAllowed }
+        guard canEdit(events[i]) else {
+            proposeEventChange(original: events[i], proposed: e)
+            return .proposed
+        }
+        var e = e
+        e.createdByUserId = events[i].createdByUserId
+        e.modifiedAt = Date()
         NotificationManager.shared.cancel(e.id)
         events[i] = e
         events.sort { $0.startDate < $1.startDate }
         saveEvents()
         scheduleReminderIfNeeded(e)
-        pushEventToActiveGroup(e)
+        return .applied
     }
 
     /// Schedules a reminder and, unlike a bare fire-and-forget call, actually
@@ -2998,42 +3178,11 @@ class EventStore: ObservableObject {
         }
     }
 
-    /// Mirrors a locally-created/updated event into the active group's shared
-    /// calendar so the Personal tab and conflict detection have real data to
-    /// read (they only read from group-scoped records, never local events).
-    private func pushEventToActiveGroup(_ e: CalendarEvent) {
-        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
-        let groupId = activeServerGroupId
-        let baseURL = currentBackendBaseURL
-        let token = backendAuthToken
-        let iso = ISO8601DateFormatter()
-        let payload: [String: String] = [
-            "id": e.id.uuidString,
-            "title": e.title,
-            "notes": e.notes,
-            "startDate": iso.string(from: e.startDate),
-            "endDate": iso.string(from: e.endDate),
-            "isAllDay": e.isAllDay ? "true" : "false",
-            "location": e.location
-        ]
-        Task {
-            _ = try? await AuraServerSyncEngine.shared.createGroupEvent(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
-        }
-
-        guard e.recurrence != .none else { return }
-        let routinePayload: [String: String] = [
-            "id": e.id.uuidString,
-            "title": e.title,
-            "cadence": e.recurrence.rawValue
-        ]
-        Task {
-            _ = try? await AuraServerSyncEngine.shared.createGroupRoutine(baseURL: baseURL, token: token, groupId: groupId, payload: routinePayload)
-        }
-    }
     func deleteEvent(id: UUID) {
-        if let e = events.first(where: { $0.id == id }), e.sharePermission == .view { return }
+        guard let e = events.first(where: { $0.id == id }), e.sharePermission != .view, canDelete(e) else { return }
         NotificationManager.shared.cancel(id)
         events.removeAll { $0.id == id }
+        recordDeletion([id])
         saveEvents()
     }
 
@@ -3211,6 +3360,10 @@ class EventStore: ObservableObject {
             }
             e.sharedBy = env.senderName
             e.sharePermission = env.permission
+            // Whoever imports it into this group is its creator here.
+            e.createdByUserId = currentUserId.isEmpty ? nil : currentUserId
+            e.ownerName = activeProfileName
+            e.modifiedAt = Date()
 
             if let i = events.firstIndex(where: { $0.id == e.id }) {
                 events[i] = e
@@ -3248,7 +3401,9 @@ class EventStore: ObservableObject {
 
     func revokeSharedEvent(id: UUID) {
         let evt = events.first(where: { $0.id == id })
+        if let evt, !canDelete(evt) { return }
         events.removeAll { $0.id == id }
+        recordDeletion([id])
         NotificationManager.shared.cancel(id)
         if let e = evt {
             recordSharedActivity(.init(
@@ -3394,11 +3549,6 @@ class EventStore: ObservableObject {
         }
     }
 
-    func setViewerName(_ name: String) {
-        viewAsMemberName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        objectWillChange.send()
-    }
-
     // ── Shared Group Lists ─────────────────────────────────
     func loadGroupLists() {
         // No auto-seeded list here on purpose, same reasoning as loadMembers():
@@ -3418,12 +3568,7 @@ class EventStore: ObservableObject {
     }
 
     func addGroupList(title: String, kind: GroupListKind) {
-        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty else { return }
-        let list = GroupList(title: clean, kind: kind, createdAt: Date(), items: [], ownerName: activeProfileName, visibility: .family, sharedWithNames: [])
-        groupLists.insert(list, at: 0)
-        saveGroupLists()
-        pushListToActiveGroup(list)
+        addGroupList(title: title, kind: kind, visibility: .family, sharedWithNames: [])
     }
 
     func addGroupList(title: String, kind: GroupListKind, visibility: VisibilityScope, sharedWithNames: [String]) {
@@ -3437,63 +3582,85 @@ class EventStore: ObservableObject {
             items: [],
             ownerName: activeProfileName,
             visibility: visibility,
-            sharedWithNames: allowed
+            sharedWithNames: allowed,
+            createdByUserId: currentUserId.isEmpty ? nil : currentUserId,
+            modifiedAt: Date()
         )
         groupLists.insert(list, at: 0)
         saveGroupLists()
-        pushListToActiveGroup(list)
-    }
-
-    /// Mirrors a locally-created list into the active group's shared lists so
-    /// the Personal tab has real data to read (it only reads group-scoped
-    /// records, never local lists).
-    private func pushListToActiveGroup(_ list: GroupList) {
-        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
-        let groupId = activeServerGroupId
-        let baseURL = currentBackendBaseURL
-        let token = backendAuthToken
-        let payload: [String: String] = [
-            "id": list.id.uuidString,
-            "title": list.title,
-            "kind": list.kind.rawValue
-        ]
-        Task {
-            _ = try? await AuraServerSyncEngine.shared.createGroupList(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
-        }
     }
 
     func deleteGroupList(id: UUID) {
+        guard let list = groupLists.first(where: { $0.id == id }), canDelete(list) else { return }
         groupLists.removeAll { $0.id == id }
+        recordDeletion([id] + list.items.map(\.id))
         saveGroupLists()
     }
 
+    func renameGroupList(id: UUID, title: String) -> EditOutcome {
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, let i = groupLists.firstIndex(where: { $0.id == id }) else { return .notAllowed }
+        guard canEdit(groupLists[i]) else {
+            submitProposal(.init(
+                kind: .listTitle, targetId: id, targetTitle: groupLists[i].title, proposedTitle: clean,
+                proposerUserId: currentUserId, proposerName: activeProfileName,
+                targetOwnerUserId: groupLists[i].createdByUserId, targetOwnerName: groupLists[i].ownerName,
+                createdAt: Date()
+            ))
+            return .proposed
+        }
+        groupLists[i].title = clean
+        groupLists[i].modifiedAt = Date()
+        saveGroupLists()
+        return .applied
+    }
+
+    /// Anyone may add to a shared list.
     func addItem(to listId: UUID, item: GroupListItem) {
         guard let i = groupLists.firstIndex(where: { $0.id == listId }) else { return }
-        groupLists[i].items.append(item)
+        groupLists[i].items.append(stamped(item))
+        rememberStore(item.preferredStore)
         saveGroupLists()
     }
 
-    func updateItem(listId: UUID, item: GroupListItem) {
+    @discardableResult
+    func updateItem(listId: UUID, item: GroupListItem) -> EditOutcome {
         guard let i = groupLists.firstIndex(where: { $0.id == listId }),
               let j = groupLists[i].items.firstIndex(where: { $0.id == item.id })
-        else { return }
-        groupLists[i].items[j] = item
+        else { return .notAllowed }
+        let original = groupLists[i].items[j]
+        guard canEdit(item: original, in: groupLists[i]) else {
+            proposeItemChange(kind: .listItem, parentId: listId, original: original, proposed: item, owner: groupLists[i])
+            return .proposed
+        }
+        var next = item
+        next.createdByUserId = original.createdByUserId
+        next.modifiedAt = Date()
+        groupLists[i].items[j] = next
+        rememberStore(item.preferredStore)
         saveGroupLists()
+        return .applied
     }
 
+    /// Ticking an item done/bought is open to every member.
     func toggleItem(listId: UUID, itemId: UUID) {
         guard let i = groupLists.firstIndex(where: { $0.id == listId }),
               let j = groupLists[i].items.firstIndex(where: { $0.id == itemId })
         else { return }
         groupLists[i].items[j].isDone.toggle()
         groupLists[i].items[j].completedByName = groupLists[i].items[j].isDone ? activeProfileName : nil
-                groupLists[i].items[j].boughtAt = groupLists[i].items[j].isDone ? Date() : nil
+        groupLists[i].items[j].boughtAt = groupLists[i].items[j].isDone ? Date() : nil
+        groupLists[i].items[j].modifiedAt = Date()
         saveGroupLists()
     }
 
     func deleteItem(listId: UUID, itemId: UUID) {
-        guard let i = groupLists.firstIndex(where: { $0.id == listId }) else { return }
+        guard let i = groupLists.firstIndex(where: { $0.id == listId }),
+              let item = groupLists[i].items.first(where: { $0.id == itemId }),
+              canDelete(item: item, in: groupLists[i])
+        else { return }
         groupLists[i].items.removeAll { $0.id == itemId }
+        recordDeletion([itemId])
         saveGroupLists()
     }
 
@@ -3517,49 +3684,44 @@ class EventStore: ObservableObject {
     func addGroupPlan(title: String, targetDate: Date, notes: String = "") {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
-        let plan = GroupPlan(title: clean, targetDate: targetDate, notes: notes, createdAt: Date(), items: [], ownerName: activeProfileName)
+        let plan = GroupPlan(
+            title: clean, targetDate: targetDate, notes: notes, createdAt: Date(), items: [], ownerName: activeProfileName,
+            createdByUserId: currentUserId.isEmpty ? nil : currentUserId, modifiedAt: Date()
+        )
         groupPlans.insert(plan, at: 0)
         groupPlans.sort { $0.targetDate < $1.targetDate }
         saveGroupPlans()
-        pushPlanToActiveGroup(plan)
-    }
-
-    /// Mirrors a locally-created plan into the active group's shared plans so
-    /// the Personal tab has real data to read (it only reads group-scoped
-    /// records, never local plans).
-    private func pushPlanToActiveGroup(_ plan: GroupPlan) {
-        guard hasServerSession, !activeServerGroupId.isEmpty else { return }
-        let groupId = activeServerGroupId
-        let baseURL = currentBackendBaseURL
-        let token = backendAuthToken
-        let iso = ISO8601DateFormatter()
-        let payload: [String: String] = [
-            "id": plan.id.uuidString,
-            "title": plan.title,
-            "targetDate": iso.string(from: plan.targetDate)
-        ]
-        Task {
-            _ = try? await AuraServerSyncEngine.shared.createGroupPlan(baseURL: baseURL, token: token, groupId: groupId, payload: payload)
-        }
     }
 
     func deleteGroupPlan(id: UUID) {
+        guard let plan = groupPlans.first(where: { $0.id == id }), canDelete(plan) else { return }
         groupPlans.removeAll { $0.id == id }
+        recordDeletion([id] + plan.items.map(\.id))
         saveGroupPlans()
     }
 
     func addPlanItem(to planId: UUID, item: GroupListItem) {
         guard let i = groupPlans.firstIndex(where: { $0.id == planId }) else { return }
-        groupPlans[i].items.append(item)
+        groupPlans[i].items.append(stamped(item))
         saveGroupPlans()
     }
 
-    func updatePlanItem(planId: UUID, item: GroupListItem) {
+    @discardableResult
+    func updatePlanItem(planId: UUID, item: GroupListItem) -> EditOutcome {
         guard let i = groupPlans.firstIndex(where: { $0.id == planId }),
               let j = groupPlans[i].items.firstIndex(where: { $0.id == item.id })
-        else { return }
-        groupPlans[i].items[j] = item
+        else { return .notAllowed }
+        let original = groupPlans[i].items[j]
+        guard canEdit(item: original, in: groupPlans[i]) else {
+            proposeItemChange(kind: .planItem, parentId: planId, original: original, proposed: item, owner: groupPlans[i])
+            return .proposed
+        }
+        var next = item
+        next.createdByUserId = original.createdByUserId
+        next.modifiedAt = Date()
+        groupPlans[i].items[j] = next
         saveGroupPlans()
+        return .applied
     }
 
     func togglePlanItem(planId: UUID, itemId: UUID) {
@@ -3568,13 +3730,223 @@ class EventStore: ObservableObject {
         else { return }
         groupPlans[i].items[j].isDone.toggle()
         groupPlans[i].items[j].completedByName = groupPlans[i].items[j].isDone ? activeProfileName : nil
+        groupPlans[i].items[j].modifiedAt = Date()
         saveGroupPlans()
     }
 
     func deletePlanItem(planId: UUID, itemId: UUID) {
-        guard let i = groupPlans.firstIndex(where: { $0.id == planId }) else { return }
+        guard let i = groupPlans.firstIndex(where: { $0.id == planId }),
+              let item = groupPlans[i].items.first(where: { $0.id == itemId }),
+              canDelete(item: item, in: groupPlans[i])
+        else { return }
         groupPlans[i].items.removeAll { $0.id == itemId }
+        recordDeletion([itemId])
         saveGroupPlans()
+    }
+
+    // ── Ownership ───────────────────────────────────────────
+    // Mirrors the server's rules (backend/src/syncMerge.ts), which are what
+    // actually enforce them; these only decide what the UI offers.
+    var currentUserId: String { serverUserId }
+
+    /// Whether this member created a record. Records from before creator ids
+    /// existed fall back to the owner's display name; with no server account
+    /// at all, everything on the device is the user's own.
+    func isCreator(_ createdByUserId: String?, ownerName: String) -> Bool {
+        guard hasServerSession, !currentUserId.isEmpty else { return true }
+        if let createdByUserId, !createdByUserId.isEmpty {
+            return createdByUserId == currentUserId
+        }
+        let owner = ownerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let me = profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return owner.isEmpty || owner.caseInsensitiveCompare(me) == .orderedSame
+    }
+
+    func canEdit(_ event: CalendarEvent) -> Bool { isCreator(event.createdByUserId, ownerName: event.ownerName) }
+    func canDelete(_ event: CalendarEvent) -> Bool { canEdit(event) || isActiveGroupOwner }
+    func canEdit(_ list: GroupList) -> Bool { isCreator(list.createdByUserId, ownerName: list.ownerName) }
+    func canDelete(_ list: GroupList) -> Bool { canEdit(list) || isActiveGroupOwner }
+    func canEdit(_ plan: GroupPlan) -> Bool { isCreator(plan.createdByUserId, ownerName: plan.ownerName) }
+    func canDelete(_ plan: GroupPlan) -> Bool { canEdit(plan) || isActiveGroupOwner }
+
+    /// An item from before creator ids existed belongs to its list's creator.
+    func canEdit(item: GroupListItem, in list: GroupList) -> Bool {
+        item.createdByUserId != nil ? isCreator(item.createdByUserId, ownerName: "") : canEdit(list)
+    }
+    func canDelete(item: GroupListItem, in list: GroupList) -> Bool { canEdit(item: item, in: list) || isActiveGroupOwner }
+    func canEdit(item: GroupListItem, in plan: GroupPlan) -> Bool {
+        item.createdByUserId != nil ? isCreator(item.createdByUserId, ownerName: "") : canEdit(plan)
+    }
+    func canDelete(item: GroupListItem, in plan: GroupPlan) -> Bool { canEdit(item: item, in: plan) || isActiveGroupOwner }
+
+    /// Display name of whoever an edit request would go to.
+    func creatorName(ownerName: String) -> String {
+        let clean = ownerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return clean.isEmpty ? "its creator" : clean
+    }
+
+    private func stamped(_ item: GroupListItem) -> GroupListItem {
+        var item = item
+        item.createdByUserId = currentUserId.isEmpty ? nil : currentUserId
+        item.modifiedAt = Date()
+        return item
+    }
+
+    // ── Change requests ─────────────────────────────────────
+    private func submitProposal(_ proposal: EditProposal) {
+        var proposal = proposal
+        proposal.modifiedAt = Date()
+        // One open request per member per target: a newer suggestion replaces it.
+        proposals.removeAll { $0.targetId == proposal.targetId && $0.proposerUserId == currentUserId && $0.status == .pending }
+        proposals.append(proposal)
+        saveProposals()
+    }
+
+    private func proposeEventChange(original: CalendarEvent, proposed: CalendarEvent) {
+        submitProposal(.init(
+            kind: .event, targetId: original.id, targetTitle: original.title, proposedEvent: proposed,
+            proposerUserId: currentUserId, proposerName: activeProfileName,
+            targetOwnerUserId: original.createdByUserId, targetOwnerName: original.ownerName,
+            createdAt: Date()
+        ))
+    }
+
+    private func proposeItemChange(kind: EditProposal.Kind, parentId: UUID, original: GroupListItem, proposed: GroupListItem, owner: GroupList) {
+        submitProposal(.init(
+            kind: kind, targetId: original.id, parentId: parentId, targetTitle: original.name, proposedItem: proposed,
+            proposerUserId: currentUserId, proposerName: activeProfileName,
+            targetOwnerUserId: original.createdByUserId ?? owner.createdByUserId, targetOwnerName: owner.ownerName,
+            createdAt: Date()
+        ))
+    }
+
+    private func proposeItemChange(kind: EditProposal.Kind, parentId: UUID, original: GroupListItem, proposed: GroupListItem, owner: GroupPlan) {
+        submitProposal(.init(
+            kind: kind, targetId: original.id, parentId: parentId, targetTitle: original.name, proposedItem: proposed,
+            proposerUserId: currentUserId, proposerName: activeProfileName,
+            targetOwnerUserId: original.createdByUserId ?? owner.createdByUserId, targetOwnerName: owner.ownerName,
+            createdAt: Date()
+        ))
+    }
+
+    /// Requests waiting on this member's decision.
+    var proposalsAwaitingMe: [EditProposal] {
+        proposals
+            .filter { $0.status == .pending && $0.proposerUserId != currentUserId && isProposalTargetMine($0) }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// This member's own requests, newest first.
+    var myProposals: [EditProposal] {
+        proposals.filter { $0.proposerUserId == currentUserId }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func pendingProposal(for targetId: UUID) -> EditProposal? {
+        proposals.first { $0.targetId == targetId && $0.proposerUserId == currentUserId && $0.status == .pending }
+    }
+
+    private func isProposalTargetMine(_ proposal: EditProposal) -> Bool {
+        switch proposal.kind {
+        case .event:
+            return events.first(where: { $0.id == proposal.targetId }).map(canEdit) ?? false
+        case .listTitle:
+            return groupLists.first(where: { $0.id == proposal.targetId }).map(canEdit) ?? false
+        case .planTitle:
+            return groupPlans.first(where: { $0.id == proposal.targetId }).map(canEdit) ?? false
+        case .listItem:
+            guard let list = groupLists.first(where: { $0.id == proposal.parentId }),
+                  let item = list.items.first(where: { $0.id == proposal.targetId }) else { return false }
+            return canEdit(item: item, in: list)
+        case .planItem:
+            guard let plan = groupPlans.first(where: { $0.id == proposal.parentId }),
+                  let item = plan.items.first(where: { $0.id == proposal.targetId }) else { return false }
+            return canEdit(item: item, in: plan)
+        }
+    }
+
+    /// Applies the suggested change (as its creator) and marks it approved.
+    func approveProposal(id: UUID) {
+        guard let p = proposals.first(where: { $0.id == id }), p.status == .pending, isProposalTargetMine(p) else { return }
+        switch p.kind {
+        case .event:
+            if var next = p.proposedEvent, let current = events.first(where: { $0.id == p.targetId }) {
+                // The requester can change the details, not who owns it.
+                next.id = current.id
+                next.ownerName = current.ownerName
+                next.createdByUserId = current.createdByUserId
+                next.sharePermission = current.sharePermission
+                next.sharedBy = current.sharedBy
+                updateEvent(next)
+            }
+        case .listItem:
+            if let parentId = p.parentId, var next = p.proposedItem {
+                next.id = p.targetId
+                updateItem(listId: parentId, item: next)
+            }
+        case .planItem:
+            if let parentId = p.parentId, var next = p.proposedItem {
+                next.id = p.targetId
+                updatePlanItem(planId: parentId, item: next)
+            }
+        case .listTitle:
+            if let title = p.proposedTitle { _ = renameGroupList(id: p.targetId, title: title) }
+        case .planTitle:
+            if let title = p.proposedTitle, let i = groupPlans.firstIndex(where: { $0.id == p.targetId }) {
+                groupPlans[i].title = title
+                groupPlans[i].modifiedAt = Date()
+                saveGroupPlans()
+            }
+        }
+        resolveProposal(id: id, status: .approved)
+    }
+
+    func declineProposal(id: UUID) {
+        guard let p = proposals.first(where: { $0.id == id }), p.status == .pending, isProposalTargetMine(p) else { return }
+        resolveProposal(id: id, status: .declined)
+    }
+
+    func withdrawProposal(id: UUID) {
+        guard let p = proposals.first(where: { $0.id == id }), p.status == .pending, p.proposerUserId == currentUserId else { return }
+        resolveProposal(id: id, status: .withdrawn)
+    }
+
+    private func resolveProposal(id: UUID, status: EditProposal.Status) {
+        guard let i = proposals.firstIndex(where: { $0.id == id }) else { return }
+        proposals[i].status = status
+        proposals[i].resolvedAt = Date()
+        proposals[i].modifiedAt = Date()
+        saveProposals()
+    }
+
+    // ── Stores ──────────────────────────────────────────────
+    /// Adds a store to the group's list (if it isn't there already) and
+    /// returns its canonical name.
+    @discardableResult
+    func addStore(named name: String) -> String? {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return nil }
+        if let existing = groupStores.first(where: { $0.name.caseInsensitiveCompare(clean) == .orderedSame }) {
+            return existing.name
+        }
+        groupStores.append(.init(name: clean, createdByUserId: currentUserId.isEmpty ? nil : currentUserId, modifiedAt: Date()))
+        groupStores.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        saveGroupStores()
+        return clean
+    }
+
+    private func rememberStore(_ name: String?) {
+        if let name { addStore(named: name) }
+    }
+
+    func canDelete(_ store: GroupStore) -> Bool {
+        isCreator(store.createdByUserId, ownerName: "") || isActiveGroupOwner
+    }
+
+    func deleteStore(id: UUID) {
+        guard let store = groupStores.first(where: { $0.id == id }), canDelete(store) else { return }
+        groupStores.removeAll { $0.id == id }
+        recordDeletion([id])
+        saveGroupStores()
     }
 
     func planFromPayload(_ payload: [String: String]) -> GroupPlan? {
@@ -3618,6 +3990,7 @@ class EventStore: ObservableObject {
 
     func deleteActivity(id: UUID) {
         groupActivities.removeAll { $0.id == id }
+        recordDeletion([id])
         saveGroupActivities()
     }
 
@@ -3714,16 +4087,27 @@ class EventStore: ObservableObject {
     }
 
     func clearServerSession() {
+        // Stop this device getting the signed-out account's pushes. Best effort:
+        // an expired session can't unregister, and the server drops the token
+        // once Apple reports it dead or another account registers it.
+        if let pushToken = UserDefaults.standard.string(forKey: "aura.apnsToken"), hasServerSession {
+            let baseURL = currentBackendBaseURL
+            let authToken = backendAuthToken
+            Task {
+                _ = try? await AuraServerSyncEngine.shared.unregisterDevice(baseURL: baseURL, token: authToken, deviceToken: pushToken)
+            }
+        }
         backendAuthToken = ""
         backendAccountEmail = ""
         backendGroupId = ""
         backendStoredGroupName = ""
-        activeGroupId = ""
+        changeActiveGroup(to: "")
         serverAccountEmail = ""
         serverGroupName = ""
         serverMembershipRole = ""
         serverIsAdmin = false
         serverUserId = ""
+        storedUserId = ""
         serverGroups = []
         serverGroupConflictHistoryEntries = []
         personalMasterCalendarItems = []
@@ -3795,6 +4179,48 @@ class EventStore: ObservableObject {
         }
     }
 
+    /// Tells the server where to push this account's group updates. Runs on
+    /// every sign-in and whenever APNs issues a token.
+    func registerPushTokenIfPossible() async {
+        guard hasServerSession, let token = UserDefaults.standard.string(forKey: "aura.apnsToken") else { return }
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        _ = try? await AuraServerSyncEngine.shared.registerDevice(baseURL: currentBackendBaseURL, token: backendAuthToken, deviceToken: token, environment: environment)
+    }
+
+    func requestPasswordReset(email: String) async -> Result<Void, Error> {
+        do {
+            _ = try await AuraServerSyncEngine.shared.requestPasswordReset(
+                baseURL: currentBackendBaseURL,
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            return .success(())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Sets the new password and signs in with it.
+    func resetPassword(email: String, code: String, newPassword: String) async -> Result<Void, Error> {
+        do {
+            let response = try await AuraServerSyncEngine.shared.resetPassword(
+                baseURL: currentBackendBaseURL,
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                code: code.trimmingCharacters(in: .whitespacesAndNewlines),
+                newPassword: newPassword
+            )
+            applyAuth(response)
+            syncStatus = "Signed in"
+            await refreshServerContext()
+            return .success(())
+        } catch {
+            return .failure(error)
+        }
+    }
+
     func refreshServerContext() async {
         guard hasServerSession else { return }
         do {
@@ -3803,6 +4229,8 @@ class EventStore: ObservableObject {
             serverAccountEmail = me.user.email
             profileDisplayName = me.user.displayName
             serverUserId = me.user.id
+            storedUserId = me.user.id
+            await registerPushTokenIfPossible()
             serverMembershipRole = me.membership?.role ?? ""
             serverIsAdmin = me.isAdmin ?? false
 
@@ -3826,7 +4254,7 @@ class EventStore: ObservableObject {
     func refreshServerGroups() async {
         guard hasServerSession else {
             serverGroups = []
-            activeGroupId = ""
+            changeActiveGroup(to: "")
             return
         }
 
@@ -3842,7 +4270,7 @@ class EventStore: ObservableObject {
                 householdCode = active.group.code
                 syncActiveGroupNameToWidget(active.group.name)
             } else if let first = response.groups.first {
-                activeGroupId = first.group.id
+                changeActiveGroup(to: first.group.id)
                 serverMembershipRole = first.membership.role
                 backendGroupId = first.group.id
                 backendStoredGroupName = first.group.name
@@ -3850,7 +4278,7 @@ class EventStore: ObservableObject {
                 householdCode = first.group.code
                 syncActiveGroupNameToWidget(first.group.name)
             } else {
-                activeGroupId = ""
+                changeActiveGroup(to: "")
                 serverMembershipRole = ""
                 syncActiveGroupNameToWidget("")
             }
@@ -4179,21 +4607,25 @@ class EventStore: ObservableObject {
         backendAccountEmail = response.user.email
         serverAccountEmail = response.user.email
         profileDisplayName = response.user.displayName
+        serverUserId = response.user.id
+        storedUserId = response.user.id
         objectWillChange.send()
     }
 
     func queueSyncPush() {
-        let canSync = hasServerGroup || !currentGroupCode.isEmpty
+        let canSync = hasServerGroup
         guard canSync else { return }
+        hasPendingPush = true
         syncDebounceTask?.cancel()
         syncDebounceTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
             await self?.pushSnapshot()
         }
     }
 
     func forceSyncNow() {
-        let canSync = hasServerGroup || !currentGroupCode.isEmpty
+        let canSync = hasServerGroup
         guard canSync else { return }
         Task { [weak self] in
             await self?.pushSnapshot()
@@ -4230,128 +4662,288 @@ class EventStore: ObservableObject {
             events: events,
             members: members,
             groupLists: groupLists,
-            groupActivities: groupActivities
-            ,stepSnapshots: groupStepSnapshots
+            groupActivities: groupActivities,
+            stepSnapshots: groupStepSnapshots,
+            groupPlans: groupPlans,
+            stores: groupStores,
+            proposals: proposals,
+            deletedIds: deletedIds
         )
     }
 
-    @MainActor
-    private func pushSnapshot() async {
-        do {
-            if hasServerGroup {
-                // The server only ever stores one whole snapshot per group, so a
-                // naive push here would overwrite anything another device added
-                // since this device's last pull -- e.g. member A creates an
-                // event, and moments later member B's own unrelated edit pushes
-                // *their* stale local array and silently erases it. Pulling and
-                // merging additions in first closes most of that window: this
-                // only ever ADDS records this device doesn't have yet, it never
-                // lets a remote copy overwrite a local edit to the same record,
-                // and (the tradeoff) it can't distinguish "never had it" from
-                // "deleted it" -- a deletion on one device can still reappear if
-                // another device re-pushes its pre-deletion copy.
-                // `try`, not `try?`: if the remote copy can't be read, uploading
-                // anyway would overwrite it unmerged -- better to fail this push.
-                if let remote = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId),
-                   remote.updatedAt.timeIntervalSince1970 > groupLastSnapshot {
-                    mergeMissingFromRemote(remote)
-                }
-                _ = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId, payload: snapshotPayload())
-            } else {
-                // CloudKit fallback disabled: the app ships with no iCloud/CloudKit
-                // entitlement, so CKContainer.default() traps immediately. Server
-                // sync is the only supported path until that's provisioned.
-                return
-            }
-            groupLastSnapshot = Date().timeIntervalSince1970
-            syncStatus = hasServerGroup ? "Server synced just now" : "Synced just now"
-        } catch {
-            _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync upload failed" : "Sync upload failed")
-        }
+    // Per-group sync bookkeeping, keyed by group so switching groups never
+    // compares one group's version against another's.
+    private var snapshotVersion: String? {
+        get { UserDefaults.standard.string(forKey: "aura.snapshotVersion.\(activeServerGroupId)") }
+        set { UserDefaults.standard.set(newValue, forKey: "aura.snapshotVersion.\(activeServerGroupId)") }
     }
 
-    /// Adds any record present remotely but missing locally -- never removes
-    /// or overwrites a local record, so it can't clobber an in-flight local
-    /// edit, only fail to see a remote deletion (see pushSnapshot's comment).
+    private var lastSyncedAt: Date {
+        get { UserDefaults.standard.object(forKey: "aura.lastSyncedAt.\(activeServerGroupId)") as? Date ?? .distantPast }
+        set { UserDefaults.standard.set(newValue, forKey: "aura.lastSyncedAt.\(activeServerGroupId)") }
+    }
+
+    /// Uploads this device's copy. The server merges it record by record
+    /// (enforcing who may change or delete what) and returns the merged
+    /// result, which is folded back in here.
     @MainActor
-    private func mergeMissingFromRemote(_ incoming: HouseholdSyncPayload) {
-        applyingRemoteSnapshot = true
-        let localEventIds = Set(events.map { $0.id })
-        events.append(contentsOf: incoming.events.filter { !localEventIds.contains($0.id) })
-        events.sort { $0.startDate < $1.startDate }
-
-        let localCatIds = Set(categories.map { $0.id })
-        categories.append(contentsOf: incoming.categories.filter { !localCatIds.contains($0.id) })
-
-        let localMemberIds = Set(members.map { $0.id })
-        members.append(contentsOf: incoming.members.filter { !localMemberIds.contains($0.id) })
-
-        let localListIds = Set(groupLists.map { $0.id })
-        groupLists.append(contentsOf: incoming.groupLists.filter { !localListIds.contains($0.id) })
-        groupLists.sort { $0.createdAt > $1.createdAt }
-
-        let localActivityIds = Set(groupActivities.map { $0.id })
-        groupActivities.append(contentsOf: incoming.groupActivities.filter { !localActivityIds.contains($0.id) })
-        groupActivities.sort { $0.date > $1.date }
-
-        saveEvents()
-        saveCats()
-        saveMembers()
-        saveGroupLists()
-        saveGroupActivities()
-        applyingRemoteSnapshot = false
+    private func pushSnapshot() async {
+        guard hasServerGroup else {
+            // CloudKit fallback disabled: the app ships with no iCloud/CloudKit
+            // entitlement, so server sync is the only supported path.
+            return
+        }
+        let groupId = activeServerGroupId
+        hasPendingPush = false
+        do {
+            let response = try await AuraServerSyncEngine.shared.uploadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId, payload: snapshotPayload())
+            // The active group changed while this was in flight; its response
+            // belongs to the previous group's data.
+            guard groupId == activeServerGroupId else { return }
+            if let record = response.snapshot {
+                applyServerSnapshot(record)
+            }
+            syncStatus = "Server synced just now"
+        } catch {
+            hasPendingPush = true
+            _ = mapServerError(error, fallbackStatus: "Server sync upload failed")
+        }
     }
 
     @MainActor
     private func pullSnapshot() async {
-        do {
-            let incoming: HouseholdSyncPayload?
-            if hasServerGroup {
-                incoming = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId)
-            } else {
-                // CloudKit fallback disabled: see pushSnapshot().
-                return
-            }
-            guard let incoming else { return }
-            // One-time recovery per group: before the snapshot date-decoding fix,
-            // every pull failed and members' pushes overwrote each other, so this
-            // device may hold events the server copy lost. A normal pull would
-            // replace them; merge instead, and only mark it done once the union
-            // has actually been uploaded.
-            let recoveryKey = "snapshotDateFixRecovered.\(activeServerGroupId)"
-            if !UserDefaults.standard.bool(forKey: recoveryKey) {
-                mergeMissingFromRemote(incoming)
-                let before = groupLastSnapshot
-                await pushSnapshot()
-                if groupLastSnapshot != before {
-                    UserDefaults.standard.set(true, forKey: recoveryKey)
-                }
-                return
-            }
-            guard incoming.updatedAt.timeIntervalSince1970 > groupLastSnapshot + 0.5 else { return }
-            applyingRemoteSnapshot = true
-            categories = incoming.categories
-            events = incoming.events.sorted { $0.startDate < $1.startDate }
-            members = incoming.members
-            groupLists = incoming.groupLists.sorted { $0.createdAt > $1.createdAt }
-            groupActivities = incoming.groupActivities.sorted { $0.date > $1.date }
-            groupStepSnapshots = incoming.stepSnapshots.sorted { $0.updatedAt > $1.updatedAt }
-            saveCats()
-            saveEvents()
-            saveMembers()
-            saveGroupLists()
-            saveGroupActivities()
-            saveGroupStepSnapshots()
-            applyingRemoteSnapshot = false
-            groupLastSnapshot = incoming.updatedAt.timeIntervalSince1970
-            syncStatus = hasServerGroup ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
-        } catch {
-            // Deliberately no "push over it" fallback on a decode failure: that
-            // turned every failed pull into a blind overwrite of the whole group's
-            // snapshot with this device's local copy, so members kept erasing
-            // each other's events every few seconds.
-            _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync pull failed" : "Sync pull failed")
+        guard hasServerGroup else { return }
+        // Unsent local changes go up first: the server's merged reply then
+        // carries everyone else's changes too, and nothing local is at risk of
+        // being merged away before it was ever sent.
+        if hasPendingPush {
+            await pushSnapshot()
+            return
         }
+        // First sync of a group on this build: upload everything first so the
+        // server's merge can recover records only this device still holds
+        // (members' uploads used to overwrite each other wholesale).
+        let recoveryKey = "aura.recoveryPushed.\(activeServerGroupId)"
+        if !UserDefaults.standard.bool(forKey: recoveryKey) {
+            await pushSnapshot()
+            if !hasPendingPush {
+                UserDefaults.standard.set(true, forKey: recoveryKey)
+            }
+            return
+        }
+        let groupId = activeServerGroupId
+        do {
+            let response = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId, since: snapshotVersion)
+            guard groupId == activeServerGroupId, response.unchanged != true, let record = response.snapshot else { return }
+            applyServerSnapshot(record)
+            syncStatus = "Server updated from \(record.updatedBy)"
+        } catch {
+            _ = mapServerError(error, fallbackStatus: "Server sync pull failed")
+        }
+    }
+
+    /// Folds the server's copy into local state: tombstoned records go, the
+    /// newer of each pair wins, and a record only this device has is kept if
+    /// it's this member's own or changed since the last sync (not yet
+    /// uploaded) -- anyone else's that the server no longer returns was hidden
+    /// from this member and is dropped.
+    @MainActor
+    private func applyServerSnapshot(_ record: AuraRemoteSnapshotRecord) {
+        let remote = record.payload
+        let syncedBefore = lastSyncedAt
+        let cutoff = Date().addingTimeInterval(-90 * 24 * 3600)
+        var tombstones = deletedIds.merging(remote.deletedIds) { max($0, $1) }
+        tombstones = tombstones.filter { $0.value > cutoff }
+        let isDeleted: (UUID) -> Bool = { tombstones[$0.uuidString] != nil }
+
+        func merged<T: Identifiable>(
+            _ local: [T],
+            _ incoming: [T],
+            modified: (T) -> Date?,
+            keepLocalOnly: (T) -> Bool,
+            combine: (T, T) -> T = { _, remote in remote }
+        ) -> [T] where T.ID == UUID {
+            let localById = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            var result: [T] = []
+            var seen = Set<UUID>()
+            for remoteRecord in incoming where !isDeleted(remoteRecord.id) {
+                seen.insert(remoteRecord.id)
+                if let localRecord = localById[remoteRecord.id],
+                   (modified(localRecord) ?? .distantPast) > (modified(remoteRecord) ?? .distantPast) {
+                    result.append(combine(remoteRecord, localRecord))
+                } else if let localRecord = localById[remoteRecord.id] {
+                    result.append(combine(localRecord, remoteRecord))
+                } else {
+                    result.append(remoteRecord)
+                }
+            }
+            for localRecord in local where !seen.contains(localRecord.id) && !isDeleted(localRecord.id) && keepLocalOnly(localRecord) {
+                result.append(localRecord)
+            }
+            return result
+        }
+
+        let unsynced: (Date?) -> Bool = { ($0 ?? .distantPast) > syncedBefore }
+        let mergeItems: ([GroupListItem], [GroupListItem]) -> [GroupListItem] = { local, incoming in
+            merged(local, incoming, modified: { $0.modifiedAt }, keepLocalOnly: { unsynced($0.modifiedAt) })
+        }
+
+        applyingRemoteSnapshot = true
+        events = merged(events, remote.events, modified: { $0.modifiedAt }, keepLocalOnly: { [unowned self] in
+            self.isCreator($0.createdByUserId, ownerName: $0.ownerName) || unsynced($0.modifiedAt)
+        }).sorted { $0.startDate < $1.startDate }
+        groupLists = merged(groupLists, remote.groupLists, modified: { $0.modifiedAt }, keepLocalOnly: { [unowned self] in
+            self.isCreator($0.createdByUserId, ownerName: $0.ownerName) || unsynced($0.modifiedAt)
+        }, combine: { older, newer in
+            var list = newer
+            list.items = mergeItems(older.items, newer.items)
+            return list
+        }).sorted { $0.createdAt > $1.createdAt }
+        groupPlans = merged(groupPlans, remote.groupPlans, modified: { $0.modifiedAt }, keepLocalOnly: { [unowned self] in
+            self.isCreator($0.createdByUserId, ownerName: $0.ownerName) || unsynced($0.modifiedAt)
+        }, combine: { older, newer in
+            var plan = newer
+            plan.items = mergeItems(older.items, newer.items)
+            return plan
+        }).sorted { $0.targetDate < $1.targetDate }
+        groupStores = merged(groupStores, remote.stores, modified: { $0.modifiedAt }, keepLocalOnly: { unsynced($0.modifiedAt) })
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        proposals = merged(proposals, remote.proposals, modified: { $0.modifiedAt }, keepLocalOnly: { [unowned self] in
+            $0.proposerUserId == self.currentUserId && $0.status == .pending && unsynced($0.modifiedAt)
+        })
+        // Not owned and not timestamped: the server's copy wins, plus
+        // anything local it hasn't received yet.
+        categories = merged(categories, remote.categories, modified: { _ in nil }, keepLocalOnly: { _ in true })
+        members = merged(members, remote.members, modified: { _ in nil }, keepLocalOnly: { _ in true })
+        groupActivities = merged(groupActivities, remote.groupActivities, modified: { _ in nil }, keepLocalOnly: { _ in true })
+            .sorted { $0.date > $1.date }
+        groupStepSnapshots = merged(groupStepSnapshots, remote.stepSnapshots, modified: { $0.updatedAt }, keepLocalOnly: { _ in true })
+            .sorted { $0.updatedAt > $1.updatedAt }
+        deletedIds = tombstones
+
+        saveCats()
+        saveEvents()
+        saveMembers()
+        saveGroupLists()
+        saveGroupPlans()
+        saveGroupActivities()
+        saveGroupStepSnapshots()
+        saveGroupStores()
+        saveProposals()
+        saveDeletedIds()
+        applyingRemoteSnapshot = false
+
+        snapshotVersion = record.updatedAt
+        lastSyncedAt = Date()
+        rebuildScheduledNotifications()
+    }
+
+    // ── Per-group local data ────────────────────────────────
+    // The working keys (aura.events etc., which the widget also reads) always
+    // hold the active group's data. Switching groups parks the old group's
+    // copy under keys suffixed with its id and loads the new group's -- the
+    // app used to keep one shared copy, so after a switch its next upload
+    // pushed the previous group's events into the new group.
+    private var groupScopedKeys: [String] { [eKey, lKey, pKey, fKey, sKey, storesKey, proposalsKey, deletedKey] }
+
+    private func switchLocalGroupData(from oldGroupId: String, to newGroupId: String) {
+        guard oldGroupId != newGroupId else { return }
+        syncDebounceTask?.cancel()
+        if hasPendingPush, !oldGroupId.isEmpty {
+            // Pending edits belong to the old group; they're parked with it and
+            // go up the next time it's active.
+            UserDefaults.standard.set(true, forKey: "aura.pendingPush.\(oldGroupId)")
+        }
+        let defaults = shared
+        if !oldGroupId.isEmpty {
+            for key in groupScopedKeys {
+                defaults.set(defaults.data(forKey: key), forKey: "\(key).\(oldGroupId)")
+            }
+        }
+        for key in groupScopedKeys {
+            if !newGroupId.isEmpty, let parked = defaults.data(forKey: "\(key).\(newGroupId)") {
+                defaults.set(parked, forKey: key)
+            } else if !oldGroupId.isEmpty {
+                // Never seen this group here (or leaving all groups): start
+                // empty rather than carrying the previous group's data over.
+                defaults.removeObject(forKey: key)
+            }
+        }
+        events = []
+        groupLists = []
+        groupPlans = []
+        groupActivities = []
+        groupStepSnapshots = []
+        groupStores = []
+        proposals = []
+        deletedIds = [:]
+        loadEvents()
+        loadGroupLists()
+        loadGroupPlans()
+        loadGroupActivities()
+        loadGroupStepSnapshots()
+        loadGroupStores()
+        loadProposals()
+        loadDeletedIds()
+        hasPendingPush = UserDefaults.standard.bool(forKey: "aura.pendingPush.\(newGroupId)")
+        UserDefaults.standard.removeObject(forKey: "aura.pendingPush.\(newGroupId)")
+        rebuildScheduledNotifications()
+        Task { @MainActor [weak self] in
+            await self?.pullSnapshot()
+        }
+    }
+
+    /// The single place the active group changes, so its local data always
+    /// moves with it.
+    private func changeActiveGroup(to newGroupId: String) {
+        let previous = activeGroupId
+        activeGroupId = newGroupId
+        switchLocalGroupData(from: previous, to: newGroupId)
+    }
+
+    private func loadCodable<T: Decodable>(_ type: T.Type, key: String) -> T? {
+        guard let data = shared.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private func saveCodable<T: Encodable>(_ value: T, key: String) {
+        if let data = try? JSONEncoder().encode(value) {
+            shared.set(data, forKey: key)
+        }
+    }
+
+    func loadGroupStores() {
+        groupStores = loadCodable([GroupStore].self, key: storesKey) ?? []
+    }
+
+    func saveGroupStores() {
+        saveCodable(groupStores, key: storesKey)
+        if !applyingRemoteSnapshot { queueSyncPush() }
+    }
+
+    func loadProposals() {
+        proposals = loadCodable([EditProposal].self, key: proposalsKey) ?? []
+    }
+
+    func saveProposals() {
+        saveCodable(proposals, key: proposalsKey)
+        if !applyingRemoteSnapshot { queueSyncPush() }
+    }
+
+    func loadDeletedIds() {
+        deletedIds = loadCodable([String: Date].self, key: deletedKey) ?? [:]
+    }
+
+    func saveDeletedIds() {
+        saveCodable(deletedIds, key: deletedKey)
+    }
+
+    private func recordDeletion(_ ids: [UUID]) {
+        let now = Date()
+        for id in ids {
+            deletedIds[id.uuidString] = now
+        }
+        saveDeletedIds()
     }
 
     func loadGroupStepSnapshots() {
@@ -5014,6 +5606,8 @@ struct HomeView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+
+                    ChangeRequestsCard()
 
                     if let session = store.activeActivitySession {
                         HomeSectionCard(title: "Currently Tracking") {
@@ -5684,7 +6278,7 @@ struct PersonalHubView: View {
     }
 }
 
-private struct PersonalAggregateRow: View {
+struct PersonalAggregateRow: View {
     let item: AuraRemotePersonalAggregateItem
     let fallbackIcon: String
     var onTap: () -> Void
@@ -5847,6 +6441,129 @@ struct HomeQuickActionButton: View {
             )
         }
         .buttonStyle(AuraSoftPressButtonStyle())
+    }
+}
+
+/// Edit requests: ones waiting on this member's decision (approve applies
+/// the change), and the member's own recent requests with their outcome.
+struct ChangeRequestsCard: View {
+    @EnvironmentObject var store: EventStore
+
+    private var recentMine: [EditProposal] {
+        let weekAgo = Date().addingTimeInterval(-7 * 86400)
+        return store.myProposals.filter { $0.status == .pending || ($0.resolvedAt ?? .distantPast) > weekAgo }
+    }
+
+    var body: some View {
+        if !store.proposalsAwaitingMe.isEmpty || !recentMine.isEmpty {
+            HomeSectionCard(title: "Change Requests") {
+                ForEach(store.proposalsAwaitingMe) { proposal in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(proposal.proposerName) suggests changes to \"\(proposal.targetTitle)\"")
+                            .font(.system(size: 14, weight: .semibold))
+                        ForEach(changeLines(proposal), id: \.self) { line in
+                            Text(line)
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Button("Approve") {
+                                AuraHaptics.success()
+                                withAnimation(AuraMotion.smooth) { store.approveProposal(id: proposal.id) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Button("Decline", role: .destructive) {
+                                AuraHaptics.warning()
+                                withAnimation(AuraMotion.smooth) { store.declineProposal(id: proposal.id) }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, 4)
+                }
+                ForEach(recentMine) { proposal in
+                    HStack(alignment: .firstTextBaseline) {
+                        Image(systemName: statusIcon(proposal.status))
+                            .foregroundColor(statusColor(proposal.status))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Your change to \"\(proposal.targetTitle)\"")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(statusText(proposal))
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if proposal.status == .pending {
+                            Button("Withdraw") {
+                                withAnimation(AuraMotion.smooth) { store.withdrawProposal(id: proposal.id) }
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Plain-language summary of what the request would change.
+    private func changeLines(_ proposal: EditProposal) -> [String] {
+        var lines: [String] = []
+        func compare(_ label: String, _ old: String, _ new: String) {
+            if old != new {
+                lines.append(new.isEmpty ? "\(label): remove \"\(old)\"" : "\(label): \(old.isEmpty ? "" : "\"\(old)\" → ")\"\(new)\"")
+            }
+        }
+        if let title = proposal.proposedTitle {
+            compare("Name", proposal.targetTitle, title)
+        }
+        if let next = proposal.proposedEvent, let current = store.events.first(where: { $0.id == proposal.targetId }) {
+            compare("Title", current.title, next.title)
+            let fmt: (Date) -> String = { $0.formatted(date: .abbreviated, time: .shortened) }
+            compare("Starts", fmt(current.startDate), fmt(next.startDate))
+            compare("Ends", fmt(current.endDate), fmt(next.endDate))
+            compare("Location", current.location, next.location)
+            compare("Notes", current.notes, next.notes)
+            if current.isAllDay != next.isAllDay { lines.append(next.isAllDay ? "Make it all-day" : "Give it a set time") }
+        }
+        if let next = proposal.proposedItem {
+            let parentItems = (store.groupLists.first(where: { $0.id == proposal.parentId })?.items
+                ?? store.groupPlans.first(where: { $0.id == proposal.parentId })?.items) ?? []
+            if let current = parentItems.first(where: { $0.id == proposal.targetId }) {
+                compare("Name", current.name, next.name)
+                compare("Quantity", current.quantity, next.quantity)
+                compare("Store", current.preferredStore ?? "", next.preferredStore ?? "")
+                compare("Note", current.note, next.note)
+            }
+        }
+        return lines.isEmpty ? ["Other details"] : lines
+    }
+
+    private func statusText(_ proposal: EditProposal) -> String {
+        switch proposal.status {
+        case .pending: return "Waiting for \(store.creatorName(ownerName: proposal.targetOwnerName)) to approve"
+        case .approved: return "Approved"
+        case .declined: return "Declined"
+        case .withdrawn: return "Withdrawn"
+        }
+    }
+
+    private func statusIcon(_ status: EditProposal.Status) -> String {
+        switch status {
+        case .pending: return "clock"
+        case .approved: return "checkmark.circle.fill"
+        case .declined: return "xmark.circle.fill"
+        case .withdrawn: return "arrow.uturn.backward.circle"
+        }
+    }
+
+    private func statusColor(_ status: EditProposal.Status) -> Color {
+        switch status {
+        case .pending: return .orange
+        case .approved: return .green
+        case .declined: return .red
+        case .withdrawn: return .secondary
+        }
     }
 }
 
@@ -6513,10 +7230,12 @@ struct ListsView: View {
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        store.deleteGroupList(id: list.id)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                                    if store.canDelete(list) {
+                                        Button(role: .destructive) {
+                                            store.deleteGroupList(id: list.id)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
                             }
@@ -6686,6 +7405,9 @@ struct GroupListDetailView: View {
     let listId: UUID
     @State private var showAddItem = false
     @State private var editItem: GroupListItem? = nil
+    @State private var showRename = false
+    @State private var renameText = ""
+    @State private var showStores = false
 
     var list: GroupList? {
         store.groupLists.first(where: { $0.id == listId })
@@ -6733,7 +7455,22 @@ struct GroupListDetailView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button {
+                            renameText = list?.title ?? ""
+                            showRename = true
+                        } label: {
+                            Label(list.map(store.canEdit) ?? false ? "Rename List" : "Suggest New Name", systemImage: "pencil")
+                        }
+                        Button {
+                            showStores = true
+                        } label: {
+                            Label("Manage Stores", systemImage: "storefront")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                     Button {
                         showAddItem = true
                     } label: {
@@ -6741,10 +7478,26 @@ struct GroupListDetailView: View {
                     }
                 }
             }
+            .alert(list.map(store.canEdit) ?? false ? "Rename List" : "Suggest New Name", isPresented: $showRename) {
+                TextField("List name", text: $renameText)
+                Button("Cancel", role: .cancel) {}
+                Button(list.map(store.canEdit) ?? false ? "Save" : "Send") {
+                    if store.renameGroupList(id: listId, title: renameText) == .proposed, let list {
+                        NotificationCenter.default.post(
+                            name: .auraInAppBanner,
+                            object: nil,
+                            userInfo: ["title": "Change requested", "message": "Sent to \(store.creatorName(ownerName: list.ownerName)) to approve."]
+                        )
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showAddItem) {
             AddGroupListItemView(isPresented: $showAddItem, listId: listId)
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showStores) {
+            ManageStoresView().environmentObject(store)
         }
         .sheet(item: $editItem) { item in
             AddGroupListItemView(isPresented: .constant(true), listId: listId, editingItem: item)
@@ -6765,7 +7518,20 @@ struct GroupListDetailView: View {
         if item.isDone, let completedBy = item.completedByName {
             bits.append("Bought by \(completedBy)")
         }
+        if store.pendingProposal(for: item.id) != nil {
+            bits.append("Your change is awaiting approval")
+        }
         return bits.joined(separator: " · ")
+    }
+
+    private func canEdit(_ item: GroupListItem) -> Bool {
+        guard let list else { return false }
+        return store.canEdit(item: item, in: list)
+    }
+
+    private func canDelete(_ item: GroupListItem) -> Bool {
+        guard let list else { return false }
+        return store.canDelete(item: item, in: list)
     }
 
     @ViewBuilder
@@ -6804,15 +7570,17 @@ struct GroupListDetailView: View {
             Button {
                 editItem = item
             } label: {
-                Label("Edit", systemImage: "pencil")
+                Label(canEdit(item) ? "Edit" : "Suggest Changes", systemImage: "pencil")
             }
             .tint(AuraThemePalette.current.accentStart)
         }
         .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                store.deleteItem(listId: listId, itemId: item.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
+            if canDelete(item) {
+                Button(role: .destructive) {
+                    store.deleteItem(listId: listId, itemId: item.id)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
         .contextMenu {
@@ -6827,12 +7595,14 @@ struct GroupListDetailView: View {
             Button {
                 editItem = item
             } label: {
-                Label("Edit", systemImage: "pencil")
+                Label(canEdit(item) ? "Edit" : "Suggest Changes", systemImage: "pencil")
             }
-            Button(role: .destructive) {
-                store.deleteItem(listId: listId, itemId: item.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
+            if canDelete(item) {
+                Button(role: .destructive) {
+                    store.deleteItem(listId: listId, itemId: item.id)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
     }
@@ -6853,6 +7623,16 @@ struct AddGroupListItemView: View {
     @State private var dueDate = Date()
     @State private var hasDueDate = false
 
+    private var list: GroupList? { store.groupLists.first(where: { $0.id == listId }) }
+
+    /// Editing an item someone else added: saving sends them a request.
+    private var isSuggesting: Bool {
+        guard let editingItem, let list else { return false }
+        return !store.canEdit(item: editingItem, in: list)
+    }
+
+    private var creatorName: String { store.creatorName(ownerName: list?.ownerName ?? "") }
+
     private func closeView() {
         if editingItem == nil {
             isPresented = false
@@ -6864,10 +7644,17 @@ struct AddGroupListItemView: View {
     var body: some View {
         NavigationView {
             Form {
+                if isSuggesting, let editingItem {
+                    Section {
+                        Text("\(creatorName) added \"\(editingItem.name)\". Your changes will be sent to them to approve.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 Section("Item") {
                     TextField("e.g. Milk", text: $name)
                     TextField("Quantity", text: $quantity)
-                    TextField("Preferred store (optional)", text: $preferredStore)
+                    StorePickerField(selection: $preferredStore)
                     Toggle("Set date", isOn: $hasDueDate)
                     if hasDueDate {
                         DatePicker("Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
@@ -6885,14 +7672,14 @@ struct AddGroupListItemView: View {
                     TextField("Optional note", text: $note)
                 }
             }
-            .navigationTitle("Add Item")
+            .navigationTitle(editingItem == nil ? "Add Item" : (isSuggesting ? "Suggest Changes" : "Edit Item"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { closeView() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(editingItem == nil ? "Add" : "Save") {
+                    Button(editingItem == nil ? "Add" : (isSuggesting ? "Send" : "Save")) {
                         AuraHaptics.success()
                         let item = GroupListItem(
                             id: editingItem?.id ?? UUID(),
@@ -6901,14 +7688,19 @@ struct AddGroupListItemView: View {
                             note: note,
                             isDone: editingItem?.isDone ?? false,
                             assignedMemberId: assignedMemberId,
-                            preferredStore: preferredStore,
+                            preferredStore: preferredStore.isEmpty ? nil : preferredStore,
                             dueDate: hasDueDate ? dueDate : nil,
+                            completedByName: editingItem?.completedByName,
                             boughtAt: editingItem?.boughtAt
                         )
                         if editingItem == nil {
                             store.addItem(to: listId, item: item)
-                        } else {
-                            store.updateItem(listId: listId, item: item)
+                        } else if store.updateItem(listId: listId, item: item) == .proposed {
+                            NotificationCenter.default.post(
+                                name: .auraInAppBanner,
+                                object: nil,
+                                userInfo: ["title": "Change requested", "message": "Sent to \(creatorName) to approve."]
+                            )
                         }
                         closeView()
                     }
@@ -6928,6 +7720,110 @@ struct AddGroupListItemView: View {
                 }
             }
         }
+    }
+}
+
+/// Where an item can be bought: one of the group's saved stores, or a new one
+/// typed here (saved for everyone in the group).
+struct StorePickerField: View {
+    @EnvironmentObject var store: EventStore
+    @Binding var selection: String
+    @State private var addingNew = false
+    @State private var newName = ""
+
+    private static let newStoreTag = "__aurenda_new_store__"
+
+    private var isUnsaved: Bool {
+        !selection.isEmpty && !store.groupStores.contains { $0.name.caseInsensitiveCompare(selection) == .orderedSame }
+    }
+
+    var body: some View {
+        Picker("Where to buy", selection: Binding(
+            get: { selection },
+            set: { value in
+                if value == Self.newStoreTag {
+                    addingNew = true
+                } else {
+                    selection = value
+                }
+            }
+        )) {
+            Text("Not set").tag("")
+            ForEach(store.groupStores) { shop in
+                Text(shop.name).tag(shop.name)
+            }
+            if isUnsaved {
+                Text(selection).tag(selection)
+            }
+            Text("New store…").tag(Self.newStoreTag)
+        }
+        .alert("New Store", isPresented: $addingNew) {
+            TextField("Store name", text: $newName)
+            Button("Cancel", role: .cancel) { newName = "" }
+            Button("Add") {
+                if let name = store.addStore(named: newName) {
+                    selection = name
+                }
+                newName = ""
+            }
+        } message: {
+            Text("It's saved to this group's stores so everyone can pick it.")
+        }
+    }
+}
+
+/// The group's own list of stores. Anyone can add; the person who added a
+/// store (or the group Owner) can remove it.
+struct ManageStoresView: View {
+    @EnvironmentObject var store: EventStore
+    @Environment(\.dismiss) var dismiss
+    @State private var newName = ""
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    HStack {
+                        TextField("Add a store", text: $newName)
+                            .onSubmit(add)
+                        Button("Add", action: add)
+                            .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                } footer: {
+                    Text("Stores are shared with everyone in \(store.activeServerGroupName == "No Group" ? "this group" : store.activeServerGroupName).")
+                }
+                Section("Stores") {
+                    if store.groupStores.isEmpty {
+                        Text("No stores yet")
+                            .foregroundColor(.secondary)
+                    }
+                    ForEach(store.groupStores) { shop in
+                        Text(shop.name)
+                            .swipeActions {
+                                if store.canDelete(shop) {
+                                    Button(role: .destructive) {
+                                        store.deleteStore(id: shop.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+            .navigationTitle("Stores")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func add() {
+        store.addStore(named: newName)
+        newName = ""
     }
 }
 
@@ -7094,15 +7990,17 @@ struct GroupPlanDetailView: View {
             Button {
                 editItem = item
             } label: {
-                Label("Edit", systemImage: "pencil")
+                Label(plan.map { store.canEdit(item: item, in: $0) } ?? false ? "Edit" : "Suggest Changes", systemImage: "pencil")
             }
             .tint(AuraThemePalette.current.accentStart)
         }
         .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                store.deletePlanItem(planId: planId, itemId: item.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
+            if plan.map({ store.canDelete(item: item, in: $0) }) ?? false {
+                Button(role: .destructive) {
+                    store.deletePlanItem(planId: planId, itemId: item.id)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
     }
@@ -7114,6 +8012,12 @@ struct AddGroupPlanItemView: View {
     @Binding var isPresented: Bool
     let planId: UUID
     var editingItem: GroupListItem? = nil
+
+    /// Editing a step someone else added: saving sends them a request.
+    private var isSuggesting: Bool {
+        guard let editingItem, let plan = store.groupPlans.first(where: { $0.id == planId }) else { return false }
+        return !store.canEdit(item: editingItem, in: plan)
+    }
 
     @State private var name = ""
     @State private var note = ""
@@ -7151,14 +8055,14 @@ struct AddGroupPlanItemView: View {
                     TextField("Optional note", text: $note)
                 }
             }
-            .navigationTitle("Add Step")
+            .navigationTitle(editingItem == nil ? "Add Step" : (isSuggesting ? "Suggest Changes" : "Edit Step"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { closeView() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(editingItem == nil ? "Add" : "Save") {
+                    Button(editingItem == nil ? "Add" : (isSuggesting ? "Send" : "Save")) {
                         AuraHaptics.success()
                         let item = GroupListItem(
                             id: editingItem?.id ?? UUID(),
@@ -7169,12 +8073,18 @@ struct AddGroupPlanItemView: View {
                             assignedMemberId: assignedMemberId,
                             preferredStore: nil,
                             dueDate: hasDueDate ? dueDate : nil,
+                            completedByName: editingItem?.completedByName,
                             boughtAt: editingItem?.boughtAt
                         )
                         if editingItem == nil {
                             store.addPlanItem(to: planId, item: item)
-                        } else {
-                            store.updatePlanItem(planId: planId, item: item)
+                        } else if store.updatePlanItem(planId: planId, item: item) == .proposed {
+                            let owner = store.groupPlans.first(where: { $0.id == planId })?.ownerName ?? ""
+                            NotificationCenter.default.post(
+                                name: .auraInAppBanner,
+                                object: nil,
+                                userInfo: ["title": "Change requested", "message": "Sent to \(store.creatorName(ownerName: owner)) to approve."]
+                            )
                         }
                         closeView()
                     }
@@ -7441,7 +8351,7 @@ struct QuickAddShoppingItemView: View {
                 Section("Item") {
                     TextField("Item name", text: $name)
                     TextField("Quantity", text: $quantity)
-                    TextField("Preferred store (optional)", text: $preferredStore)
+                    StorePickerField(selection: $preferredStore)
                     Picker("Responsible", selection: $assignedMemberId) {
                         Text("Anyone").tag(UUID?.none)
                         ForEach(store.members) { member in
@@ -7483,7 +8393,7 @@ struct QuickAddShoppingItemView: View {
                             store.addGroupList(title: "Shopping List", kind: .supermarket, visibility: newListVisibility, sharedWithNames: [])
                         }
                         if let target = store.visibleGroupLists.first(where: { $0.kind == .supermarket }) ?? store.visibleGroupLists.first {
-                            store.addItem(to: target.id, item: .init(name: name, quantity: quantity, note: "", isDone: false, assignedMemberId: assignedMemberId, preferredStore: preferredStore, dueDate: hasDueDate ? dueDate : nil, completedByName: nil, boughtAt: nil))
+                            store.addItem(to: target.id, item: .init(name: name, quantity: quantity, note: "", isDone: false, assignedMemberId: assignedMemberId, preferredStore: preferredStore.isEmpty ? nil : preferredStore, dueDate: hasDueDate ? dueDate : nil, completedByName: nil, boughtAt: nil))
                         }
                         isPresented = false
                     }
@@ -8141,7 +9051,7 @@ struct AgendaView: View {
                                                     AuraHaptics.tap(.light)
                                                     editingEvent = e
                                                 } label: {
-                                                    Label("Edit", systemImage: "pencil")
+                                                    Label(store.canEdit(e) ? "Edit" : "Suggest Changes", systemImage: "pencil")
                                                 }
                                                 Button {
                                                     AuraHaptics.success()
@@ -8152,19 +9062,23 @@ struct AgendaView: View {
                                                 } label: {
                                                     Label("Duplicate", systemImage: "plus.square.on.square")
                                                 }
-                                                Button(role: .destructive) {
-                                                    AuraHaptics.warning()
-                                                    withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
-                                                } label: {
-                                                    Label("Delete", systemImage: "trash")
+                                                if store.canDelete(e) {
+                                                    Button(role: .destructive) {
+                                                        AuraHaptics.warning()
+                                                        withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                                                    } label: {
+                                                        Label("Delete", systemImage: "trash")
+                                                    }
                                                 }
                                             }
                                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                                Button(role: .destructive) {
-                                                    AuraHaptics.warning()
-                                                    withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
-                                                } label: {
-                                                    Label("Delete", systemImage: "trash")
+                                                if store.canDelete(e) {
+                                                    Button(role: .destructive) {
+                                                        AuraHaptics.warning()
+                                                        withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                                                    } label: {
+                                                        Label("Delete", systemImage: "trash")
+                                                    }
                                                 }
                                             }
                                             .swipeActions(edge: .leading) {
@@ -8587,7 +9501,7 @@ struct DateHeader: View {
     }
 }
 
-private struct AgendaScrollOffsetKey: PreferenceKey {
+struct AgendaScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
@@ -8968,13 +9882,15 @@ struct CalendarView: View {
                                     Button {
                                         editingEvent = e
                                     } label: {
-                                        Label("Edit", systemImage: "pencil")
+                                        Label(store.canEdit(e) ? "Edit" : "Suggest Changes", systemImage: "pencil")
                                     }
-                                    Button(role: .destructive) {
-                                        AuraHaptics.warning()
-                                        store.deleteEvent(id: e.id)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                                    if store.canDelete(e) {
+                                        Button(role: .destructive) {
+                                            AuraHaptics.warning()
+                                            store.deleteEvent(id: e.id)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
                         }
@@ -9504,6 +10420,14 @@ struct EventDetailView: View {
                             InfoCard(icon: "person.2.fill", label: "Assigned To", value: assignedLabel)
                         }
                         InfoCard(icon: event.visibility.icon, label: "Visibility", value: visibilityLabel)
+                        if !store.canEdit(event) {
+                            InfoCard(icon: "person.crop.circle", label: "Created By", value: store.creatorName(ownerName: event.ownerName))
+                        }
+                        if store.pendingProposal(for: event.id) != nil {
+                            InfoCard(icon: "clock.arrow.circlepath", label: "Your Suggested Change",
+                                     value: "Waiting for \(store.creatorName(ownerName: event.ownerName)) to approve",
+                                     tint: AuraThemePalette.current.accentStart)
+                        }
                         if !event.attachments.isEmpty {
                             AttachmentsCard(attachments: event.attachments)
                         }
@@ -9524,10 +10448,16 @@ struct EventDetailView: View {
                         }
                         if event.sharePermission == .edit {
                             Button { showEdit = true } label: {
-                                Label("Edit", systemImage: "pencil")
+                                if store.canEdit(event) {
+                                    Label("Edit", systemImage: "pencil")
+                                } else {
+                                    Label("Suggest Changes", systemImage: "square.and.pencil")
+                                }
                             }
-                            Button(role: .destructive) { confirmDelete = true } label: {
-                                Label("Delete", systemImage: "trash")
+                            if store.canDelete(event) {
+                                Button(role: .destructive) { confirmDelete = true } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
                         }
                     } label: {
@@ -9717,8 +10647,14 @@ struct CreateEventView: View {
             ownerName: editing?.ownerName.isEmpty == false ? editing!.ownerName : store.activeProfileName,
             visibility: visibility,
             sharedWithNames: Array(sharedWithNames),
-            assignedMemberIds: Array(assignedMemberIds)
+            assignedMemberIds: Array(assignedMemberIds),
+            createdByUserId: editing?.createdByUserId
         )
+    }
+
+    /// Editing someone else's event: saving sends a request to its creator.
+    var isSuggesting: Bool {
+        editing.map { !store.canEdit($0) } ?? false
     }
 
     var conflicts: [CalendarEvent] {
@@ -9735,7 +10671,7 @@ struct CreateEventView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle(editing == nil ? "New Event" : "Edit Event")
+            .navigationTitle(editing == nil ? "New Event" : (isSuggesting ? "Suggest Changes" : "Edit Event"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showRepeatPicker) {
                 RecurrencePickerSheet(selected: $recurrence, isPresented: $showRepeatPicker)
@@ -9754,7 +10690,7 @@ struct CreateEventView: View {
                     Button("Cancel") { isPresented = false }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(editing == nil ? "Add" : "Update") { save() }
+                    Button(editing == nil ? "Add" : (isSuggesting ? "Send" : "Update")) { save() }
                         .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                         .fontWeight(.bold)
                 }
@@ -10037,7 +10973,15 @@ struct CreateEventView: View {
 
     func save() {
         AuraHaptics.success()
-        editing == nil ? store.addEvent(draftEvent) : store.updateEvent(draftEvent)
+        if editing == nil {
+            store.addEvent(draftEvent)
+        } else if store.updateEvent(draftEvent) == .proposed, let editing {
+            NotificationCenter.default.post(
+                name: .auraInAppBanner,
+                object: nil,
+                userInfo: ["title": "Change requested", "message": "Sent to \(store.creatorName(ownerName: editing.ownerName)) to approve."]
+            )
+        }
         isPresented = false
     }
 
@@ -10086,7 +11030,7 @@ struct CreateEventView: View {
 
 // MARK: - Category Picker Row (extracted to help type-checker)
 
-private struct CategoryPickerRow: View {
+struct CategoryPickerRow: View {
     let category: EventCategory
     var body: some View {
         HStack(spacing: 6) {
