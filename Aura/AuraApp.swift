@@ -2061,10 +2061,34 @@ actor AuraServerSyncEngine {
             throw AuraServerError.requestFailed(serverErrorMessage(from: data, statusCode: http.statusCode))
         }
         do {
-            return try JSONDecoder().decode(Response.self, from: data)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom(Self.decodeServerOrClientDate)
+            return try decoder.decode(Response.self, from: data)
         } catch {
+            print("[Aurenda] Decode failed for \(Response.self): \(error)")
             throw AuraServerError.invalidResponse
         }
+    }
+
+    // A snapshot response mixes two date formats: the envelope's updatedAt is
+    // stamped by the server as a JS toISOString() string ("...T09:12:44.123Z"),
+    // while every date inside the payload was written by this app's default
+    // JSONEncoder as a number (seconds since 2001). The default strategy only
+    // reads numbers, so every snapshot pull failed on the envelope; .iso8601
+    // alone would fail on every event instead (and on iOS 16 can't parse the
+    // milliseconds either). Accept both.
+    private static func decodeServerOrClientDate(_ decoder: Decoder) throws -> Date {
+        let container = try decoder.singleValueContainer()
+        if let seconds = try? container.decode(Double.self) {
+            return Date(timeIntervalSinceReferenceDate: seconds)
+        }
+        let raw = try container.decode(String.self)
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFraction.date(from: raw) ?? ISO8601DateFormatter().date(from: raw) {
+            return date
+        }
+        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unrecognized date: \(raw)")
     }
 
     private func request<Body: Encodable, Response: Decodable>(
@@ -4226,7 +4250,9 @@ class EventStore: ObservableObject {
                 // and (the tradeoff) it can't distinguish "never had it" from
                 // "deleted it" -- a deletion on one device can still reappear if
                 // another device re-pushes its pre-deletion copy.
-                if let remote = try? await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId),
+                // `try`, not `try?`: if the remote copy can't be read, uploading
+                // anyway would overwrite it unmerged -- better to fail this push.
+                if let remote = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: activeServerGroupId),
                    remote.updatedAt.timeIntervalSince1970 > groupLastSnapshot {
                     mergeMissingFromRemote(remote)
                 }
@@ -4287,6 +4313,21 @@ class EventStore: ObservableObject {
                 return
             }
             guard let incoming else { return }
+            // One-time recovery per group: before the snapshot date-decoding fix,
+            // every pull failed and members' pushes overwrote each other, so this
+            // device may hold events the server copy lost. A normal pull would
+            // replace them; merge instead, and only mark it done once the union
+            // has actually been uploaded.
+            let recoveryKey = "snapshotDateFixRecovered.\(activeServerGroupId)"
+            if !UserDefaults.standard.bool(forKey: recoveryKey) {
+                mergeMissingFromRemote(incoming)
+                let before = groupLastSnapshot
+                await pushSnapshot()
+                if groupLastSnapshot != before {
+                    UserDefaults.standard.set(true, forKey: recoveryKey)
+                }
+                return
+            }
             guard incoming.updatedAt.timeIntervalSince1970 > groupLastSnapshot + 0.5 else { return }
             applyingRemoteSnapshot = true
             categories = incoming.categories
@@ -4305,19 +4346,10 @@ class EventStore: ObservableObject {
             groupLastSnapshot = incoming.updatedAt.timeIntervalSince1970
             syncStatus = hasServerGroup ? "Server updated from \(incoming.updatedBy)" : "Updated from \(incoming.updatedBy)"
         } catch {
-            if case AuraServerError.invalidResponse = error {
-                // The stored snapshot's JSON didn't decode as HouseholdSyncPayload --
-                // some field this build's Codable conformance requires wasn't there
-                // (an older/incompatible copy, most likely from before this session's
-                // schema changes). That blob will fail to decode on EVERY future pull
-                // too, from either device, forever, unless something overwrites it --
-                // so rather than surface a permanent, unactionable "sync failed"
-                // error, push this device's current valid data over it so the next
-                // pull (from either side) succeeds.
-                print("[Aurenda] Pulled snapshot didn't decode -- pushing current data to replace it.")
-                await pushSnapshot()
-                return
-            }
+            // Deliberately no "push over it" fallback on a decode failure: that
+            // turned every failed pull into a blind overwrite of the whole group's
+            // snapshot with this device's local copy, so members kept erasing
+            // each other's events every few seconds.
             _ = mapServerError(error, fallbackStatus: hasServerGroup ? "Server sync pull failed" : "Sync pull failed")
         }
     }
