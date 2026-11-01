@@ -139,12 +139,14 @@ struct EventDetailView: View {
                             InfoCard(icon: "person.2.fill", label: "Assigned To", value: assignedLabel)
                         }
                         InfoCard(icon: event.visibility.icon, label: "Visibility", value: visibilityLabel)
-                        if !store.canEdit(event) {
-                            InfoCard(icon: "person.crop.circle", label: "Created By", value: store.creatorName(ownerName: event.ownerName))
+                        if !store.isCreator(event.createdByUserId, ownerName: event.ownerName) {
+                            InfoCard(icon: "person.crop.circle", label: "Created By",
+                                     value: store.creatorName(ownerName: event.ownerName)
+                                        + (store.creatorLeft(event.createdByUserId, ownerName: event.ownerName) ? " (left the group)" : ""))
                         }
                         if store.pendingProposal(for: event.id) != nil {
                             InfoCard(icon: "clock.arrow.circlepath", label: "Your Suggested Change",
-                                     value: "Waiting for \(store.creatorName(ownerName: event.ownerName)) to approve",
+                                     value: "Waiting for \(store.deciderName(createdByUserId: event.createdByUserId, ownerName: event.ownerName)) to approve",
                                      tint: AuraThemePalette.current.accentStart)
                         }
                         if !event.attachments.isEmpty {
@@ -698,7 +700,7 @@ struct CreateEventView: View {
             NotificationCenter.default.post(
                 name: .auraInAppBanner,
                 object: nil,
-                userInfo: ["title": "Change requested", "message": "Sent to \(store.creatorName(ownerName: editing.ownerName)) to approve."]
+                userInfo: ["title": "Change requested", "message": "Sent to \(store.deciderName(createdByUserId: editing.createdByUserId, ownerName: editing.ownerName)) to approve."]
             )
         }
         isPresented = false

@@ -1342,7 +1342,7 @@ struct ChangeRequestsCard: View {
 
     private func statusText(_ proposal: EditProposal) -> String {
         switch proposal.status {
-        case .pending: return "Waiting for \(store.creatorName(ownerName: proposal.targetOwnerName)) to approve"
+        case .pending: return "Waiting for \(store.deciderName(createdByUserId: proposal.targetOwnerUserId, ownerName: proposal.targetOwnerName)) to approve"
         case .approved: return "Approved"
         case .declined: return "Declined"
         case .withdrawn: return "Withdrawn"

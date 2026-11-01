@@ -25,10 +25,17 @@
 export type Rec = Record<string, unknown>;
 export type Payload = Rec;
 
+export interface GroupMemberRef {
+  userId: string;
+  displayName: string;
+}
+
 export interface Actor {
   userId: string;
   displayName: string;
   isOwner: boolean;
+  /// Current members of the group, used to tell when a creator has left.
+  members: GroupMemberRef[];
 }
 
 const APPLE_EPOCH_OFFSET_SECONDS = 978_307_200;
@@ -96,6 +103,22 @@ export function isCreator(actor: { userId: string; displayName: string }, record
   return ownerName.length === 0 || sameName(ownerName, actor.displayName);
 }
 
+/// Whoever created a record has left the group. Legacy records (no creator
+/// id) count as orphaned when their owner name matches no current member.
+export function creatorLeft(members: GroupMemberRef[], record: Rec): boolean {
+  if (typeof record.createdByUserId === "string" && record.createdByUserId.length > 0) {
+    return !members.some((member) => member.userId === record.createdByUserId);
+  }
+  const ownerName = typeof record.ownerName === "string" ? record.ownerName.trim() : "";
+  return ownerName.length > 0 && !members.some((member) => sameName(ownerName, member.displayName));
+}
+
+/// The creator edits their own records; once they've left the group, the
+/// Owner takes them over so nothing is stranded.
+function mayEdit(actor: Actor, record: Rec): boolean {
+  return isCreator(actor, record) || (actor.isOwner && creatorLeft(actor.members, record));
+}
+
 function canDelete(actor: Actor, record: Rec): boolean {
   return actor.isOwner || isCreator(actor, record);
 }
@@ -130,7 +153,7 @@ function mergeItems(
       byId.set(id, incoming);
       continue;
     }
-    if (isCreator(actor, itemOwner(stored, parent))) {
+    if (mayEdit(actor, itemOwner(stored, parent))) {
       byId.set(id, newer(stored, incoming));
       continue;
     }
@@ -168,8 +191,8 @@ function mergeCollection(
       byId.set(id, record);
       continue;
     }
-    const mayEdit = !options.owned || isCreator(actor, existing);
-    const base = mayEdit ? newer(existing, record) : existing;
+    const editable = !options.owned || mayEdit(actor, existing);
+    const base = editable ? newer(existing, record) : existing;
     if (options.hasItems) {
       byId.set(id, {
         ...base,
@@ -254,7 +277,7 @@ function mergeProposals(stored: Payload, incoming: Payload, merged: Payload, act
     }
     const target = targetOfProposal(merged, existing) ?? targetOfProposal(stored, existing);
     const isTargetCreator =
-      existing.targetOwnerUserId === actor.userId || (target !== null && isCreator(actor, target));
+      existing.targetOwnerUserId === actor.userId || (target !== null && mayEdit(actor, target));
     const resolving = proposal.status === "approved" || proposal.status === "declined";
     const withdrawing = proposal.status === "withdrawn" && existing.proposerUserId === actor.userId;
     if ((resolving && isTargetCreator) || withdrawing) {
@@ -314,7 +337,10 @@ export function canView(viewer: { userId: string; displayName: string }, record:
   return sharedWith.some((name) => sameName(name, viewer.displayName));
 }
 
-export function filterPayloadForViewer(payload: Payload, viewer: { userId: string; displayName: string }): Payload {
+export function filterPayloadForViewer(
+  payload: Payload,
+  viewer: { userId: string; displayName: string; isOwner: boolean; members: GroupMemberRef[] }
+): Payload {
   const visible = (list: Rec[]) => list.filter((record) => canView(viewer, record));
   return {
     ...payload,
@@ -327,7 +353,10 @@ export function filterPayloadForViewer(payload: Payload, viewer: { userId: strin
       (proposal) =>
         proposal.proposerUserId === viewer.userId ||
         proposal.targetOwnerUserId === viewer.userId ||
-        (typeof proposal.targetOwnerUserId !== "string" && sameName(proposal.targetOwnerName, viewer.displayName))
+        (typeof proposal.targetOwnerUserId !== "string" && sameName(proposal.targetOwnerName, viewer.displayName)) ||
+        // Requests to someone who has left now wait on the Owner.
+        (viewer.isOwner &&
+          creatorLeft(viewer.members, { createdByUserId: proposal.targetOwnerUserId, ownerName: proposal.targetOwnerName }))
     )
   };
 }

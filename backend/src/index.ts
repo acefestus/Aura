@@ -22,6 +22,8 @@ import {
   mergeSnapshotPayload,
   plansOf,
   proposalsOf,
+  creatorLeft,
+  type GroupMemberRef,
   type Payload,
   type Rec
 } from "./syncMerge.js";
@@ -1498,6 +1500,12 @@ app.delete("/groups/:groupId/members/:userId", requireAuth, async (req: AuthRequ
   }
 
   context.db.groupMemberships.splice(targetIndex, 1);
+  // Joining also wrote a legacy household membership for the same group;
+  // leaving it behind kept the removed user counted as a member there.
+  const legacyHouseholdId = context.group.legacyHouseholdId ?? context.group.id;
+  context.db.memberships = context.db.memberships.filter(
+    (candidate) => !(candidate.userId === targetUserId && candidate.householdId === legacyHouseholdId)
+  );
   logGroupAuditEntry(context.db, context.userId, context.group.id, "member_removed", { targetUserId });
   await store.write(context.db);
   res.json({ ok: true });
@@ -1931,8 +1939,28 @@ function viewerFor(db: DatabaseShape, userId: string) {
   return { userId, displayName: db.users.find((candidate) => candidate.id === userId)?.displayName ?? "" };
 }
 
+/// Current members of a group. Group memberships are the source of truth;
+/// legacy household rows only count for a household that has none (removal
+/// historically left those rows behind).
+function groupMembersOf(db: DatabaseShape, groupId: string): GroupMemberRef[] {
+  const current = db.groupMemberships.filter((m) => m.groupId === groupId).map((m) => m.userId);
+  const ids = current.length > 0 ? current : db.memberships.filter((m) => m.householdId === groupId).map((m) => m.userId);
+  return [...new Set(ids)].map((id) => viewerFor(db, id));
+}
+
+function isGroupOwner(db: DatabaseShape, groupId: string, userId: string) {
+  const role = db.groupMemberships.find((m) => m.groupId === groupId && m.userId === userId)?.role;
+  // Legacy households (no group membership row) only ever had their creator as owner.
+  return role === "Owner" || (role === undefined && db.memberships.some((m) => m.userId === userId && m.householdId === groupId && m.role === "Owner"));
+}
+
 function snapshotForViewer(db: DatabaseShape, snapshot: HouseholdSnapshot, userId: string): HouseholdSnapshot {
-  return { ...snapshot, payload: filterPayloadForViewer(snapshot.payload, viewerFor(db, userId)) };
+  const viewer = {
+    ...viewerFor(db, userId),
+    isOwner: isGroupOwner(db, snapshot.householdId, userId),
+    members: groupMembersOf(db, snapshot.householdId)
+  };
+  return { ...snapshot, payload: filterPayloadForViewer(snapshot.payload, viewer) };
 }
 
 function recordTitle(record: Rec | undefined, fallback: string) {
@@ -1991,13 +2019,16 @@ async function notifyGroupOfChanges(
     messages.push({ userIds: visibleTo(list), title: groupName, body });
   }
 
+  const ownerIds = db.groupMemberships.filter((m) => m.groupId === groupId && m.role === "Owner").map((m) => m.userId);
+  const members = groupMembersOf(db, groupId);
   const beforeProposals = new Map(proposalsOf(before).map((proposal) => [proposal.id, proposal]));
   for (const proposal of proposalsOf(after)) {
     const previous = beforeProposals.get(proposal.id);
     const subject = recordTitle({ title: proposal.targetTitle }, "your item");
     if (!previous && typeof proposal.targetOwnerUserId === "string" && proposal.targetOwnerUserId !== actor.userId) {
+      const decider = creatorLeft(members, { createdByUserId: proposal.targetOwnerUserId }) ? ownerIds : [proposal.targetOwnerUserId];
       messages.push({
-        userIds: [proposal.targetOwnerUserId],
+        userIds: decider.filter((id) => id !== actor.userId),
         title: "Change requested",
         body: `${who} suggested a change to "${subject}"`
       });
@@ -2160,11 +2191,14 @@ app.get("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   const snapshot = db.snapshots.find((candidate) => candidate.householdId === resolved.groupId) ?? null;
   // Polled every few seconds by every open app: skip resending the whole
   // payload when the caller already has this version.
+  // Members ride along on every reply (even "unchanged") so the app always
+  // knows who has left, which decides what the Owner may take over.
+  const groupMembers = groupMembersOf(db, resolved.groupId);
   if (snapshot && typeof req.query.since === "string" && req.query.since === snapshot.updatedAt) {
-    res.json({ snapshot: null, unchanged: true });
+    res.json({ snapshot: null, unchanged: true, groupMembers });
     return;
   }
-  res.json({ snapshot: snapshot ? snapshotForViewer(db, snapshot, req.userId!) : null });
+  res.json({ snapshot: snapshot ? snapshotForViewer(db, snapshot, req.userId!) : null, groupMembers });
 });
 
 app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
@@ -2183,14 +2217,12 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
   const user = db.users.find((candidate) => candidate.id === req.userId);
-  const role = db.groupMemberships.find(
-    (candidate) => candidate.groupId === resolved.groupId && candidate.userId === req.userId
-  )?.role;
+  const groupMembers = groupMembersOf(db, resolved.groupId);
   const actor = {
     userId: req.userId!,
     displayName: user?.displayName ?? "",
-    // Legacy households (no group membership row) only ever had their creator as owner.
-    isOwner: role === "Owner" || (role === undefined && db.memberships.some((m) => m.userId === req.userId && m.householdId === resolved.groupId && m.role === "Owner"))
+    isOwner: isGroupOwner(db, resolved.groupId, req.userId!),
+    members: groupMembers
   };
 
   const index = db.snapshots.findIndex((candidate) => candidate.householdId === resolved.groupId);
@@ -2210,7 +2242,7 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   }
 
   await store.write(db);
-  res.json({ snapshot: snapshotForViewer(db, snapshot, req.userId!) });
+  res.json({ snapshot: snapshotForViewer(db, snapshot, req.userId!), groupMembers });
 
   void notifyGroupOfChanges(resolved.groupId, previous?.payload ?? {}, merged, actor).catch((error) => {
     console.error("Push notification failed", error);

@@ -158,6 +158,13 @@ struct AuraRemoteSnapshotEnvelope: Codable {
     var snapshot: AuraRemoteSnapshotRecord?
     /// Set when the request passed `since` and nothing has changed.
     var unchanged: Bool? = nil
+    /// The group's current members, sent with every reply.
+    var groupMembers: [AuraRemoteMemberRef]? = nil
+}
+
+struct AuraRemoteMemberRef: Codable, Equatable {
+    var userId: String
+    var displayName: String
 }
 
 struct AuraRemoteUserEnvelope: Codable {

@@ -18,6 +18,8 @@ class EventStore: ObservableObject {
     @Published var groupPlans: [GroupPlan] = []
     @Published var groupStores: [GroupStore] = []
     @Published var proposals: [EditProposal] = []
+    /// Who's currently in the active group, from the latest sync reply.
+    @Published private(set) var activeGroupMembers: [AuraRemoteMemberRef] = []
     private(set) var deletedIds: [String: Date] = [:]
     private var hasPendingPush = false
     @Published var groupActivities: [GroupActivity] = []
@@ -925,20 +927,38 @@ class EventStore: ObservableObject {
         return owner.isEmpty || owner.caseInsensitiveCompare(me) == .orderedSame
     }
 
-    func canEdit(_ event: CalendarEvent) -> Bool { isCreator(event.createdByUserId, ownerName: event.ownerName) }
+    /// The creator has left the active group. Legacy records count as
+    /// orphaned when their owner name matches no current member. Unknown
+    /// (member list not loaded yet) is treated as "still here".
+    func creatorLeft(_ createdByUserId: String?, ownerName: String) -> Bool {
+        guard !activeGroupMembers.isEmpty else { return false }
+        if let createdByUserId, !createdByUserId.isEmpty {
+            return !activeGroupMembers.contains { $0.userId == createdByUserId }
+        }
+        let owner = ownerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !owner.isEmpty && !activeGroupMembers.contains { $0.displayName.caseInsensitiveCompare(owner) == .orderedSame }
+    }
+
+    /// The creator edits their own records; once they've left the group the
+    /// Owner takes them over, so nothing is left stranded.
+    func mayEdit(_ createdByUserId: String?, ownerName: String) -> Bool {
+        isCreator(createdByUserId, ownerName: ownerName) || (isActiveGroupOwner && creatorLeft(createdByUserId, ownerName: ownerName))
+    }
+
+    func canEdit(_ event: CalendarEvent) -> Bool { mayEdit(event.createdByUserId, ownerName: event.ownerName) }
     func canDelete(_ event: CalendarEvent) -> Bool { canEdit(event) || isActiveGroupOwner }
-    func canEdit(_ list: GroupList) -> Bool { isCreator(list.createdByUserId, ownerName: list.ownerName) }
+    func canEdit(_ list: GroupList) -> Bool { mayEdit(list.createdByUserId, ownerName: list.ownerName) }
     func canDelete(_ list: GroupList) -> Bool { canEdit(list) || isActiveGroupOwner }
-    func canEdit(_ plan: GroupPlan) -> Bool { isCreator(plan.createdByUserId, ownerName: plan.ownerName) }
+    func canEdit(_ plan: GroupPlan) -> Bool { mayEdit(plan.createdByUserId, ownerName: plan.ownerName) }
     func canDelete(_ plan: GroupPlan) -> Bool { canEdit(plan) || isActiveGroupOwner }
 
     /// An item from before creator ids existed belongs to its list's creator.
     func canEdit(item: GroupListItem, in list: GroupList) -> Bool {
-        item.createdByUserId != nil ? isCreator(item.createdByUserId, ownerName: "") : canEdit(list)
+        item.createdByUserId != nil ? mayEdit(item.createdByUserId, ownerName: "") : canEdit(list)
     }
     func canDelete(item: GroupListItem, in list: GroupList) -> Bool { canEdit(item: item, in: list) || isActiveGroupOwner }
     func canEdit(item: GroupListItem, in plan: GroupPlan) -> Bool {
-        item.createdByUserId != nil ? isCreator(item.createdByUserId, ownerName: "") : canEdit(plan)
+        item.createdByUserId != nil ? mayEdit(item.createdByUserId, ownerName: "") : canEdit(plan)
     }
     func canDelete(item: GroupListItem, in plan: GroupPlan) -> Bool { canEdit(item: item, in: plan) || isActiveGroupOwner }
 
@@ -946,6 +966,12 @@ class EventStore: ObservableObject {
     func creatorName(ownerName: String) -> String {
         let clean = ownerName.trimmingCharacters(in: .whitespacesAndNewlines)
         return clean.isEmpty ? "its creator" : clean
+    }
+
+    /// Who decides on a request: the creator, or the group's Owner once the
+    /// creator has left.
+    func deciderName(createdByUserId: String?, ownerName: String) -> String {
+        creatorLeft(createdByUserId, ownerName: ownerName) ? "the group owner" : creatorName(ownerName: ownerName)
     }
 
     private func stamped(_ item: GroupListItem) -> GroupListItem {
@@ -1863,6 +1889,7 @@ class EventStore: ObservableObject {
             // The active group changed while this was in flight; its response
             // belongs to the previous group's data.
             guard groupId == activeServerGroupId else { return }
+            if let members = response.groupMembers { activeGroupMembers = members }
             if let record = response.snapshot {
                 applyServerSnapshot(record)
             }
@@ -1897,7 +1924,9 @@ class EventStore: ObservableObject {
         let groupId = activeServerGroupId
         do {
             let response = try await AuraServerSyncEngine.shared.downloadSnapshot(baseURL: currentBackendBaseURL, token: backendAuthToken, groupId: groupId, since: snapshotVersion)
-            guard groupId == activeServerGroupId, response.unchanged != true, let record = response.snapshot else { return }
+            guard groupId == activeServerGroupId else { return }
+            if let members = response.groupMembers { activeGroupMembers = members }
+            guard response.unchanged != true, let record = response.snapshot else { return }
             applyServerSnapshot(record)
             syncStatus = "Server updated from \(record.updatedBy)"
         } catch {
@@ -2033,6 +2062,7 @@ class EventStore: ObservableObject {
             }
         }
         events = []
+        activeGroupMembers = []
         groupLists = []
         groupPlans = []
         groupActivities = []
