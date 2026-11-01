@@ -111,6 +111,18 @@ struct AuraAppShellView: View {
             }
         }
         .animation(AuraMotion.smooth, value: showSplash)
+        // Text follows the user's size setting; beyond this the fixed-size
+        // badges and circles around it stop fitting.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .onAppear {
+            // Safety net: the .task below has been seen to never finish (the
+            // splash stayed up indefinitely), so never let it outlive 2.5s.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                if showSplash {
+                    withAnimation(AuraMotion.smooth) { showSplash = false }
+                }
+            }
+        }
         .task {
             guard showSplash else { return }
             #if DEBUG
@@ -172,13 +184,13 @@ struct AuraSplashScreen: View {
                     .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
                     .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
                 Text("Aurenda")
-                    .font(.system(size: 40, weight: .black, design: .rounded))
+                    .auraFont(size: 40, weight: .black, design: .rounded)
                     .foregroundColor(.white)
                 Text("Shared Life, Organized")
-                    .font(.system(size: 14, weight: .semibold))
+                    .auraFont(size: 14, weight: .semibold)
                     .foregroundColor(.white.opacity(0.85))
                 Text("Multi-Group Planner + Personal Command Center")
-                    .font(.system(size: 12, weight: .medium))
+                    .auraFont(size: 12, weight: .medium)
                     .foregroundColor(.white.opacity(0.7))
             }
         }
@@ -231,7 +243,7 @@ struct AuraHeroGroupImage: View {
                     ZStack {
                         Circle().fill(Color.black.opacity(0.4)).frame(width: 30, height: 30)
                         Image(systemName: fallbackIcon)
-                            .font(.system(size: 14, weight: .bold))
+                            .auraFont(size: 14, weight: .bold)
                             .foregroundColor(.white)
                     }
                 }
@@ -342,20 +354,20 @@ struct AuraOnboardingView: View {
                 .frame(height: 260)
 
             Text(badge.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .auraFont(size: 10, weight: .bold, design: .rounded)
                 .foregroundColor(.white.opacity(0.85))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: Capsule())
 
             Text(title)
-                .font(.system(size: 28, weight: .black, design: .rounded))
+                .auraFont(size: 28, weight: .black, design: .rounded)
                 .foregroundColor(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
             Text(subtitle)
-                .font(.system(size: 15, weight: .medium))
+                .auraFont(size: 15, weight: .medium)
                 .foregroundColor(.white.opacity(0.86))
                 .lineLimit(3)
                 .minimumScaleFactor(0.9)

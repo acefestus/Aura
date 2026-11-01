@@ -15,6 +15,13 @@ struct ListsView: View {
     @State private var selectedVisibility: VisibilityScope? = nil
     @State private var showAddList = false
     @State private var selectedList: GroupList? = nil
+    @State private var selectedPlan: GroupPlan? = nil
+    @State private var showAddPlan = false
+    @State private var listPendingDelete: GroupList? = nil
+
+    private var visiblePlans: [GroupPlan] {
+        store.groupPlans.filter { store.canView(visibility: $0.visibility, ownerName: $0.ownerName, sharedWithNames: $0.sharedWithNames) }
+    }
 
     var filteredLists: [GroupList] {
         let base = store.visibleGroupLists
@@ -31,7 +38,7 @@ struct ListsView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("TYPE")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .auraFont(size: 10, weight: .bold, design: .rounded)
                                     .tracking(1.0)
                                     .foregroundColor(.secondary)
                                 ScrollView(.horizontal, showsIndicators: false) {
@@ -50,7 +57,7 @@ struct ListsView: View {
 
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("VISIBILITY")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .auraFont(size: 10, weight: .bold, design: .rounded)
                                     .tracking(1.0)
                                     .foregroundColor(.secondary)
                                 ScrollView(.horizontal, showsIndicators: false) {
@@ -90,21 +97,21 @@ struct ListsView: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         Image(systemName: list.kind.icon)
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .auraFont(size: 13, weight: .semibold)
                                             .foregroundColor(AuraThemePalette.current.accentStart)
                                             .frame(width: 30, height: 30)
                                             .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(list.title)
-                                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                                .auraFont(size: 15, weight: .bold, design: .rounded)
                                                 .foregroundColor(.primary)
                                             Text(summary(for: list))
-                                                .font(.system(size: 12))
+                                                .auraFont(size: 12)
                                                 .foregroundColor(.secondary)
                                         }
                                         Spacer()
                                         Image(systemName: list.visibility.icon)
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .auraFont(size: 12, weight: .semibold)
                                             .foregroundColor(.secondary)
                                     }
                                     .padding(AuraDesignTokens.Spacing.sm)
@@ -113,10 +120,10 @@ struct ListsView: View {
                                 .buttonStyle(.plain)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
-                                .swipeActions(edge: .trailing) {
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     if store.canDelete(list) {
                                         Button(role: .destructive) {
-                                            store.deleteGroupList(id: list.id)
+                                            listPendingDelete = list
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -125,23 +132,93 @@ struct ListsView: View {
                             }
                         } header: {
                             Text("GROUP LISTS")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .auraFont(size: 11, weight: .bold, design: .rounded)
                                 .foregroundColor(.secondary)
                         }
                     }
+
+                    // Plans are multi-step projects that live alongside lists.
+                    Section {
+                        if visiblePlans.isEmpty {
+                            Text("No plans yet. A plan is a goal with steps and a target date, like a party or a move.")
+                                .auraFont(size: 13)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(AuraDesignTokens.Spacing.sm)
+                                .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                        ForEach(visiblePlans) { plan in
+                            Button {
+                                selectedPlan = plan
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "flag.checkered")
+                                        .auraFont(size: 13, weight: .semibold)
+                                        .foregroundColor(AuraThemePalette.current.accentStart)
+                                        .frame(width: 30, height: 30)
+                                        .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: AuraDesignTokens.Radius.sm))
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(plan.title)
+                                            .auraFont(size: 15, weight: .bold, design: .rounded)
+                                            .foregroundColor(.primary)
+                                        Text("\(plan.targetDate.formatted(date: .abbreviated, time: .omitted)) · \(plan.items.filter(\.isDone).count) of \(countLabel(plan.items.count, "step")) done")
+                                            .auraFont(size: 12)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    ProgressView(value: plan.progress)
+                                        .frame(width: 44)
+                                        .tint(AuraThemePalette.current.accentStart)
+                                }
+                                .padding(AuraDesignTokens.Spacing.sm)
+                                .auraGlassCard(radius: AuraDesignTokens.Radius.md)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if store.canDelete(plan) {
+                                    Button(role: .destructive) {
+                                        store.deleteGroupPlan(id: plan.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("PLANS")
+                            .auraFont(size: 11, weight: .bold, design: .rounded)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
             .navigationTitle("Lists")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showAddList = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+            .auraTabChrome()
+            .alert("Delete List", isPresented: Binding(
+                get: { listPendingDelete != nil },
+                set: { if !$0 { listPendingDelete = nil } }
+            ), presenting: listPendingDelete) { list in
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    AuraHaptics.warning()
+                    store.deleteGroupList(id: list.id)
                 }
+            } message: { list in
+                Text("Delete \"\(list.title)\" and its \(countLabel(list.items.count, "item")) for everyone in the group?")
             }
+        }
+        .sheet(item: $selectedPlan) { plan in
+            GroupPlanDetailView(planId: plan.id)
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showAddPlan) {
+            AddGroupPlanView(isPresented: $showAddPlan)
+                .environmentObject(store)
         }
         .sheet(isPresented: $showAddList) {
             AddGroupListView(isPresented: $showAddList)
@@ -155,11 +232,12 @@ struct ListsView: View {
 
     private func summary(for list: GroupList) -> String {
         let done = list.items.filter { $0.isDone }.count
+        var parts = [countLabel(list.items.count, "item"), "\(done) done"]
         if list.kind == .supermarket {
-            let stores = Set(list.items.compactMap { $0.preferredStore })
-            return "\(list.items.count) items · \(done) done · \(stores.count) stores"
+            let stores = Set(list.items.compactMap { $0.preferredStore?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+            if !stores.isEmpty { parts.append(countLabel(stores.count, "store")) }
         }
-        return "\(list.items.count) items · \(done) done"
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -171,7 +249,7 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .auraFont(size: 12, weight: .semibold, design: .rounded)
                 .foregroundColor(selected ? .white : .primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -206,7 +284,7 @@ struct AddGroupListView: View {
                 if store.serverGroups.count > 1 {
                     Section {
                         Label("Creating in **\(store.activeServerGroupName)**", systemImage: "square.stack.3d.up.fill")
-                            .font(.system(size: 13))
+                            .auraFont(size: 13)
                             .foregroundColor(.secondary)
                     } footer: {
                         Text("To put this list in a different group, switch groups first using the pill at the top of the screen, then create it from there.")
@@ -230,7 +308,7 @@ struct AddGroupListView: View {
                         }
                     }
                     Text(visibility.subtitle)
-                        .font(.system(size: 12))
+                        .auraFont(size: 12)
                         .foregroundColor(.secondary)
                 }
                 if visibility == .custom {
@@ -354,11 +432,13 @@ struct GroupListDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel("More options")
                     }
                     Button {
                         showAddItem = true
                     } label: {
                         Image(systemName: "plus")
+                            .accessibilityLabel("Add")
                     }
                 }
             }
@@ -428,25 +508,26 @@ struct GroupListDetailView: View {
                 }
             } label: {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .accessibilityLabel(item.isDone ? "Mark \(item.name) not done" : "Mark \(item.name) done")
+                    .auraFont(size: 18, weight: .semibold)
                     .foregroundColor(item.isDone ? .green : .secondary)
             }
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .auraFont(size: 15, weight: .semibold)
                     .strikethrough(item.isDone)
                     .foregroundColor(item.isDone ? .secondary : .primary)
                 Text(itemSummary(item))
-                    .font(.system(size: 12))
+                    .auraFont(size: 12)
                     .foregroundColor(.secondary)
             }
             Spacer()
             if let id = item.assignedMemberId,
                let m = store.members.first(where: { $0.id == id }) {
                 Text(m.name)
-                    .font(.system(size: 11, weight: .bold))
+                    .auraFont(size: 11, weight: .bold)
                     .foregroundColor(m.color)
             }
         }
@@ -458,7 +539,7 @@ struct GroupListDetailView: View {
             }
             .tint(AuraThemePalette.current.accentStart)
         }
-        .swipeActions(edge: .trailing) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if canDelete(item) {
                 Button(role: .destructive) {
                     store.deleteItem(listId: listId, itemId: item.id)
@@ -769,14 +850,14 @@ struct GroupPlanDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text("Target Date")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .auraFont(size: 13, weight: .semibold)
                                     Spacer()
                                     Text(plan.targetDate.formatted(date: .abbreviated, time: .omitted))
                                         .foregroundColor(.secondary)
                                 }
                                 if !plan.notes.isEmpty {
                                     Text(plan.notes)
-                                        .font(.system(size: 13))
+                                        .auraFont(size: 13)
                                         .foregroundColor(.secondary)
                                 }
                                 ProgressView(value: plan.progress)
@@ -804,7 +885,7 @@ struct GroupPlanDetailView: View {
                             }
                         } header: {
                             Text("STEPS")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .auraFont(size: 11, weight: .bold, design: .rounded)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -822,6 +903,7 @@ struct GroupPlanDetailView: View {
                         showAddItem = true
                     } label: {
                         Image(systemName: "plus")
+                            .accessibilityLabel("Add")
                     }
                 }
             }
@@ -846,19 +928,20 @@ struct GroupPlanDetailView: View {
                 }
             } label: {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .accessibilityLabel(item.isDone ? "Mark \(item.name) not done" : "Mark \(item.name) done")
+                    .auraFont(size: 18, weight: .semibold)
                     .foregroundColor(item.isDone ? .green : .secondary)
             }
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .auraFont(size: 15, weight: .semibold)
                     .strikethrough(item.isDone)
                     .foregroundColor(item.isDone ? .secondary : .primary)
                 if !item.note.isEmpty {
                     Text(item.note)
-                        .font(.system(size: 12))
+                        .auraFont(size: 12)
                         .foregroundColor(.secondary)
                 }
             }
@@ -866,7 +949,7 @@ struct GroupPlanDetailView: View {
             if let id = item.assignedMemberId,
                let m = store.members.first(where: { $0.id == id }) {
                 Text(m.name)
-                    .font(.system(size: 11, weight: .bold))
+                    .auraFont(size: 11, weight: .bold)
                     .foregroundColor(m.color)
             }
         }
@@ -878,7 +961,7 @@ struct GroupPlanDetailView: View {
             }
             .tint(AuraThemePalette.current.accentStart)
         }
-        .swipeActions(edge: .trailing) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if plan.map({ store.canDelete(item: item, in: $0) }) ?? false {
                 Button(role: .destructive) {
                     store.deletePlanItem(planId: planId, itemId: item.id)
@@ -1053,7 +1136,7 @@ struct AddActivityView: View {
                         }
                     }
                     Text(visibility.subtitle)
-                        .font(.system(size: 12))
+                        .auraFont(size: 12)
                         .foregroundColor(.secondary)
                 }
                 if visibility == .custom {
@@ -1250,11 +1333,11 @@ struct QuickAddShoppingItemView: View {
                 Section {
                     if let list = firstSupermarketList {
                         Text("Will be added to: \(list.title)")
-                            .font(.system(size: 13))
+                            .auraFont(size: 13)
                             .foregroundColor(.secondary)
                     } else {
                         Text("No list found. A Shopping List will be created in \(store.activeServerGroupName).")
-                            .font(.system(size: 13))
+                            .auraFont(size: 13)
                             .foregroundColor(.secondary)
                         Picker("Who can see it", selection: $newListVisibility) {
                             ForEach([VisibilityScope.family, .personal], id: \.self) { s in

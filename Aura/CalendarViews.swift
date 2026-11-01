@@ -31,6 +31,7 @@ enum CalendarSourceFilter: String, CaseIterable {
 }
 
 struct CalendarView: View {
+    @State private var eventPendingDelete: CalendarEvent? = nil
     @EnvironmentObject var store: EventStore
     @Binding var showCreate: Bool
     @State private var selectedDate = Date()
@@ -66,9 +67,9 @@ struct CalendarView: View {
                                     Image(systemName: sourceFilter.icon)
                                     Text(sourceFilter.rawValue)
                                     Image(systemName: "chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .auraFont(size: 10, weight: .semibold)
                                 }
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .background(Color(.secondarySystemBackground).opacity(0.7), in: Capsule())
@@ -110,7 +111,19 @@ struct CalendarView: View {
                 }
             }
             .navigationTitle("Calendar")
-            .navigationBarTitleDisplayMode(.inline)
+            .auraTabChrome()
+            .alert("Delete Event", isPresented: Binding(
+                get: { eventPendingDelete != nil },
+                set: { if !$0 { eventPendingDelete = nil } }
+            ), presenting: eventPendingDelete) { e in
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    AuraHaptics.warning()
+                    withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                }
+            } message: { e in
+                Text("Delete \"\(e.title)\" for everyone in the group? This can't be undone.")
+            }
         }
         .sheet(item: $selected) { e in
             EventDetailView(event: e).environmentObject(store)
@@ -222,10 +235,11 @@ struct CalendarView: View {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(dayLabel(for: date))
-                        .font(.system(size: 17, weight: .bold))
+                        .auraFont(size: 17, weight: .bold)
+                    // The heading already says "Today"; give the date instead.
                     if cal.isDateInToday(date) {
-                        Text("Today")
-                            .font(.system(size: 11, weight: .semibold))
+                        Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                            .auraFont(size: 11, weight: .semibold)
                             .foregroundColor(AuraThemePalette.current.accentStart)
                     }
                 }
@@ -233,7 +247,7 @@ struct CalendarView: View {
                 let count = filteredEvents(for: date).count
                 if count > 0 {
                     Text("\(count) event\(count == 1 ? "" : "s")")
-                        .font(.system(size: 12, weight: .semibold))
+                        .auraFont(size: 12, weight: .semibold)
                         .foregroundColor(AuraThemePalette.current.accentStart)
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(AuraThemePalette.current.accentStart.opacity(0.1), in: Capsule())
@@ -246,10 +260,10 @@ struct CalendarView: View {
                     Spacer()
                     VStack(spacing: 8) {
                         Image(systemName: "moon.stars")
-                            .font(.system(size: 28))
+                            .auraFont(size: 28)
                             .foregroundColor(.secondary.opacity(0.4))
                         Text("No events this day")
-                            .font(.system(size: 14))
+                            .auraFont(size: 14)
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 20)
@@ -276,7 +290,7 @@ struct CalendarView: View {
                                     if store.canDelete(e) {
                                         Button(role: .destructive) {
                                             AuraHaptics.warning()
-                                            store.deleteEvent(id: e.id)
+                                            eventPendingDelete = e
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -362,10 +376,10 @@ struct MergedGroupsCalendarList: View {
             VStack(spacing: 8) {
                 Spacer()
                 Image(systemName: "square.stack.3d.up.slash")
-                    .font(.system(size: 28))
+                    .auraFont(size: 28)
                     .foregroundColor(.secondary.opacity(0.4))
                 Text("Nothing across your groups yet")
-                    .font(.system(size: 14))
+                    .auraFont(size: 14)
                     .foregroundColor(.secondary)
                 Spacer()
             }
@@ -374,14 +388,14 @@ struct MergedGroupsCalendarList: View {
                 VStack(alignment: .leading, spacing: 14) {
                     if let statusMessage {
                         Text(statusMessage)
-                            .font(.system(size: 11, weight: .medium))
+                            .auraFont(size: 11, weight: .medium)
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 16)
                     }
                     ForEach(groupedByDay, id: \.0) { day, items in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(day)
-                                .font(.system(size: 13, weight: .bold))
+                                .auraFont(size: 13, weight: .bold)
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 16)
                             VStack(spacing: 8) {
@@ -415,18 +429,18 @@ struct DateShiftHeader: View {
         HStack {
             Button(action: onPrev) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .auraFont(size: 14, weight: .semibold)
                     .foregroundColor(AuraThemePalette.current.accentStart)
                     .frame(width: 34, height: 34)
                     .background(AuraThemePalette.current.accentStart.opacity(0.12), in: Circle())
             }
             Spacer()
             Text(title)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .auraFont(size: 18, weight: .bold, design: .rounded)
             Spacer()
             Button(action: onNext) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .auraFont(size: 14, weight: .semibold)
                     .foregroundColor(AuraThemePalette.current.accentStart)
                     .frame(width: 34, height: 34)
                     .background(AuraThemePalette.current.accentStart.opacity(0.12), in: Circle())
@@ -456,10 +470,10 @@ struct WeekStrip: View {
                 } label: {
                     VStack(spacing: 2) {
                         Text(weekdayShort(d))
-                            .font(.system(size: 10, weight: .medium))
+                            .auraFont(size: 10, weight: .medium)
                             .foregroundColor(selected ? .white.opacity(0.9) : .secondary)
                         Text("\(cal.component(.day, from: d))")
-                            .font(.system(size: 14, weight: .bold))
+                            .auraFont(size: 14, weight: .bold)
                             .foregroundColor(selected ? .white : .primary)
                     }
                     .frame(maxWidth: .infinity)
@@ -506,13 +520,13 @@ struct YearMonthCard: View {
         Button(action: onTap) {
             VStack(spacing: 6) {
                 Text(monthName)
-                    .font(.system(size: 14, weight: .bold))
+                    .auraFont(size: 14, weight: .bold)
                     .foregroundColor(isCurrentMonth ? AuraThemePalette.current.accentStart : .primary)
                 Text("\(eventCount)")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .auraFont(size: 18, weight: .bold, design: .rounded)
                     .foregroundColor(.primary)
                 Text(eventCount == 1 ? "event" : "events")
-                    .font(.system(size: 10, weight: .medium))
+                    .auraFont(size: 10, weight: .medium)
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -540,7 +554,7 @@ struct MonthNav: View {
             NavBtn(dir: -1, month: $month)
             Spacer()
             Text(title)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .auraFont(size: 20, weight: .bold, design: .rounded)
                 .animation(.none, value: title)
             Spacer()
             NavBtn(dir: 1, month: $month)
@@ -560,7 +574,8 @@ struct NavBtn: View {
             }
         } label: {
             Image(systemName: dir < 0 ? "chevron.left" : "chevron.right")
-                .font(.system(size: 17, weight: .semibold))
+                .accessibilityLabel(dir < 0 ? "Previous" : "Next")
+                .auraFont(size: 17, weight: .semibold)
                 .foregroundColor(AuraThemePalette.current.accentStart)
                 .frame(width: 38, height: 38)
                 .background(AuraThemePalette.current.accentStart.opacity(0.1), in: Circle())
@@ -576,7 +591,7 @@ struct WeekdayRow: View {
         HStack {
             ForEach(days, id: \.self) { d in
                 Text(d)
-                    .font(.system(size: 12, weight: .medium))
+                    .auraFont(size: 12, weight: .medium)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
             }

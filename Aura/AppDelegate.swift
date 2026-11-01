@@ -130,7 +130,7 @@ struct AlarmFiringView: View {
                         .frame(width: 26, height: 26)
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     Text("Aurenda")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .auraFont(size: 15, weight: .semibold, design: .rounded)
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .padding(.top, 18)
@@ -147,7 +147,7 @@ struct AlarmFiringView: View {
                         .fill(Color.white.opacity(0.08))
                         .frame(width: 108, height: 108)
                     Image(systemName: alarm.categoryIcon)
-                        .font(.system(size: 40, weight: .medium))
+                        .auraFont(size: 40, weight: .medium)
                         .foregroundStyle(alarm.categoryColor)
                 }
                 .onAppear { pulse = true }
@@ -155,11 +155,11 @@ struct AlarmFiringView: View {
 
                 VStack(spacing: 8) {
                     Text(alarm.title)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .auraFont(size: 26, weight: .bold, design: .rounded)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                     Text(alarm.body)
-                        .font(.system(size: 15, weight: .medium))
+                        .auraFont(size: 15, weight: .medium)
                         .foregroundStyle(.white.opacity(0.65))
                         .multilineTextAlignment(.center)
                 }
@@ -172,7 +172,7 @@ struct AlarmFiringView: View {
                     if snoozeEnabled {
                         Button(action: onSnooze) {
                             Text("Snooze \(snoozeMinutes)m")
-                                .font(.system(size: 16, weight: .semibold))
+                                .auraFont(size: 16, weight: .semibold)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 15)
@@ -185,7 +185,7 @@ struct AlarmFiringView: View {
                     }
                     Button(action: onDismiss) {
                         Text("Dismiss")
-                            .font(.system(size: 16, weight: .semibold))
+                            .auraFont(size: 16, weight: .semibold)
                             .foregroundStyle(palette.backgroundStart)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)

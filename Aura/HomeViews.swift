@@ -19,12 +19,11 @@ struct ContentView: View {
     @State private var bannerPayload: InAppBannerPayload? = nil
     @State private var showQuickHomeActions = false
     @State private var showAddList = false
+    @State private var showListActions = false
+    @State private var showAddPlan = false
     @State private var showAddActivity = false
     @State private var showStartLiveActivity = false
     @State private var showQuickGrocery = false
-    @State private var showAddMember = false
-    @State private var showGroupMembers = false
-    @State private var showGroupsHub = false
     @State private var eventDraftPreset: EventDraftPreset? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
@@ -35,7 +34,7 @@ struct ContentView: View {
     var palette: AuraThemePalette { .from(themeJSON: widgetThemeJSON) }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottomTrailing) {
             TabView(selection: $tab) {
                 HomeView(showCreate: $showCreate, eventDraftPreset: $eventDraftPreset)
                     .id("home-\(widgetThemeJSON)")
@@ -52,9 +51,6 @@ struct ContentView: View {
                 PersonalHubView()
                     .id("personal-\(widgetThemeJSON)")
                     .tabItem { Label("Personal", systemImage: "person.crop.circle") }.tag(4)
-                SettingsView()
-                    .id("settings-\(widgetThemeJSON)")
-                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(5)
             }
             .tint(palette.accentStart)
 
@@ -65,63 +61,9 @@ struct ContentView: View {
                         .padding(.horizontal, 14)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                if store.hasServerSession && store.hasServerGroups {
-                    HStack {
-                        Button {
-                            showGroupsHub = true
-                        } label: {
-                            HStack(spacing: 7) {
-                                Image(systemName: "square.stack.3d.up.fill")
-                                    .font(.system(size: 13, weight: .bold))
-                                Text(store.activeServerGroupName)
-                                    .lineLimit(1)
-                                if store.serverGroups.count > 1 {
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 11, weight: .bold))
-                                }
-                            }
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                ),
-                                in: Capsule()
-                            )
-                            .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
-                            .foregroundStyle(.white)
-                            .shadow(color: Color(hex: "6366F1").opacity(0.45), radius: 10, y: 4)
-                        }
-                        Spacer()
-                        Button {
-                            showGroupMembers = true
-                        } label: {
-                            Image(systemName: "person.2.fill")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 36, height: 36)
-                                .background(Color.black.opacity(0.28), in: Circle())
-                                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, bannerPayload == nil ? 8 : 0)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
                 Spacer()
             }
             .animation(AuraMotion.banner, value: bannerPayload)
-            .sheet(isPresented: $showGroupMembers) {
-                GroupMembersView()
-                    .environmentObject(store)
-            }
-            .sheet(isPresented: $showGroupsHub) {
-                GroupsHubView(isPresented: $showGroupsHub)
-                    .environmentObject(store)
-            }
 
             // ── Floating Action Button ──────────────────────
             Button {
@@ -133,21 +75,33 @@ struct ContentView: View {
                         .fill(LinearGradient(
                             colors: [palette.accentStart, palette.accentEnd],
                             startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 60, height: 60)
+                        .frame(width: 56, height: 56)
                         .shadow(color: palette.accentStart.opacity(0.45), radius: 14, y: 5)
                     Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .bold))
+                        .auraFont(size: 22, weight: .bold)
                         .foregroundColor(.white)
                 }
             }
-            .offset(y: -28)
+            .accessibilityLabel(primaryActionLabel)
             .scaleEffect(showCreate ? 0.96 : 1)
+            // Bottom-right, clear of the tab bar; tabs reserve room for it
+            // with AuraTabChrome's bottom inset.
+            .padding(.trailing, 18)
+            .padding(.bottom, AuraTabChrome.tabBarHeight + 12)
         }
         .preferredColorScheme(preferredScheme)
         .sheet(isPresented: $showCreate, onDismiss: {
             eventDraftPreset = nil
         }) {
             CreateEventView(isPresented: $showCreate, preset: eventDraftPreset).environmentObject(store)
+        }
+        .sheet(isPresented: $showAddPlan) {
+            AddGroupPlanView(isPresented: $showAddPlan).environmentObject(store)
+        }
+        .confirmationDialog("Add to Lists", isPresented: $showListActions, titleVisibility: .hidden) {
+            Button("New List") { showAddList = true }
+            Button("New Plan") { showAddPlan = true }
+            Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showAddList) {
             AddGroupListView(isPresented: $showAddList).environmentObject(store)
@@ -160,9 +114,6 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showQuickGrocery) {
             QuickAddShoppingItemView(isPresented: $showQuickGrocery).environmentObject(store)
-        }
-        .sheet(isPresented: $showAddMember) {
-            AddMemberView(isPresented: $showAddMember).environmentObject(store)
         }
         .confirmationDialog("Quick Actions", isPresented: $showQuickHomeActions, titleVisibility: .visible) {
             Button("Schedule Event") {
@@ -239,13 +190,93 @@ struct ContentView: View {
         case 1, 2:
             withAnimation(AuraMotion.spring) { showCreate = true }
         case 3:
-            withAnimation(AuraMotion.spring) { showAddList = true }
-        case 5:
-            withAnimation(AuraMotion.spring) { showAddMember = true }
+            showListActions = true
         default:
             withAnimation(AuraMotion.spring) { showCreate = true }
         }
     }
+
+    private var primaryActionLabel: String {
+        switch tab {
+        case 0: return "Quick actions"
+        case 3: return "New list or plan"
+        default: return "New event"
+        }
+    }
+}
+
+/// The top bar every tab shares: the active group's switcher on the left and
+/// the profile button (which opens Settings) on the right. They live in each
+/// screen's own navigation bar -- they used to float over every screen and
+/// covered its title and buttons. Also reserves room at the bottom for the
+/// floating "+" button.
+struct AuraTabChrome: ViewModifier {
+    static let tabBarHeight: CGFloat = 49
+
+    @EnvironmentObject var store: EventStore
+    @State private var showGroupsHub = false
+    @State private var showSettings = false
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 72)
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if store.hasServerSession && store.hasServerGroups {
+                        Button {
+                            showGroupsHub = true
+                        } label: {
+                            groupPill
+                        }
+                        .accessibilityLabel("Group: \(store.activeServerGroupName). Switch or manage groups")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        ProfileAvatarView(diameter: 30)
+                    }
+                    .accessibilityLabel("Profile and settings")
+                }
+            }
+            .sheet(isPresented: $showGroupsHub) {
+                GroupsHubView(isPresented: $showGroupsHub)
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView(onDone: { showSettings = false })
+                    .environmentObject(store)
+            }
+    }
+
+    private var groupPill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "square.stack.3d.up.fill")
+                .font(.caption.weight(.bold))
+            Text(store.activeServerGroupName)
+                .lineLimit(1)
+            Image(systemName: "chevron.down")
+                .font(.caption2.weight(.bold))
+        }
+        .font(.subheadline.weight(.bold))
+        .padding(.horizontal, AuraDesignTokens.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(
+            LinearGradient(
+                colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ),
+            in: Capsule()
+        )
+        .foregroundStyle(.white)
+    }
+}
+
+extension View {
+    func auraTabChrome() -> some View { modifier(AuraTabChrome()) }
 }
 
 // MARK: - Home View
@@ -352,7 +383,7 @@ struct HomeView: View {
     var proactiveRecommendations: [String] {
         var notes: [String] = []
         if todayEventsCount == 0 {
-            notes.append("No events today. Add a focus block now to keep the family rhythm consistent.")
+            notes.append("No events today. Add a focus block now to keep the group rhythm consistent.")
         }
         if pendingShoppingItems >= 8 {
             notes.append("Shopping backlog is high. Use Weekly Grocery Run template to clear items in one trip.")
@@ -365,7 +396,7 @@ struct HomeView: View {
             notes.append("Light upcoming calendar. Seed next week with 2 routine templates to avoid last-minute rush.")
         }
         if activeStreakDays >= 5 {
-            notes.append("Great momentum: \(activeStreakDays)-day family activity streak. Keep it going tomorrow.")
+            notes.append("Great momentum: \(activeStreakDays)-day group activity streak. Keep it going tomorrow.")
         }
         if notes.isEmpty {
             notes.append("Schedule looks healthy. Review Friday and weekend plans early to stay ahead.")
@@ -400,10 +431,10 @@ struct HomeView: View {
                     if hasSyncIssue {
                         HomeSectionCard(title: "Needs Attention") {
                             Label(store.syncStatus, systemImage: "wifi.exclamationmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .auraFont(size: 13, weight: .semibold)
                                 .foregroundColor(.orange)
                             Text("Pull to refresh on Home or tap Refresh to reconnect and pull the latest workspace data.")
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -414,9 +445,9 @@ struct HomeView: View {
                         HomeSectionCard(title: "Currently Tracking") {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("\(session.kind.rawValue) started \(session.startedAt.formatted(date: .omitted, time: .shortened))")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .auraFont(size: 14, weight: .semibold)
                                 Text(session.notes.isEmpty ? "Live tracking in progress" : session.notes)
-                                    .font(.system(size: 12))
+                                    .auraFont(size: 12)
                                     .foregroundColor(.secondary)
                                 HStack(spacing: 10) {
                                     Button {
@@ -446,13 +477,13 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 8) {
                                     Image(systemName: "moon.stars")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .auraFont(size: 14, weight: .semibold)
                                         .foregroundColor(AuraThemePalette.current.accentStart)
                                     Text("Nothing planned for today")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .auraFont(size: 14, weight: .semibold)
                                 }
                                 Text("Use Schedule Event to add your next shared moment.")
-                                    .font(.system(size: 12))
+                                    .auraFont(size: 12)
                                     .foregroundColor(.secondary)
                                 Button("Add First Event") {
                                     eventDraftPreset = .defaultForActiveMember(in: store)
@@ -469,11 +500,11 @@ struct HomeView: View {
                                             .fill(store.category(for: e.categoryId)?.color ?? AuraThemePalette.current.accentStart)
                                             .frame(width: 8, height: 8)
                                         Text(e.title)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .auraFont(size: 14, weight: .semibold)
                                             .lineLimit(1)
                                         Spacer()
                                         Text(timeLabel(e))
-                                            .font(.system(size: 12, weight: .medium))
+                                            .auraFont(size: 12, weight: .medium)
                                             .foregroundColor(.secondary)
                                     }
                                 }
@@ -486,7 +517,7 @@ struct HomeView: View {
                             HomeLoadingRows()
                         } else if upcomingEvents.isEmpty {
                             Text("No upcoming events after today.")
-                                .font(.system(size: 13, weight: .medium))
+                                .auraFont(size: 13, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -496,10 +527,10 @@ struct HomeView: View {
                                             .foregroundColor(AuraThemePalette.current.accentStart)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(e.title)
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .auraFont(size: 14, weight: .semibold)
                                                 .lineLimit(1)
                                             Text(dayAndTimeLabel(e))
-                                                .font(.system(size: 12, weight: .medium))
+                                                .auraFont(size: 12, weight: .medium)
                                                 .foregroundColor(.secondary)
                                         }
                                         Spacer()
@@ -550,7 +581,7 @@ struct HomeView: View {
 
                         if workloadByMember.isEmpty {
                             Text("Add members to see workload insights.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -569,15 +600,15 @@ struct HomeView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Proactive Recommendations")
-                                .font(.system(size: 13, weight: .bold))
+                                .auraFont(size: 13, weight: .bold)
                             ForEach(Array(proactiveRecommendations.enumerated()), id: \.offset) { _, note in
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "sparkles")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .auraFont(size: 11, weight: .bold)
                                         .foregroundColor(AuraThemePalette.current.accentStart)
                                         .padding(.top, 2)
                                     Text(note)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .auraFont(size: 12, weight: .medium)
                                         .foregroundColor(.secondary)
                                 }
                             }
@@ -589,28 +620,28 @@ struct HomeView: View {
                             HomeLoadingRows()
                         } else if recentActivities.isEmpty {
                             Text("No activities logged yet")
-                                .font(.system(size: 14))
+                                .auraFont(size: 14)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
                                 ForEach(recentActivities) { a in
                                     HStack(spacing: 10) {
                                         Image(systemName: a.kind.icon)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .auraFont(size: 14, weight: .semibold)
                                             .foregroundColor(AuraThemePalette.current.accentStart)
                                             .frame(width: 28, height: 28)
                                             .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(a.kind.rawValue)
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .auraFont(size: 14, weight: .semibold)
                                             Text(activitySubtitle(a))
-                                                .font(.system(size: 12))
+                                                .auraFont(size: 12)
                                                 .foregroundColor(.secondary)
                                         }
                                         Spacer()
                                         if store.activityStepTotal(a) > 0 {
                                             Text("\(store.activityStepTotal(a)) steps")
-                                                .font(.system(size: 11, weight: .bold))
+                                                .auraFont(size: 11, weight: .bold)
                                                 .foregroundColor(AuraThemePalette.current.accentStart)
                                         }
                                         Menu {
@@ -624,6 +655,7 @@ struct HomeView: View {
                                             }
                                         } label: {
                                             Image(systemName: "ellipsis.circle")
+                                                .accessibilityLabel("More options")
                                                 .foregroundColor(.secondary)
                                         }
                                     }
@@ -634,14 +666,14 @@ struct HomeView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("DISPLAY FILTER")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .auraFont(size: 10, weight: .bold, design: .rounded)
                             .foregroundColor(.secondary)
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Show only items shared with me")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .auraFont(size: 13, weight: .semibold)
                                 Text(showOnlyShared ? "Hiding items outside your access." : "Showing everything in this workspace.")
-                                    .font(.system(size: 11))
+                                    .auraFont(size: 11)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
@@ -653,7 +685,7 @@ struct HomeView: View {
                             Divider()
                             HStack {
                                 Text("Assign new items as")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .auraFont(size: 13, weight: .semibold)
                                 Spacer()
                                 Picker("Active Member", selection: Binding(
                                     get: { store.activeMember?.id },
@@ -679,20 +711,7 @@ struct HomeView: View {
             }
             }
             .navigationTitle("Home")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Home")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await store.refreshHomeDashboard() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-            }
+            .auraTabChrome()
         }
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showLogActivity) {
@@ -784,7 +803,11 @@ struct PersonalHubView: View {
                 VStack(spacing: 14) {
                     HomeHeroCard(
                         title: "Personal Command",
-                        subtitle: "\(store.personalMasterCalendarItems.count) calendar · \(store.personalTaskItems.count) tasks · \(store.personalConflictItems.count) conflicts",
+                        subtitle: [
+                            countLabel(store.personalMasterCalendarItems.count, "event"),
+                            countLabel(store.personalTaskItems.count, "list"),
+                            countLabel(store.personalConflictItems.count, "conflict")
+                        ].joined(separator: " · "),
                         detail: store.syncStatus
                     ) {
                         Task { await store.refreshPersonalLayer() }
@@ -795,7 +818,7 @@ struct PersonalHubView: View {
                             HomeLoadingRows()
                         } else if store.personalMasterCalendarItems.isEmpty {
                             Text("No personal calendar items yet.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -813,12 +836,12 @@ struct PersonalHubView: View {
                         }
                     }
 
-                    HomeSectionCard(title: "My Tasks") {
+                    HomeSectionCard(title: "My Lists") {
                         if store.isLoadingPersonalLayer {
                             HomeLoadingRows()
                         } else if store.personalTaskItems.isEmpty {
                             Text("No tasks assigned yet.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -841,7 +864,7 @@ struct PersonalHubView: View {
                             showAddPlan = true
                         } label: {
                             Label("New Plan", systemImage: "plus.circle.fill")
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                         }
                         .padding(.bottom, 2)
 
@@ -849,7 +872,7 @@ struct PersonalHubView: View {
                             HomeLoadingRows()
                         } else if store.personalPlanItems.isEmpty {
                             Text("No plans yet. Tap New Plan to start one.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -872,7 +895,7 @@ struct PersonalHubView: View {
                             HomeLoadingRows()
                         } else if store.personalRoutineItems.isEmpty {
                             Text("No routines yet.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
@@ -895,23 +918,23 @@ struct PersonalHubView: View {
                             HomeLoadingRows()
                         } else if store.personalConflictItems.isEmpty {
                             Text("No conflicts detected.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         } else {
                             VStack(spacing: 8) {
                                 ForEach(store.personalConflictItems.filter { !dismissedConflictIds.contains($0.id) }.prefix(8)) { conflict in
                                     HStack {
-                                        Text(conflict.severity)
-                                            .font(.system(size: 11, weight: .bold))
+                                        Text(conflictLabel(conflict.severity))
+                                            .auraFont(size: 11, weight: .bold)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
                                             .background(conflictColor(conflict.severity).opacity(0.2), in: Capsule())
                                             .foregroundColor(conflictColor(conflict.severity))
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("Overlap Detected")
-                                                .font(.system(size: 13, weight: .semibold))
+                                                .auraFont(size: 13, weight: .semibold)
                                             Text("\(conflict.leftEventTitle ?? "Untitled event") vs \(conflict.rightEventTitle ?? "Untitled event")")
-                                                .font(.system(size: 11, weight: .medium))
+                                                .auraFont(size: 11, weight: .medium)
                                                 .foregroundColor(.secondary)
                                                 .lineLimit(1)
                                         }
@@ -932,7 +955,8 @@ struct PersonalHubView: View {
                                             }
                                         } label: {
                                             Image(systemName: "ellipsis.circle")
-                                                .font(.system(size: 16, weight: .semibold))
+                                                .accessibilityLabel("More options")
+                                                .auraFont(size: 16, weight: .semibold)
                                                 .foregroundColor(.secondary)
                                         }
                                         .disabled(conflictActionLoadingIds.contains(conflict.id))
@@ -958,6 +982,7 @@ struct PersonalHubView: View {
             }
             }
             .navigationTitle("Personal")
+            .auraTabChrome()
             .refreshable {
                 await store.refreshPersonalLayer()
             }
@@ -983,6 +1008,15 @@ struct PersonalHubView: View {
             } message: {
                 Text(statusMessage)
             }
+        }
+    }
+
+    /// Same words the Agenda's conflict card uses.
+    private func conflictLabel(_ severity: String) -> String {
+        switch severity {
+        case "Critical": return "High"
+        case "Hard": return "Medium"
+        default: return "Low"
         }
     }
 
@@ -1091,24 +1125,26 @@ struct PersonalAggregateRow: View {
         } label: {
         HStack(spacing: 10) {
             Image(systemName: fallbackIcon)
-                .font(.system(size: 13, weight: .semibold))
+                .auraFont(size: 13, weight: .semibold)
                 .foregroundColor(AuraThemePalette.current.accentStart)
                 .frame(width: 30, height: 30)
                 .background(AuraThemePalette.current.accentStart.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.payload["title"] ?? item.payload["name"] ?? "Untitled")
-                    .font(.system(size: 13, weight: .semibold))
+                    .auraFont(size: 13, weight: .semibold)
                     .lineLimit(1)
                 Text(item.group?.name ?? "Private")
-                    .font(.system(size: 11, weight: .medium))
+                    .auraFont(size: 11, weight: .medium)
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Text(relativeLabel(item.updatedAt))
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.secondary)
+            if let when = whenLabel {
+                Text(when)
+                    .auraFont(size: 11, weight: .semibold)
+                    .foregroundColor(.secondary)
+            }
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .auraFont(size: 11, weight: .semibold)
                 .foregroundColor(.secondary)
         }
         }
@@ -1121,9 +1157,29 @@ struct PersonalAggregateRow: View {
         }, perform: {})
     }
 
-    private func relativeLabel(_ iso: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: iso) else { return "now" }
-        return date.formatted(.relative(presentation: .named))
+    /// When the thing itself happens -- an event's start, a plan's target
+    /// date, a routine's cadence -- rather than when it was last edited.
+    private var whenLabel: String? {
+        if let cadence = item.payload["cadence"] { return cadence }
+        guard let raw = item.payload["startDate"] ?? item.payload["targetDate"], let date = Self.parseISO(raw) else { return nil }
+        let allDay = item.payload["isAllDay"] == "true" || item.payload["startDate"] == nil
+        if Calendar.current.isDateInToday(date) {
+            return allDay ? "Today" : "Today \(date.formatted(date: .omitted, time: .shortened))"
+        }
+        if Calendar.current.isDateInTomorrow(date) {
+            return allDay ? "Tomorrow" : "Tomorrow \(date.formatted(date: .omitted, time: .shortened))"
+        }
+        return allDay
+            ? date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+            : date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
+    }
+
+    /// The server's timestamps carry milliseconds, which a default
+    /// ISO8601DateFormatter rejects.
+    private static func parseISO(_ raw: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return withFraction.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
     }
 }
 
@@ -1212,7 +1268,7 @@ struct HomeQuickActionButton: View {
         Button(action: action) {
             HStack(spacing: AuraDesignTokens.Spacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .auraFont(size: 13, weight: .semibold)
                     .foregroundColor(prominent ? .white : p.accentStart)
                     .frame(width: 26, height: 26)
                     .background(
@@ -1261,10 +1317,10 @@ struct ChangeRequestsCard: View {
                 ForEach(store.proposalsAwaitingMe) { proposal in
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(proposal.proposerName) suggests changes to \"\(proposal.targetTitle)\"")
-                            .font(.system(size: 14, weight: .semibold))
+                            .auraFont(size: 14, weight: .semibold)
                         ForEach(changeLines(proposal), id: \.self) { line in
                             Text(line)
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                         }
                         HStack {
@@ -1289,9 +1345,9 @@ struct ChangeRequestsCard: View {
                             .foregroundColor(statusColor(proposal.status))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Your change to \"\(proposal.targetTitle)\"")
-                                .font(.system(size: 13, weight: .semibold))
+                                .auraFont(size: 13, weight: .semibold)
                             Text(statusText(proposal))
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                         }
                         Spacer(minLength: 0)
@@ -1299,7 +1355,7 @@ struct ChangeRequestsCard: View {
                             Button("Withdraw") {
                                 withAnimation(AuraMotion.smooth) { store.withdrawProposal(id: proposal.id) }
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .auraFont(size: 12, weight: .semibold)
                         }
                     }
                 }
@@ -1320,9 +1376,15 @@ struct ChangeRequestsCard: View {
         }
         if let next = proposal.proposedEvent, let current = store.events.first(where: { $0.id == proposal.targetId }) {
             compare("Title", current.title, next.title)
-            let fmt: (Date) -> String = { $0.formatted(date: .abbreviated, time: .shortened) }
-            compare("Starts", fmt(current.startDate), fmt(next.startDate))
-            compare("Ends", fmt(current.endDate), fmt(next.endDate))
+            // "10:00–12:00 → 14:00–16:00" when only the time moves; dates too otherwise.
+            let sameDay = Calendar.current.isDate(current.startDate, inSameDayAs: next.startDate)
+            let when: (CalendarEvent) -> String = { e in
+                let start = sameDay ? e.startDate.formatted(date: .omitted, time: .shortened) : e.startDate.formatted(date: .abbreviated, time: .shortened)
+                return "\(start)–\(e.endDate.formatted(date: .omitted, time: .shortened))"
+            }
+            if current.startDate != next.startDate || current.endDate != next.endDate {
+                lines.append("\(sameDay ? "Time" : "When"): \(when(current)) → \(when(next))")
+            }
             compare("Location", current.location, next.location)
             compare("Notes", current.notes, next.notes)
             if current.isAllDay != next.isAllDay { lines.append(next.isAllDay ? "Make it all-day" : "Give it a set time") }
@@ -1379,7 +1441,7 @@ struct HomeSectionCard<Content: View>: View {
                     .fill(AuraThemePalette.current.accentStart)
                     .frame(width: 4, height: 18)
                 Text(title)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .auraFont(size: 16, weight: .bold, design: .rounded)
                 Spacer(minLength: 0)
             }
             content
@@ -1410,10 +1472,10 @@ struct HomeInsightBadge: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 14, weight: .black, design: .rounded))
+                .auraFont(size: 14, weight: .black, design: .rounded)
                 .foregroundColor(AuraThemePalette.current.accentStart)
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
+                .auraFont(size: 10, weight: .semibold)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -1434,11 +1496,11 @@ struct HomeMemberLoadRow: View {
                 HStack(spacing: 6) {
                     Circle().fill(color).frame(width: 8, height: 8)
                     Text(name)
-                        .font(.system(size: 12, weight: .semibold))
+                        .auraFont(size: 12, weight: .semibold)
                 }
                 Spacer()
                 Text("\(count)")
-                    .font(.system(size: 12, weight: .bold))
+                    .auraFont(size: 12, weight: .bold)
                     .foregroundColor(.secondary)
             }
             GeometryReader { geo in
@@ -1483,12 +1545,12 @@ struct WeekPlanningAssistantSheet: View {
         NavigationView {
             List {
                 Section("Assistant") {
-                    Text("Aurenda generated a weekly plan from your current workload, routines, and pending family needs.")
-                        .font(.system(size: 12, weight: .medium))
+                    Text("Aurenda generated a weekly plan from your current workload, routines, and what the group still needs.")
+                        .auraFont(size: 12, weight: .medium)
                         .foregroundColor(.secondary)
                     if !plannerMessage.isEmpty {
                         Text(plannerMessage)
-                            .font(.system(size: 12, weight: .semibold))
+                            .auraFont(size: 12, weight: .semibold)
                             .foregroundColor(.secondary)
                     }
                     Button {
@@ -1519,17 +1581,17 @@ struct WeekPlanningAssistantSheet: View {
                                         .padding(.top, 2)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(draft.title)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .auraFont(size: 14, weight: .semibold)
                                             .foregroundColor(.primary)
                                         Text(draft.start.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.system(size: 12, weight: .medium))
+                                            .auraFont(size: 12, weight: .medium)
                                             .foregroundColor(.secondary)
                                         Text(draft.reason)
-                                            .font(.system(size: 11))
+                                            .auraFont(size: 11)
                                             .foregroundColor(.secondary)
                                         if draft.recurrence != .none {
                                             Text(draft.recurrence.rawValue)
-                                                .font(.system(size: 10, weight: .bold))
+                                                .auraFont(size: 10, weight: .bold)
                                                 .foregroundColor(AuraThemePalette.current.accentStart)
                                                 .padding(.horizontal, 7)
                                                 .padding(.vertical, 3)

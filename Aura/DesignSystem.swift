@@ -209,3 +209,33 @@ enum AuraHaptics {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 }
+
+/// "1 item", "3 items" -- for the regular English nouns the app counts.
+func countLabel(_ count: Int, _ noun: String) -> String {
+    "\(count) \(noun)\(count == 1 ? "" : "s")"
+}
+
+/// A font at the given point size that grows and shrinks with the user's
+/// text-size setting (Settings > Accessibility > Display & Text Size), the
+/// way `.font(.system(size:))` doesn't.
+struct AuraScaledFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: size >= 20 ? .title2 : size >= 15 ? .body : .footnote)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    func auraFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        modifier(AuraScaledFont(size: size, weight: weight, design: design))
+    }
+}

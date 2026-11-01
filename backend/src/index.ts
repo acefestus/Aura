@@ -825,12 +825,16 @@ app.get("/me/export", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/master-calendar", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
+  // Soonest first, from the start of today: this is a calendar, not an edit log.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const items = snapshotEvents(context.db, context.groupIds, context.userId)
+    .filter((candidate) => String(candidate.payload.endDate ?? "") >= startOfToday.toISOString())
     .map((candidate) => ({
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
     }))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left, right) => String(left.payload.startDate ?? "").localeCompare(String(right.payload.startDate ?? "")));
 
   res.json({ items, total: items.length });
 });
@@ -854,7 +858,7 @@ app.get("/me/plans", requireAuth, async (req: AuthRequest, res) => {
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
     }))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left, right) => String(left.payload.targetDate ?? "").localeCompare(String(right.payload.targetDate ?? "")));
 
   res.json({ items, total: items.length });
 });

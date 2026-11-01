@@ -73,7 +73,7 @@ struct GroupMembersView: View {
         Section {
             HStack {
                 Text(householdCode.isEmpty ? "——————" : householdCode)
-                    .font(.system(size: 20, weight: .black, design: .monospaced))
+                    .auraFont(size: 20, weight: .black, design: .monospaced)
                     .foregroundColor(AuraThemePalette.current.accentStart)
                     .tracking(2)
                 Spacer()
@@ -86,6 +86,7 @@ struct GroupMembersView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .accessibilityLabel("Refresh")
                     }
                     .disabled(isWorking)
                 }
@@ -93,6 +94,7 @@ struct GroupMembersView: View {
                     UIPasteboard.general.string = householdCode
                 } label: {
                     Image(systemName: "doc.on.doc")
+                        .accessibilityLabel("Copy")
                 }
                 ShareLink(item: "Join my Aurenda group \"\(store.activeServerGroupName)\" — use code \(householdCode) in the app.") {
                     Image(systemName: "square.and.arrow.up")
@@ -104,7 +106,7 @@ struct GroupMembersView: View {
             .listRowSeparator(.hidden)
         } header: {
             Text("JOIN CODE")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .auraFont(size: 11, weight: .bold, design: .rounded)
                 .foregroundColor(.secondary)
         }
     }
@@ -127,7 +129,7 @@ struct GroupMembersView: View {
             }
         } header: {
             Text("MEMBERS")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .auraFont(size: 11, weight: .bold, design: .rounded)
                 .foregroundColor(.secondary)
         }
     }
@@ -137,10 +139,10 @@ struct GroupMembersView: View {
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.user?.displayName.isEmpty == false ? record.user!.displayName : "Member")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .auraFont(size: 14, weight: .bold, design: .rounded)
                 if let email = record.user?.email {
                     Text(email)
-                        .font(.system(size: 11))
+                        .auraFont(size: 11)
                         .foregroundColor(.secondary)
                 }
             }
@@ -185,7 +187,7 @@ struct GroupMembersView: View {
 
     private func roleBadge(_ role: String) -> some View {
         Text(role)
-            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .auraFont(size: 11, weight: .bold, design: .rounded)
             .foregroundColor(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -205,10 +207,10 @@ struct GroupMembersView: View {
                 ForEach(store.activeGroupAuditEntries.prefix(20)) { entry in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(entry.action.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(.system(size: 13, weight: .semibold))
+                            .auraFont(size: 13, weight: .semibold)
                         if let details = entry.details, !details.isEmpty {
                             Text(details)
-                                .font(.system(size: 11))
+                                .auraFont(size: 11)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -218,7 +220,7 @@ struct GroupMembersView: View {
             }
         } header: {
             Text("ACTIVITY LOG")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .auraFont(size: 11, weight: .bold, design: .rounded)
                 .foregroundColor(.secondary)
         }
     }
@@ -286,7 +288,7 @@ struct ProfileAvatarView: View {
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                     Image(systemName: "person.fill")
-                        .font(.system(size: diameter * 0.42, weight: .semibold))
+                        .auraFont(size: diameter * 0.42, weight: .semibold)
                         .foregroundColor(.white)
                 }
             }
@@ -304,6 +306,8 @@ struct ProfileAvatarView: View {
 
 struct SettingsView: View {
     @EnvironmentObject var store: EventStore
+    /// Set when shown as a sheet (from the profile button).
+    var onDone: (() -> Void)? = nil
     @AppStorage("colorScheme") private var scheme = "system"
     @AppStorage("widgetThemeJSON") private var widgetThemeJSON = ""
     @AppStorage("profileDisplayName") private var profileDisplayName = ""
@@ -415,18 +419,18 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Setup Progress")
-                                .font(.system(size: 16, weight: .bold))
+                                .auraFont(size: 16, weight: .bold)
                             Text("A quick snapshot of the release-ready setup state.")
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("\(releaseReadyCount)/\(readinessChecks.count)")
-                                .font(.system(size: 22, weight: .black, design: .rounded))
+                                .auraFont(size: 22, weight: .black, design: .rounded)
                                 .foregroundColor(AuraThemePalette.current.accentStart)
                             Text("ready")
-                                .font(.system(size: 11, weight: .semibold))
+                                .auraFont(size: 11, weight: .semibold)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -440,9 +444,9 @@ struct SettingsView: View {
                                 .foregroundColor(check.isReady ? .green : .orange)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(check.title)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .auraFont(size: 13, weight: .semibold)
                                 Text(check.isReady ? "Ready" : check.detail)
-                                    .font(.system(size: 11))
+                                    .auraFont(size: 11)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
@@ -483,7 +487,7 @@ struct SettingsView: View {
                 Section {
                     if store.members.isEmpty {
                         Text("No local profiles yet.")
-                            .font(.system(size: 13))
+                            .auraFont(size: 13)
                             .foregroundColor(.secondary)
                     } else {
                         Picker("Assign as", selection: Binding(
@@ -578,7 +582,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 PhotosPicker(selection: $profilePickerItem, matching: .images) {
                                     Text(hasProfileImage ? "Change Photo" : "Add Photo")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .auraFont(size: 13, weight: .semibold)
                                 }
                                 if hasProfileImage {
                                     Button(role: .destructive) {
@@ -586,7 +590,7 @@ struct SettingsView: View {
                                         hasProfileImage = false
                                     } label: {
                                         Text("Remove Photo")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .auraFont(size: 13, weight: .semibold)
                                     }
                                 }
                             }
@@ -721,14 +725,14 @@ struct SettingsView: View {
                     if !serverMessage.isEmpty {
                         Section {
                             Text(serverMessage)
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(.secondary)
                         }
                     }
                     if !exportError.isEmpty {
                         Section {
                             Text(exportError)
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(.red)
                         }
                     }
@@ -788,7 +792,7 @@ struct SettingsView: View {
                         }
                         if !serverMessage.isEmpty {
                             Text(serverMessage)
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(.secondary)
                         }
                     } header: {
@@ -819,15 +823,15 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(conflictActionLabel(entry.action))
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .auraFont(size: 13, weight: .semibold)
                                     Spacer()
                                     Text(relativeServerTime(entry.createdAt))
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .auraFont(size: 10, weight: .semibold)
                                         .foregroundColor(.secondary)
                                 }
                                 if !entry.details.isEmpty {
                                     Text(entry.details)
-                                        .font(.system(size: 11))
+                                        .auraFont(size: 11)
                                         .foregroundColor(.secondary)
                                         .lineLimit(3)
                                 }
@@ -848,10 +852,10 @@ struct SettingsView: View {
                             ForEach(Array(store.categories.prefix(6))) { c in
                                 HStack(spacing: 5) {
                                     Image(systemName: c.icon)
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .auraFont(size: 11, weight: .semibold)
                                         .foregroundColor(c.color)
                                     Text(c.name)
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .auraFont(size: 12, weight: .semibold)
                                         .lineLimit(1)
                                 }
                                 .padding(.horizontal, 10)
@@ -860,7 +864,7 @@ struct SettingsView: View {
                             }
                             if store.categories.count > 6 {
                                 Text("+\(store.categories.count - 6)")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .auraFont(size: 12, weight: .bold)
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
@@ -893,10 +897,10 @@ struct SettingsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Active Theme")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .auraFont(size: 13, weight: .medium)
                                     .foregroundColor(.secondary)
                                 Text(selectedTheme?.name ?? "Indigo Night")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .auraFont(size: 16, weight: .bold)
                             }
                             Spacer()
                             // mini gradient swatch
@@ -942,7 +946,7 @@ struct SettingsView: View {
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .frame(width: 44, height: 44)
                                         Image(systemName: "plus")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .auraFont(size: 18, weight: .semibold)
                                             .foregroundColor(.secondary)
                                     }
                                 }
@@ -1030,7 +1034,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Label("Run Integrity Sweep", systemImage: "checkmark.shield")
                             Text("Checks this device's own data for broken references -- e.g. events pointing at a deleted category -- and fixes them.")
-                                .font(.system(size: 11))
+                                .auraFont(size: 11)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -1042,7 +1046,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Label("Rebuild Event Notifications", systemImage: "bell.and.waveform")
                             Text("Re-schedules all reminder notifications from your current events. Use this if reminders stop firing.")
-                                .font(.system(size: 11))
+                                .auraFont(size: 11)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -1056,7 +1060,7 @@ struct SettingsView: View {
                 if store.hasServerSession {
                     Section {
                         Label("Manage groups, join codes, and members from the Group Members screen -- tap the people icon at the top of the app.", systemImage: "person.2.circle")
-                            .font(.system(size: 13, weight: .medium))
+                            .auraFont(size: 13, weight: .medium)
                             .foregroundColor(.secondary)
                     } header: {
                         Text("Groups")
@@ -1081,9 +1085,9 @@ struct SettingsView: View {
                             .frame(width: 56, height: 56)
                             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                         Text("Aurenda")
-                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .auraFont(size: 18, weight: .black, design: .rounded)
                         Text("Version \(appVersionString)")
-                            .font(.system(size: 12, weight: .medium))
+                            .auraFont(size: 12, weight: .medium)
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -1096,6 +1100,13 @@ struct SettingsView: View {
                 .scrollContentBackground(.hidden)
             }
             .navigationTitle("Settings")
+            .toolbar {
+                if let onDone {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done", action: onDone)
+                    }
+                }
+            }
             .sheet(isPresented: $showAdd) {
                 AddCategoryView(isPresented: $showAdd).environmentObject(store)
             }
@@ -1288,13 +1299,13 @@ struct CategoryManagerView: View {
                 ForEach(filtered) { c in
                     HStack(spacing: 12) {
                         Image(systemName: c.icon)
-                            .font(.system(size: 15))
+                            .auraFont(size: 15)
                             .foregroundColor(c.color)
                             .frame(width: 30, height: 30)
                             .background(c.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
                         VStack(alignment: .leading, spacing: 1) {
                             Text(c.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .auraFont(size: 15, weight: .semibold)
                             Text(c.isCustom ? "Custom" : "Default")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
@@ -1304,7 +1315,8 @@ struct CategoryManagerView: View {
                             editCategory = c
                         } label: {
                             Image(systemName: "pencil")
-                                .font(.system(size: 12, weight: .semibold))
+                                .accessibilityLabel("Edit")
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(.secondary)
                                 .frame(width: 28, height: 28)
                                 .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 7))
@@ -1316,7 +1328,7 @@ struct CategoryManagerView: View {
                             showCatSound = true
                         } label: {
                             Label(catSoundValFor(c).rawValue, systemImage: catSoundValFor(c).icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .labelStyle(.iconOnly)
                                 .foregroundColor(.secondary)
                                 .frame(width: 28, height: 28)
@@ -1399,7 +1411,7 @@ struct EditCategoryView: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
                         ForEach(icons, id: \.self) { i in
                             Image(systemName: i)
-                                .font(.system(size: 20))
+                                .auraFont(size: 20)
                                 .foregroundColor(icon == i ? .white : color)
                                 .frame(width: 44, height: 44)
                                 .background(icon == i ? color : color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
@@ -1415,7 +1427,7 @@ struct EditCategoryView: View {
                                 .foregroundColor(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(Color(.tertiaryLabel))
                         }
                     }
@@ -1523,11 +1535,11 @@ struct SharedEventsManagerView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text(e.title)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .auraFont(size: 15, weight: .semibold)
                                     Spacer()
                                     if conflictIds.contains(e.id) {
                                         Label("Conflict", systemImage: "exclamationmark.triangle.fill")
-                                            .font(.system(size: 10, weight: .bold))
+                                            .auraFont(size: 10, weight: .bold)
                                             .foregroundColor(.orange)
                                             .padding(.horizontal, 7)
                                             .padding(.vertical, 4)
@@ -1561,7 +1573,7 @@ struct SharedEventsManagerView: View {
                                         }
                                     } label: {
                                         Text(e.sharePermission.rawValue)
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .auraFont(size: 12, weight: .semibold)
                                             .foregroundColor(AuraThemePalette.current.accentStart)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
@@ -1569,7 +1581,7 @@ struct SharedEventsManagerView: View {
                                     }
                                 }
                                 Text(eventDateLabel(e.startDate))
-                                    .font(.system(size: 12))
+                                    .auraFont(size: 12)
                                     .foregroundColor(.secondary)
                             }
                             .padding(.vertical, 3)
@@ -1643,20 +1655,20 @@ struct SharedActivityLogView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text(entry.action.rawValue)
-                                    .font(.system(size: 12, weight: .bold))
+                                    .auraFont(size: 12, weight: .bold)
                                     .foregroundColor(AuraThemePalette.current.accentStart)
                                 Spacer()
                                 Text(dateLabel(entry.timestamp))
-                                    .font(.system(size: 11, weight: .medium))
+                                    .auraFont(size: 11, weight: .medium)
                                     .foregroundColor(.secondary)
                             }
                             Text(entry.eventTitle)
-                                .font(.system(size: 15, weight: .semibold))
+                                .auraFont(size: 15, weight: .semibold)
                             Text("By: \(entry.sender)")
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                             Text(entry.details)
-                                .font(.system(size: 12))
+                                .auraFont(size: 12)
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 4)
@@ -1727,7 +1739,7 @@ struct AddCategoryView: View {
                         spacing: 10
                     ) {
                         ForEach(icons, id: \.self) { i in
-                            Image(systemName: i).font(.system(size: 20))
+                            Image(systemName: i).auraFont(size: 20)
                                 .foregroundColor(icon == i ? .white : color)
                                 .frame(width: 44, height: 44)
                                 .background(icon == i ? color : color.opacity(0.15),
@@ -1748,7 +1760,7 @@ struct AddCategoryView: View {
                                 .foregroundColor(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(Color(.tertiaryLabel))
                         }
                     }
@@ -1757,7 +1769,7 @@ struct AddCategoryView: View {
 
                 Section("Preview") {
                     HStack(spacing: 12) {
-                        Image(systemName: icon).font(.system(size: 15))
+                        Image(systemName: icon).auraFont(size: 15)
                             .foregroundColor(color)
                             .frame(width: 30, height: 30)
                             .background(color.opacity(0.15),

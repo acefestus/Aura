@@ -45,7 +45,7 @@ struct AuraAuthGatewayView: View {
 
                         VStack(alignment: .leading, spacing: 14) {
                             Label("Secure Access", systemImage: "lock.shield.fill")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .auraFont(size: 11, weight: .semibold, design: .rounded)
                                 .tracking(1.4)
                                 .foregroundColor(.white.opacity(0.72))
                                 .padding(.horizontal, 10)
@@ -53,10 +53,10 @@ struct AuraAuthGatewayView: View {
                                 .background(Color.white.opacity(0.08), in: Capsule())
 
                             Text("Aurenda")
-                                .font(.system(size: 42, weight: .black, design: .rounded))
+                                .auraFont(size: 42, weight: .black, design: .rounded)
                                 .foregroundColor(.white)
                             Text("Your life, beautifully organized. Aurenda brings every circle into harmony.")
-                                .font(.system(size: 16, weight: .medium))
+                                .auraFont(size: 16, weight: .medium)
                                 .lineSpacing(3)
                                 .foregroundColor(.white.opacity(0.9))
                                 .fixedSize(horizontal: false, vertical: true)
@@ -84,7 +84,7 @@ struct AuraAuthGatewayView: View {
 
                             if mode == .signIn {
                                 Button("Forgot password?") { showForgotPassword = true }
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .auraFont(size: 13, weight: .semibold)
                                     .foregroundColor(.white.opacity(0.9))
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                             }
@@ -126,7 +126,7 @@ struct AuraAuthGatewayView: View {
                                 }
                             } label: {
                                 Label(mode == .create ? "Create Account" : "Enter Aurenda", systemImage: "person.crop.circle.badge.checkmark")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .auraFont(size: 16, weight: .bold, design: .rounded)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 52)
                                     .background(
@@ -153,7 +153,7 @@ struct AuraAuthGatewayView: View {
                                 Image(systemName: "checkmark.seal.fill")
                                     .foregroundColor(AuraThemePalette.current.accentStart)
                                 Text("Signed in as \(backendAccountEmail)")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .auraFont(size: 13, weight: .semibold)
                                     .foregroundColor(.white.opacity(0.92))
                                     .lineLimit(1)
                                     .truncationMode(.middle)
@@ -161,7 +161,7 @@ struct AuraAuthGatewayView: View {
                                 Button("Sign Out") {
                                     store.clearServerSession()
                                 }
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .tint(.white.opacity(0.85))
                             }
                             .padding(.horizontal, 4)
@@ -171,7 +171,7 @@ struct AuraAuthGatewayView: View {
                             Divider().padding(.vertical, 6)
 
                             Text("SET UP YOUR GROUP")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .auraFont(size: 11, weight: .bold, design: .rounded)
                                 .tracking(1.2)
                                 .foregroundColor(.white.opacity(0.6))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -235,7 +235,7 @@ struct AuraAuthGatewayView: View {
                             HStack(spacing: 10) {
                                 Rectangle().fill(.white.opacity(0.14)).frame(height: 1)
                                 Text("OR JOIN WITH A CODE")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .auraFont(size: 10, weight: .bold, design: .rounded)
                                     .tracking(1.0)
                                     .foregroundColor(.white.opacity(0.5))
                                     .fixedSize()
@@ -280,7 +280,7 @@ struct AuraAuthGatewayView: View {
 
                         if !message.isEmpty {
                             Text(message)
-                                .font(.system(size: 12, weight: .semibold))
+                                .auraFont(size: 12, weight: .semibold)
                                 .foregroundColor(isMessageError ? Color.red.opacity(0.95) : Color.white.opacity(0.92))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
@@ -342,7 +342,7 @@ struct AuraAuthGatewayView: View {
             withAnimation(AuraMotion.smooth) { mode = m }
         } label: {
             Text(m.rawValue)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .auraFont(size: 14, weight: .semibold, design: .rounded)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .foregroundColor(isSelected ? .black : .white.opacity(0.75))
@@ -355,7 +355,7 @@ struct AuraAuthGatewayView: View {
     private func authField<Content: View>(icon: String, @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .auraFont(size: 14, weight: .semibold)
                 .foregroundColor(.white.opacity(0.55))
                 .frame(width: 18)
             content()
@@ -380,9 +380,9 @@ struct AuraAuthGatewayView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: biometricSymbol)
-                            .font(.system(size: 14, weight: .semibold))
+                            .auraFont(size: 14, weight: .semibold)
                         Text(biometricLabel.isEmpty ? biometricTitle : biometricLabel)
-                            .font(.system(size: 13, weight: .semibold))
+                            .auraFont(size: 13, weight: .semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
@@ -398,7 +398,7 @@ struct AuraAuthGatewayView: View {
                 .buttonStyle(AuraSoftPressButtonStyle())
 
                 Text("Secure unlock with Face ID or Touch ID.")
-                    .font(.system(size: 11, weight: .medium))
+                    .auraFont(size: 11, weight: .medium)
                     .foregroundColor(.white.opacity(0.72))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 4)
@@ -599,7 +599,8 @@ struct AuraSecureField: View {
                 isRevealed.toggle()
             } label: {
                 Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
-                    .font(.system(size: 14))
+                    .accessibilityLabel(isRevealed ? "Hide password" : "Show password")
+                    .auraFont(size: 14)
                     .foregroundColor(promptColor?.opacity(0.7) ?? .secondary)
             }
             .buttonStyle(.plain)

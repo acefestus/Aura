@@ -26,9 +26,9 @@ struct DeleteAccountView: View {
                     Section {
                         Label("This cannot be undone", systemImage: "exclamationmark.triangle.fill")
                             .foregroundColor(.red)
-                            .font(.system(size: 14, weight: .bold))
+                            .auraFont(size: 14, weight: .bold)
                         Text("Any group only you belong to is deleted along with your account. Groups you share with others stay -- ownership passes to another member instead.")
-                            .font(.system(size: 13))
+                            .auraFont(size: 13)
                             .foregroundColor(.secondary)
                     }
                     Section {
@@ -57,7 +57,7 @@ struct DeleteAccountView: View {
                         .disabled(isExporting)
                         if !exportError.isEmpty {
                             Text(exportError)
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.red)
                         }
                     } footer: {
@@ -71,7 +71,7 @@ struct DeleteAccountView: View {
                     if !errorMessage.isEmpty {
                         Section {
                             Text(errorMessage)
-                                .font(.system(size: 13, weight: .medium))
+                                .auraFont(size: 13, weight: .medium)
                                 .foregroundColor(.red)
                         }
                     }
@@ -185,7 +185,7 @@ struct JoinOrCreateGroupView: View {
                 if !message.isEmpty {
                     Section {
                         Text(message)
-                            .font(.system(size: 13, weight: .medium))
+                            .auraFont(size: 13, weight: .medium)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -248,6 +248,7 @@ struct GroupsHubView: View {
     @State private var renameText = ""
     @State private var renameError = ""
     @State private var isRenaming = false
+    @State private var showMembers = false
 
     var columns: [GridItem] { [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)] }
 
@@ -259,12 +260,12 @@ struct GroupsHubView: View {
                     if store.serverGroups.isEmpty {
                         VStack(spacing: 10) {
                             Image(systemName: "square.stack.3d.up.slash")
-                                .font(.system(size: 30))
+                                .auraFont(size: 30)
                                 .foregroundColor(.secondary.opacity(0.4))
                             Text("No groups yet")
-                                .font(.system(size: 15, weight: .semibold))
+                                .auraFont(size: 15, weight: .semibold)
                             Text("Create one, or join with a code from someone who already has one.")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
@@ -305,7 +306,7 @@ struct GroupsHubView: View {
                             showJoinOrCreate = true
                         } label: {
                             Label("Create New Group", systemImage: "plus.circle")
-                                .font(.system(size: 14, weight: .semibold))
+                                .auraFont(size: 14, weight: .semibold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -316,7 +317,7 @@ struct GroupsHubView: View {
                             showJoinOrCreate = true
                         } label: {
                             Label("Join Another Group", systemImage: "person.badge.key")
-                                .font(.system(size: 14, weight: .semibold))
+                                .auraFont(size: 14, weight: .semibold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -329,10 +330,23 @@ struct GroupsHubView: View {
             .navigationTitle("Groups")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if store.hasServerGroups {
+                        Button {
+                            showMembers = true
+                        } label: {
+                            Label("Members", systemImage: "person.2.fill")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { isPresented = false }
                 }
             }
+        }
+        .sheet(isPresented: $showMembers) {
+            GroupMembersView()
+                .environmentObject(store)
         }
         .sheet(isPresented: $showJoinOrCreate) {
             JoinOrCreateGroupView(isPresented: $showJoinOrCreate, mode: joinOrCreateMode)
@@ -346,7 +360,7 @@ struct GroupsHubView: View {
                     }
                     if !renameError.isEmpty {
                         Section {
-                            Text(renameError).foregroundColor(.red).font(.system(size: 13))
+                            Text(renameError).foregroundColor(.red).auraFont(size: 13)
                         }
                     }
                 }
@@ -402,25 +416,25 @@ struct GroupCard: View {
                             startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 36, height: 36)
                     Image(systemName: groupTypeIcon(record.group.type))
-                        .font(.system(size: 15, weight: .semibold))
+                        .auraFont(size: 15, weight: .semibold)
                         .foregroundColor(.white)
                 }
                 Spacer()
                 if isActive {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .auraFont(size: 18)
                         .foregroundColor(AuraThemePalette.current.accentStart)
                 }
             }
             Text(record.group.name)
-                .font(.system(size: 14, weight: .bold))
+                .auraFont(size: 14, weight: .bold)
                 .foregroundColor(.primary)
                 .lineLimit(1)
             Text(record.group.type)
-                .font(.system(size: 11, weight: .medium))
+                .auraFont(size: 11, weight: .medium)
                 .foregroundColor(.secondary)
             Text(record.membership.role)
-                .font(.system(size: 10, weight: .bold))
+                .auraFont(size: 10, weight: .bold)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(Color(.tertiarySystemBackground), in: Capsule())
@@ -443,18 +457,18 @@ struct AuraInAppBannerView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .auraFont(size: 15, weight: .semibold)
                 .foregroundColor(.white)
                 .frame(width: 30, height: 30)
                 .background(.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 9))
             VStack(alignment: .leading, spacing: 1) {
                 Text(payload.title)
-                    .font(.system(size: 14, weight: .bold))
+                    .auraFont(size: 14, weight: .bold)
                     .foregroundColor(.white)
                     .lineLimit(1)
                 if !payload.message.isEmpty {
                     Text(payload.message)
-                        .font(.system(size: 12, weight: .medium))
+                        .auraFont(size: 12, weight: .medium)
                         .foregroundColor(.white.opacity(0.9))
                         .lineLimit(2)
                 }

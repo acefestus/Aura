@@ -10,6 +10,7 @@ import AVFoundation
 // MARK: - Agenda View
 
 struct AgendaView: View {
+    @State private var eventPendingDelete: CalendarEvent? = nil
     @EnvironmentObject var store: EventStore
     @EnvironmentObject var shareManager: ShareManager
     @Binding var showCreate: Bool
@@ -155,17 +156,17 @@ struct AgendaView: View {
                                                 if store.canDelete(e) {
                                                     Button(role: .destructive) {
                                                         AuraHaptics.warning()
-                                                        withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                                                        eventPendingDelete = e
                                                     } label: {
                                                         Label("Delete", systemImage: "trash")
                                                     }
                                                 }
                                             }
-                                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                                 if store.canDelete(e) {
                                                     Button(role: .destructive) {
                                                         AuraHaptics.warning()
-                                                        withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                                                        eventPendingDelete = e
                                                     } label: {
                                                         Label("Delete", systemImage: "trash")
                                                     }
@@ -209,14 +210,28 @@ struct AgendaView: View {
             .animation(AuraMotion.spring, value: selected?.id)
             .animation(AuraMotion.smooth, value: filtered.isEmpty)
             .searchable(text: $q, prompt: "Search events…")
-            .navigationTitle("Aurenda")
+            .navigationTitle("Agenda")
             .navigationBarTitleDisplayMode(.large)
+            .auraTabChrome()
+            .alert("Delete Event", isPresented: Binding(
+                get: { eventPendingDelete != nil },
+                set: { if !$0 { eventPendingDelete = nil } }
+            ), presenting: eventPendingDelete) { e in
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    AuraHaptics.warning()
+                    withAnimation(AuraMotion.smooth) { store.deleteEvent(id: e.id) }
+                }
+            } message: { e in
+                Text("Delete \"\(e.title)\" for everyone in the group? This can't be undone.")
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showShareAgenda = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
+                            .accessibilityLabel("Share")
                     }
                     .disabled(shareableAgendaEvents.isEmpty)
                 }
@@ -274,10 +289,10 @@ struct AgendaConflictsCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13, weight: .bold))
+                    .auraFont(size: 13, weight: .bold)
                     .foregroundColor(.orange)
                 Text("\(conflicts.count) scheduling conflict\(conflicts.count == 1 ? "" : "s") today")
-                    .font(.system(size: 13, weight: .bold))
+                    .auraFont(size: 13, weight: .bold)
             }
             VStack(spacing: 8) {
                 ForEach(conflicts.prefix(5)) { conflict in
@@ -286,18 +301,18 @@ struct AgendaConflictsCard: View {
                     } label: {
                         HStack(spacing: 10) {
                             Text(conflict.severityLabel)
-                                .font(.system(size: 10, weight: .bold))
+                                .auraFont(size: 10, weight: .bold)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
                                 .background(conflict.severityColor.opacity(0.2), in: Capsule())
                                 .foregroundColor(conflict.severityColor)
                             Text("\(conflict.first.title) overlaps \(conflict.second.title)")
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .semibold))
+                                .auraFont(size: 10, weight: .semibold)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -322,10 +337,10 @@ struct TodayFocusCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Today Focus")
-                        .font(.system(size: 17, weight: .bold))
+                        .auraFont(size: 17, weight: .bold)
                         .foregroundColor(.white)
                     Text("\(totalToday) event\(totalToday == 1 ? "" : "s") planned")
-                        .font(.system(size: 12, weight: .medium))
+                        .auraFont(size: 12, weight: .medium)
                         .foregroundColor(.white.opacity(0.88))
                 }
                 Spacer()
@@ -333,7 +348,8 @@ struct TodayFocusCard: View {
                     showCreate = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
+                        .accessibilityLabel("Add")
+                        .auraFont(size: 14, weight: .bold)
                         .foregroundColor(.white)
                         .frame(width: 30, height: 30)
                         .background(.white.opacity(0.2), in: Circle())
@@ -343,17 +359,17 @@ struct TodayFocusCard: View {
             if let e = nextEvent {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .auraFont(size: 12, weight: .semibold)
                         .foregroundColor(.white)
                         .frame(width: 24, height: 24)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 7))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Next: \(e.title)")
-                            .font(.system(size: 13, weight: .semibold))
+                            .auraFont(size: 13, weight: .semibold)
                             .foregroundColor(.white)
                             .lineLimit(1)
                         Text(timeLabel(e))
-                            .font(.system(size: 11, weight: .medium))
+                            .auraFont(size: 11, weight: .medium)
                             .foregroundColor(.white.opacity(0.82))
                     }
                     Spacer()
@@ -441,9 +457,9 @@ struct ShareAuraSheet: View {
                     ForEach(sortedEvents.prefix(4)) { event in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .auraFont(size: 14, weight: .semibold)
                             Text(inviteDateLabel(event))
-                                .font(.system(size: 12, weight: .medium))
+                                .auraFont(size: 12, weight: .medium)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -457,7 +473,7 @@ struct ShareAuraSheet: View {
                     if let u = shareURL {
                         ShareLink(item: u) {
                             Label("Share via AirDrop / Messages", systemImage: "square.and.arrow.up")
-                                .font(.system(size: 16, weight: .semibold))
+                                .auraFont(size: 16, weight: .semibold)
                         }
                         Button {
                             UIPasteboard.general.url = u
@@ -524,16 +540,16 @@ struct EmptyStateView: View {
                     .stroke(AuraThemePalette.current.accentStart.opacity(0.15), lineWidth: 1)
                     .frame(width: 140, height: 140)
                 Image(systemName: "calendar.badge.plus")
-                    .font(.system(size: 56, weight: .light))
+                    .auraFont(size: 56, weight: .light)
                     .foregroundStyle(LinearGradient(
                         colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
                         startPoint: .topLeading, endPoint: .bottomTrailing))
             }
             VStack(spacing: 10) {
                 Text("No Events Yet")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .auraFont(size: 24, weight: .bold, design: .rounded)
                 Text("Tap + to schedule your first event")
-                    .font(.system(size: 15))
+                    .auraFont(size: 15)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -573,15 +589,15 @@ struct DateHeader: View {
                           : AnyShapeStyle(Color(.tertiarySystemBackground)))
                     .frame(width: 42, height: 42)
                 Text(dayNum)
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .auraFont(size: 19, weight: .bold, design: .rounded)
                     .foregroundColor(isToday ? .white : .primary)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(weekday)
-                    .font(.system(size: 15, weight: .bold))
+                    .auraFont(size: 15, weight: .bold)
                     .foregroundColor(isToday ? AuraThemePalette.current.accentStart : .primary)
                 Text(monthYear)
-                    .font(.system(size: 11, weight: .medium))
+                    .auraFont(size: 11, weight: .medium)
                     .foregroundColor(.secondary)
             }
             Spacer()
@@ -639,11 +655,11 @@ struct EventRow: View {
             // ── Time column ───────────────────────────────
             VStack(alignment: .trailing, spacing: 2) {
                 Text(startStr)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .auraFont(size: 11, weight: .bold, design: .rounded)
                     .foregroundColor(catColor)
                 if !event.isAllDay {
                     Text(endStr)
-                        .font(.system(size: 10))
+                        .auraFont(size: 10)
                         .foregroundColor(.secondary)
                 }
             }
@@ -668,16 +684,16 @@ struct EventRow: View {
                 .frame(width: 5)
             VStack(alignment: .leading, spacing: 6) {
                 Text(event.title)
-                    .font(.system(size: 15, weight: .bold))
+                    .auraFont(size: 15, weight: .bold)
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     if let c = cat {
                         HStack(spacing: 4) {
                             Image(systemName: c.icon)
-                                .font(.system(size: 10, weight: .semibold))
+                                .auraFont(size: 10, weight: .semibold)
                             Text(c.name)
-                                .font(.system(size: 11, weight: .semibold))
+                                .auraFont(size: 11, weight: .semibold)
                         }
                         .foregroundColor(catColor)
                         .padding(.horizontal, 8).padding(.vertical, 3)
@@ -685,12 +701,12 @@ struct EventRow: View {
                     }
                     if event.hasAlarm {
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 10))
+                            .auraFont(size: 10)
                             .foregroundColor(.secondary.opacity(0.5))
                     }
                     if event.recurrence != .none {
                         Image(systemName: "repeat")
-                            .font(.system(size: 10))
+                            .auraFont(size: 10)
                             .foregroundColor(.secondary.opacity(0.5))
                     }
                 }

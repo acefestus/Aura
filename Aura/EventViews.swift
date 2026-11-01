@@ -49,7 +49,7 @@ struct EventDetailView: View {
                         // Large translucent icon in background
                         if let c = cat {
                             Image(systemName: c.icon)
-                                .font(.system(size: 90, weight: .ultraLight))
+                                .auraFont(size: 90, weight: .ultraLight)
                                 .foregroundColor(.white.opacity(0.12))
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                                 .padding(.trailing, 24)
@@ -64,15 +64,15 @@ struct EventDetailView: View {
                                         .frame(width: 5)
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(event.title)
-                                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                                            .auraFont(size: 22, weight: .bold, design: .rounded)
                                             .foregroundColor(.white)
                                             .lineLimit(1)
                                         if let c = cat {
                                             HStack(spacing: 4) {
                                                 Image(systemName: c.icon)
-                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .auraFont(size: 10, weight: .semibold)
                                                 Text(c.name)
-                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .auraFont(size: 11, weight: .semibold)
                                             }
                                             .foregroundColor(.white.opacity(0.95))
                                             .padding(.horizontal, 8).padding(.vertical, 3)
@@ -93,15 +93,15 @@ struct EventDetailView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     if let c = cat {
                                         HStack(spacing: 6) {
-                                            Image(systemName: c.icon).font(.system(size: 12, weight: .semibold))
-                                            Text(c.name).font(.system(size: 12, weight: .bold))
+                                            Image(systemName: c.icon).auraFont(size: 12, weight: .semibold)
+                                            Text(c.name).auraFont(size: 12, weight: .bold)
                                         }
                                         .foregroundColor(.white.opacity(0.95))
                                         .padding(.horizontal, 12).padding(.vertical, 5)
                                         .background(.white.opacity(0.22), in: Capsule())
                                     }
                                     Text(event.title)
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .auraFont(size: 28, weight: .bold, design: .rounded)
                                         .foregroundColor(.white)
                                         .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
                                 }
@@ -183,6 +183,7 @@ struct EventDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel("More options")
                     }
                 }
             }
@@ -243,14 +244,14 @@ struct InfoCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon).font(.system(size: 15))
+            Image(systemName: icon).auraFont(size: 15)
                 .foregroundColor(tint)
                 .frame(width: 32, height: 32)
                 .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
-                Text(value).font(.system(size: 15))
+                    .auraFont(size: 11, weight: .medium).foregroundColor(.secondary)
+                Text(value).auraFont(size: 15)
             }
             Spacer()
         }
@@ -271,7 +272,7 @@ struct AttachmentsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Attachments", systemImage: "paperclip")
-                .font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                .auraFont(size: 12, weight: .semibold).foregroundColor(.secondary)
             ForEach(attachments) { a in AttRow(a: a) }
         }
         .padding(14)
@@ -300,15 +301,15 @@ struct AttRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 18))
+            Image(systemName: icon).auraFont(size: 18)
                 .foregroundColor(AuraThemePalette.current.accentStart)
                 .frame(width: 34, height: 34)
                 .background(AuraThemePalette.current.accentStart.opacity(0.1),
                             in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 1) {
                 Text(a.filename)
-                    .font(.system(size: 13, weight: .medium)).lineLimit(1)
-                Text(size).font(.system(size: 11)).foregroundColor(.secondary)
+                    .auraFont(size: 13, weight: .medium).lineLimit(1)
+                Text(size).auraFont(size: 11).foregroundColor(.secondary)
             }
             Spacer()
         }
@@ -452,7 +453,7 @@ struct CreateEventView: View {
     private var formTopSections: some View {
         Section("Title") {
             TextField("Event title…", text: $title)
-                .font(.system(size: 17, weight: .semibold))
+                .auraFont(size: 17, weight: .semibold)
         }
         Section("Category") {
             Picker("Category", selection: $catId) {
@@ -496,7 +497,7 @@ struct CreateEventView: View {
                 }
             }
             Text(visibility.subtitle)
-                .font(.system(size: 12))
+                .auraFont(size: 12)
                 .foregroundColor(.secondary)
         }
         if visibility == .custom {
@@ -540,9 +541,9 @@ struct CreateEventView: View {
                     Spacer()
                     Text(recurrence.rawValue)
                         .foregroundColor(.secondary)
-                        .font(.system(size: 15))
+                        .auraFont(size: 15)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .auraFont(size: 12, weight: .semibold)
                         .foregroundColor(Color(.tertiaryLabel))
                 }
             }
@@ -567,13 +568,13 @@ struct CreateEventView: View {
 
             if assignedMemberIds.isEmpty {
                 Text("Assign at least one member to enable collision-aware scheduling.")
-                    .font(.system(size: 12))
+                    .auraFont(size: 12)
                     .foregroundColor(.secondary)
             }
 
             if !automationMessage.isEmpty {
                 Text(automationMessage)
-                    .font(.system(size: 12, weight: .semibold))
+                    .auraFont(size: 12, weight: .semibold)
                     .foregroundColor(.secondary)
             }
         }
@@ -590,9 +591,9 @@ struct CreateEventView: View {
                         Spacer()
                         Text(soundOverride?.rawValue ?? "Category Default")
                             .foregroundColor(.secondary)
-                            .font(.system(size: 15))
+                            .auraFont(size: 15)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .auraFont(size: 12, weight: .semibold)
                             .foregroundColor(Color(.tertiaryLabel))
                     }
                 }
@@ -608,17 +609,17 @@ struct CreateEventView: View {
                 ForEach(conflicts) { conflict in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(conflict.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .auraFont(size: 14, weight: .semibold)
                         Text(conflictTimeLabel(conflict))
-                            .font(.system(size: 12))
+                            .auraFont(size: 12)
                             .foregroundColor(.secondary)
                         Text(store.memberNames(for: conflict.assignedMemberIds).joined(separator: ", "))
-                            .font(.system(size: 12, weight: .medium))
+                            .auraFont(size: 12, weight: .medium)
                             .foregroundColor(AuraThemePalette.current.accentStart)
                     }
                 }
                 Text("These members are already booked during this time. You can still save if this overlap is intentional.")
-                    .font(.system(size: 12))
+                    .auraFont(size: 12)
                     .foregroundColor(.secondary)
                 Button {
                     applyNextAvailableSlot()
@@ -781,30 +782,30 @@ struct RecurrencePickerSheet: View {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(selected == r
-                                          ? LinearGradient(colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                                          ? LinearGradient(colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
                                                            startPoint: .topLeading, endPoint: .bottomTrailing)
                                           : LinearGradient(colors: [Color(.tertiarySystemBackground), Color(.tertiarySystemBackground)],
                                                            startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 40, height: 40)
                                 Image(systemName: r.icon)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(selected == r ? .white : Color(hex: "6366F1"))
+                                    .auraFont(size: 16, weight: .semibold)
+                                    .foregroundColor(selected == r ? .white : AuraThemePalette.current.accentStart)
                             }
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(r.rawValue)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .auraFont(size: 16, weight: .semibold)
                                     .foregroundColor(.primary)
                                 Text(r.subtitle)
-                                    .font(.system(size: 12))
+                                    .auraFont(size: 12)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
                             if selected == r {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(LinearGradient(
-                                        colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                                        colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .font(.system(size: 20))
+                                    .auraFont(size: 20)
                             }
                         }
                         .padding(.vertical, 4)
@@ -857,15 +858,15 @@ struct SoundPickerSheet: View {
                                         .fill(Color(.tertiarySystemBackground))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: "arrow.triangle.2.circlepath")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(Color(hex: "6366F1"))
+                                        .auraFont(size: 16, weight: .semibold)
+                                        .foregroundColor(AuraThemePalette.current.accentStart)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Same as Category")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .auraFont(size: 16, weight: .semibold)
                                         .foregroundColor(.primary)
                                     Text("Uses the sound set for this event's category")
-                                        .font(.system(size: 12))
+                                        .auraFont(size: 12)
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
@@ -963,22 +964,22 @@ struct SoundPickerSheet: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(currentSound == s
-                          ? LinearGradient(colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                          ? LinearGradient(colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
                                            startPoint: .topLeading, endPoint: .bottomTrailing)
                           : LinearGradient(colors: [Color(.tertiarySystemBackground), Color(.tertiarySystemBackground)],
                                            startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 40, height: 40)
                 Image(systemName: s.icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(currentSound == s ? .white : Color(hex: "6366F1"))
+                    .auraFont(size: 16, weight: .semibold)
+                    .foregroundColor(currentSound == s ? .white : AuraThemePalette.current.accentStart)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(s.rawValue)
-                    .font(.system(size: 16, weight: .semibold))
+                    .auraFont(size: 16, weight: .semibold)
                     .foregroundColor(.primary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .auraFont(size: 12)
                         .foregroundColor(.secondary)
                 }
             }
@@ -989,7 +990,8 @@ struct SoundPickerSheet: View {
                     s.preview()
                 } label: {
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 22))
+                        .accessibilityLabel("Start")
+                        .auraFont(size: 22)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -997,9 +999,9 @@ struct SoundPickerSheet: View {
             if currentSound == s {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(LinearGradient(
-                        colors: [Color(hex: "6366F1"), Color(hex: "8B5CF6")],
+                        colors: [AuraThemePalette.current.accentStart, AuraThemePalette.current.accentEnd],
                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .font(.system(size: 20))
+                    .auraFont(size: 20)
             }
         }
         .padding(.vertical, 4)
