@@ -11,6 +11,21 @@ import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { JsonStore } from "./store.js";
 import { PgStore } from "./pgStore.js";
+import {
+  appleSecondsToISO,
+  canView,
+  eventsOf,
+  filterPayloadForViewer,
+  isCreator,
+  itemsOf,
+  listsOfPayload,
+  mergeSnapshotPayload,
+  plansOf,
+  proposalsOf,
+  type Payload,
+  type Rec
+} from "./syncMerge.js";
+import { pushEnabled, sendPush, type PushEnvironment } from "./push.js";
 import type {
   DatabaseShape,
   GroupEventRecord,
@@ -178,6 +193,21 @@ const conflictInterceptSchema = z.object({
   preferredEventId: z.string().min(1).optional()
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  code: z.string().trim().regex(/^\d{6}$/),
+  newPassword: z.string().min(8)
+});
+
+const deviceSchema = z.object({
+  token: z.string().regex(/^[0-9a-fA-F]{32,200}$/),
+  environment: z.enum(["production", "sandbox"]).default("production")
+});
+
 const updateProfileSchema = z.object({
   displayName: z.string().min(1)
 });
@@ -321,6 +351,8 @@ function deleteUserAccount(db: DatabaseShape, userId: string) {
   }
 
   db.memberships = db.memberships.filter((m) => m.userId !== userId);
+  db.deviceTokens = db.deviceTokens.filter((d) => d.userId !== userId);
+  db.passwordResets = db.passwordResets.filter((r) => r.userId !== userId);
   db.users = db.users.filter((u) => u.id !== userId);
 }
 
@@ -624,6 +656,117 @@ app.post("/auth/login", async (req, res) => {
   res.json({ token: signToken(user.id), user: { id: user.id, email: user.email, displayName: user.displayName } });
 });
 
+// Password reset by emailed 6-digit code (Resend). Off until RESEND_API_KEY
+// and EMAIL_FROM (a sender on a domain verified in Resend) are set.
+const resendApiKey = process.env.RESEND_API_KEY ?? "";
+const emailFrom = process.env.EMAIL_FROM ?? "";
+const RESET_CODE_TTL_MS = 15 * 60 * 1000;
+const RESET_MAX_ATTEMPTS = 5;
+
+async function sendResetEmail(to: string, code: string) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [to],
+      subject: "Your Aurenda reset code",
+      text: `Your Aurenda password reset code is ${code}.\n\nIt expires in 15 minutes. If you didn't ask to reset your password, you can ignore this email.`
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Resend ${response.status}: ${await response.text()}`);
+  }
+}
+
+app.post("/auth/forgot-password", async (req, res) => {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter a valid email address." });
+    return;
+  }
+  if (!resendApiKey || !emailFrom) {
+    res.status(503).json({ error: "Password reset isn't available yet. Contact the app's support." });
+    return;
+  }
+  const db = await store.read();
+  const user = db.users.find((candidate) => candidate.email.toLowerCase() === parsed.data.email.toLowerCase());
+  // Same answer whether or not the account exists, so this can't be used to
+  // find out who has an account.
+  if (user) {
+    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    db.passwordResets = db.passwordResets.filter((reset) => reset.userId !== user.id);
+    db.passwordResets.push({
+      userId: user.id,
+      codeHash: await bcrypt.hash(code, 10),
+      expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS).toISOString(),
+      attempts: 0
+    });
+    await store.write(db);
+    try {
+      await sendResetEmail(user.email, code);
+    } catch (error) {
+      console.error("Reset email failed", error);
+      res.status(502).json({ error: "Couldn't send the email. Try again in a moment." });
+      return;
+    }
+  }
+  res.json({ ok: true });
+});
+
+app.post("/auth/reset-password", async (req, res) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter the 6-digit code and a new password of at least 8 characters." });
+    return;
+  }
+  const db = await store.read();
+  const user = db.users.find((candidate) => candidate.email.toLowerCase() === parsed.data.email.toLowerCase());
+  const reset = user ? db.passwordResets.find((candidate) => candidate.userId === user.id) : undefined;
+  if (!user || !reset || Date.parse(reset.expiresAt) < Date.now() || reset.attempts >= RESET_MAX_ATTEMPTS) {
+    res.status(400).json({ error: "That code has expired. Request a new one." });
+    return;
+  }
+  if (!(await bcrypt.compare(parsed.data.code, reset.codeHash))) {
+    reset.attempts += 1;
+    await store.write(db);
+    res.status(400).json({ error: "That code isn't right." });
+    return;
+  }
+  user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  db.passwordResets = db.passwordResets.filter((candidate) => candidate.userId !== user.id);
+  await store.write(db);
+  res.json({ token: signToken(user.id), user: { id: user.id, email: user.email, displayName: user.displayName } });
+});
+
+app.post("/me/devices", requireAuth, async (req: AuthRequest, res) => {
+  const parsed = deviceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const db = await store.read();
+  // A token belongs to one device; if another account signed in on it, move it.
+  db.deviceTokens = db.deviceTokens.filter((device) => device.token !== parsed.data.token);
+  db.deviceTokens.push({
+    userId: req.userId!,
+    token: parsed.data.token,
+    environment: parsed.data.environment as PushEnvironment,
+    updatedAt: new Date().toISOString()
+  });
+  await store.write(db);
+  res.json({ ok: true });
+});
+
+app.delete("/me/devices/:token", requireAuth, async (req: AuthRequest, res) => {
+  const db = await store.read();
+  db.deviceTokens = db.deviceTokens.filter(
+    (device) => !(device.token === req.params.token && device.userId === req.userId)
+  );
+  await store.write(db);
+  res.json({ ok: true });
+});
+
 app.get("/me", requireAuth, async (req: AuthRequest, res) => {
   const db = await store.read();
   let dbUpdated = enforceAdminOwnerMembership(db, req.userId!);
@@ -680,8 +823,7 @@ app.get("/me/export", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/master-calendar", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const items = context.db.groupEvents
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const items = snapshotEvents(context.db, context.groupIds, context.userId)
     .map((candidate) => ({
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
@@ -693,8 +835,7 @@ app.get("/me/master-calendar", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/tasks", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const items = context.db.groupLists
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const items = snapshotLists(context.db, context.groupIds, context.userId)
     .map((candidate) => ({
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
@@ -706,8 +847,7 @@ app.get("/me/tasks", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/plans", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const items = context.db.groupPlans
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const items = snapshotPlans(context.db, context.groupIds, context.userId)
     .map((candidate) => ({
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
@@ -719,8 +859,7 @@ app.get("/me/plans", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/routines", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const items = context.db.groupRoutines
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const items = snapshotRoutines(context.db, context.groupIds, context.userId)
     .map((candidate) => ({
       ...candidate,
       group: context.groups.find((group) => group.id === candidate.groupId) ?? null
@@ -732,8 +871,7 @@ app.get("/me/routines", requireAuth, async (req: AuthRequest, res) => {
 
 app.get("/me/conflicts", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const events = context.db.groupEvents
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const events = snapshotEvents(context.db, context.groupIds, context.userId)
     .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
 
   const conflicts: Array<{ leftEventId: string; rightEventId: string; severity: "Soft" | "Hard" | "Critical" }> = [];
@@ -780,8 +918,7 @@ app.get("/me/conflicts", requireAuth, async (req: AuthRequest, res) => {
 
 app.post("/conflicts/check", requireAuth, async (req: AuthRequest, res) => {
   const context = await getUserGroupsContext(req);
-  const events = context.db.groupEvents
-    .filter((candidate) => context.groupIds.has(candidate.groupId))
+  const events = snapshotEvents(context.db, context.groupIds, context.userId)
     .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
 
   const conflicts: Array<{
@@ -845,7 +982,7 @@ app.post("/conflicts/intercept", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const context = await getUserGroupsContext(req);
-  const events = context.db.groupEvents.filter((candidate) => context.groupIds.has(candidate.groupId));
+  const events = snapshotEvents(context.db, context.groupIds, context.userId);
   const left = events.find((candidate) => candidate.id === parsed.data.leftEventId);
   const right = events.find((candidate) => candidate.id === parsed.data.rightEventId);
   if (!left || !right) {
@@ -904,22 +1041,10 @@ app.post("/conflicts/intercept", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
-  const targetIndex = context.db.groupEvents.findIndex((candidate) => candidate.id === target.id);
-  if (targetIndex < 0) {
-    res.status(404).json({ error: "Target event not found" });
-    return;
-  }
-
-  const currentTarget = context.db.groupEvents[targetIndex];
-  if (!currentTarget) {
-    res.status(404).json({ error: "Target event unavailable" });
-    return;
-  }
-  const currentWindow = parseEventWindow(currentTarget);
-  if (!currentWindow) {
-    res.status(400).json({ error: "Target event has invalid schedule payload" });
-    return;
-  }
+  // The app applies the new time to its own copy of the event (and syncs it
+  // like any other edit, so only the event's creator can actually move it).
+  const currentTarget: GroupEventRecord = { ...target, payload: { ...target.payload } };
+  const currentWindow = targetWindow;
 
   const nextEnd = new Date(Date.parse(suggestionStart) + (currentWindow.endDate - currentWindow.startDate)).toISOString();
   const beforeStart = new Date(currentWindow.startDate).toISOString();
@@ -1802,6 +1927,193 @@ app.get("/households/current", requireAuth, async (req: AuthRequest, res) => {
   res.json({ household, membership });
 });
 
+function viewerFor(db: DatabaseShape, userId: string) {
+  return { userId, displayName: db.users.find((candidate) => candidate.id === userId)?.displayName ?? "" };
+}
+
+function snapshotForViewer(db: DatabaseShape, snapshot: HouseholdSnapshot, userId: string): HouseholdSnapshot {
+  return { ...snapshot, payload: filterPayloadForViewer(snapshot.payload, viewerFor(db, userId)) };
+}
+
+function recordTitle(record: Rec | undefined, fallback: string) {
+  const title = record?.title ?? record?.name;
+  return typeof title === "string" && title.trim().length > 0 ? title.trim() : fallback;
+}
+
+/// Works out what an upload changed for everyone else and pushes it to their
+/// phones: new events and plans, items added to lists, edit requests to the
+/// creator they need approving by, and the outcome back to the requester.
+async function notifyGroupOfChanges(
+  groupId: string,
+  before: Payload,
+  after: Payload,
+  actor: { userId: string; displayName: string }
+) {
+  if (!pushEnabled) {
+    return;
+  }
+  const db = await store.read();
+  const memberIds = db.groupMemberships.filter((m) => m.groupId === groupId).map((m) => m.userId);
+  const legacyMemberIds = db.memberships.filter((m) => m.householdId === groupId).map((m) => m.userId);
+  const groupMemberIds = [...new Set([...memberIds, ...legacyMemberIds])].filter((id) => id !== actor.userId);
+  const groupName = db.groups.find((group) => group.id === groupId)?.name ?? "Aurenda";
+  const who = actor.displayName || "Someone";
+
+  const messages: Array<{ userIds: string[]; title: string; body: string }> = [];
+  const visibleTo = (record: Rec) => groupMemberIds.filter((id) => canView(viewerFor(db, id), record));
+
+  const beforeEventIds = new Set(eventsOf(before).map((event) => event.id));
+  for (const event of eventsOf(after)) {
+    if (!beforeEventIds.has(event.id) && isCreator(actor, event)) {
+      messages.push({ userIds: visibleTo(event), title: groupName, body: `${who} added "${recordTitle(event, "an event")}"` });
+    }
+  }
+
+  const beforePlanIds = new Set(plansOf(before).map((plan) => plan.id));
+  for (const plan of plansOf(after)) {
+    if (!beforePlanIds.has(plan.id) && isCreator(actor, plan)) {
+      messages.push({ userIds: visibleTo(plan), title: groupName, body: `${who} added the plan "${recordTitle(plan, "a plan")}"` });
+    }
+  }
+
+  const beforeLists = new Map(listsOfPayload(before).map((list) => [list.id, list]));
+  for (const list of listsOfPayload(after)) {
+    const previousItemIds = new Set(itemsOf(beforeLists.get(list.id) ?? {}).map((item) => item.id));
+    const added = itemsOf(list).filter((item) => !previousItemIds.has(item.id));
+    if (added.length === 0) {
+      continue;
+    }
+    const listTitle = recordTitle(list, "a list");
+    const body =
+      added.length === 1
+        ? `${who} added "${recordTitle(added[0], "an item")}" to ${listTitle}`
+        : `${who} added ${added.length} items to ${listTitle}`;
+    messages.push({ userIds: visibleTo(list), title: groupName, body });
+  }
+
+  const beforeProposals = new Map(proposalsOf(before).map((proposal) => [proposal.id, proposal]));
+  for (const proposal of proposalsOf(after)) {
+    const previous = beforeProposals.get(proposal.id);
+    const subject = recordTitle({ title: proposal.targetTitle }, "your item");
+    if (!previous && typeof proposal.targetOwnerUserId === "string" && proposal.targetOwnerUserId !== actor.userId) {
+      messages.push({
+        userIds: [proposal.targetOwnerUserId],
+        title: "Change requested",
+        body: `${who} suggested a change to "${subject}"`
+      });
+    } else if (
+      previous?.status === "pending" &&
+      (proposal.status === "approved" || proposal.status === "declined") &&
+      typeof proposal.proposerUserId === "string"
+    ) {
+      messages.push({
+        userIds: [proposal.proposerUserId],
+        title: proposal.status === "approved" ? "Change approved" : "Change declined",
+        body: `${who} ${proposal.status} your change to "${subject}"`
+      });
+    }
+  }
+
+  const goneTokens: string[] = [];
+  for (const message of messages.slice(0, 20)) {
+    const devices = db.deviceTokens.filter((device) => message.userIds.includes(device.userId));
+    goneTokens.push(...(await sendPush(devices, { title: message.title, body: message.body, groupId })));
+  }
+  if (goneTokens.length > 0) {
+    await store.update((fresh) => {
+      fresh.deviceTokens = fresh.deviceTokens.filter((device) => !goneTokens.includes(device.token));
+    });
+  }
+}
+
+/// The Personal tab and conflict checks used to read a second copy of every
+/// event that the app posted separately -- a copy that edits duplicated,
+/// deletes never touched, and which silently missed anything created
+/// offline. They now read the synced snapshots, the only real source, shaped
+/// as the records those endpoints have always returned.
+function snapshotRecords(
+  db: DatabaseShape,
+  groupIds: Set<string>,
+  userId: string,
+  pick: (payload: Payload) => Rec[],
+  toPayload: (record: Rec) => Record<string, string> | null
+): GroupEventRecord[] {
+  const viewer = viewerFor(db, userId);
+  const result: GroupEventRecord[] = [];
+  for (const snapshot of db.snapshots) {
+    if (!groupIds.has(snapshot.householdId)) {
+      continue;
+    }
+    for (const record of pick(snapshot.payload)) {
+      if (!canView(viewer, record)) {
+        continue;
+      }
+      const payload = toPayload(record);
+      if (!payload) {
+        continue;
+      }
+      result.push({
+        id: record.id as string,
+        groupId: snapshot.householdId,
+        createdBy: typeof record.createdByUserId === "string" ? record.createdByUserId : "",
+        updatedAt: appleSecondsToISO(record.modifiedAt) ?? snapshot.updatedAt,
+        payload
+      });
+    }
+  }
+  return result;
+}
+
+function eventPayload(event: Rec): Record<string, string> | null {
+  const startDate = appleSecondsToISO(event.startDate);
+  const endDate = appleSecondsToISO(event.endDate);
+  if (!startDate || !endDate) {
+    return null;
+  }
+  return {
+    id: event.id as string,
+    title: typeof event.title === "string" ? event.title : "",
+    notes: typeof event.notes === "string" ? event.notes : "",
+    startDate,
+    endDate,
+    isAllDay: event.isAllDay === true ? "true" : "false",
+    location: typeof event.location === "string" ? event.location : ""
+  };
+}
+
+function snapshotEvents(db: DatabaseShape, groupIds: Set<string>, userId: string) {
+  return snapshotRecords(db, groupIds, userId, eventsOf, eventPayload);
+}
+
+function snapshotLists(db: DatabaseShape, groupIds: Set<string>, userId: string) {
+  return snapshotRecords(db, groupIds, userId, listsOfPayload, (list) => ({
+    id: list.id as string,
+    title: typeof list.title === "string" ? list.title : "",
+    kind: typeof list.kind === "string" ? list.kind : ""
+  }));
+}
+
+function snapshotPlans(db: DatabaseShape, groupIds: Set<string>, userId: string) {
+  return snapshotRecords(db, groupIds, userId, plansOf, (plan) => {
+    const targetDate = appleSecondsToISO(plan.targetDate);
+    return {
+      id: plan.id as string,
+      title: typeof plan.title === "string" ? plan.title : "",
+      ...(targetDate ? { targetDate } : {})
+    };
+  });
+}
+
+function snapshotRoutines(db: DatabaseShape, groupIds: Set<string>, userId: string) {
+  return snapshotRecords(db, groupIds, userId, eventsOf, (event) => {
+    const cadence = event.recurrence;
+    if (typeof cadence !== "string" || cadence === "Never") {
+      return null;
+    }
+    return { id: event.id as string, title: typeof event.title === "string" ? event.title : "", cadence };
+  });
+}
+
 // Resolves which snapshot bucket this request targets. Historically
 // /sync/snapshot only ever used the legacy single-household mapping
 // (Membership.householdId), which is only ever populated for a user's very
@@ -1846,7 +2158,13 @@ app.get("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
   const snapshot = db.snapshots.find((candidate) => candidate.householdId === resolved.groupId) ?? null;
-  res.json({ snapshot });
+  // Polled every few seconds by every open app: skip resending the whole
+  // payload when the caller already has this version.
+  if (snapshot && typeof req.query.since === "string" && req.query.since === snapshot.updatedAt) {
+    res.json({ snapshot: null, unchanged: true });
+    return;
+  }
+  res.json({ snapshot: snapshot ? snapshotForViewer(db, snapshot, req.userId!) : null });
 });
 
 app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
@@ -1865,14 +2183,26 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
   const user = db.users.find((candidate) => candidate.id === req.userId);
+  const role = db.groupMemberships.find(
+    (candidate) => candidate.groupId === resolved.groupId && candidate.userId === req.userId
+  )?.role;
+  const actor = {
+    userId: req.userId!,
+    displayName: user?.displayName ?? "",
+    // Legacy households (no group membership row) only ever had their creator as owner.
+    isOwner: role === "Owner" || (role === undefined && db.memberships.some((m) => m.userId === req.userId && m.householdId === resolved.groupId && m.role === "Owner"))
+  };
+
+  const index = db.snapshots.findIndex((candidate) => candidate.householdId === resolved.groupId);
+  const previous = index >= 0 ? db.snapshots[index] : undefined;
+  const merged = mergeSnapshotPayload(previous?.payload ?? null, parsed.data.payload, actor);
   const snapshot: HouseholdSnapshot = {
     householdId: resolved.groupId,
     updatedAt: new Date().toISOString(),
     updatedBy: user?.displayName ?? "Unknown",
-    payload: parsed.data.payload
+    payload: merged
   };
 
-  const index = db.snapshots.findIndex((candidate) => candidate.householdId === resolved.groupId);
   if (index >= 0) {
     db.snapshots[index] = snapshot;
   } else {
@@ -1880,7 +2210,11 @@ app.put("/sync/snapshot", requireAuth, async (req: AuthRequest, res) => {
   }
 
   await store.write(db);
-  res.json({ snapshot });
+  res.json({ snapshot: snapshotForViewer(db, snapshot, req.userId!) });
+
+  void notifyGroupOfChanges(resolved.groupId, previous?.payload ?? {}, merged, actor).catch((error) => {
+    console.error("Push notification failed", error);
+  });
 });
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

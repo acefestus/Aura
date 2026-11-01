@@ -81,6 +81,20 @@ export interface HouseholdSnapshot {
   payload: Record<string, unknown>;
 }
 
+export interface DeviceToken {
+  userId: string;
+  token: string;
+  environment: "production" | "sandbox";
+  updatedAt: string;
+}
+
+export interface PasswordReset {
+  userId: string;
+  codeHash: string;
+  expiresAt: string;
+  attempts: number;
+}
+
 export interface HouseholdAuditEntry {
   id: string;
   householdId?: string;
@@ -104,4 +118,6 @@ export interface DatabaseShape {
   groupRoutines: GroupRoutineRecord[];
   snapshots: HouseholdSnapshot[];
   audits: HouseholdAuditEntry[];
+  deviceTokens: DeviceToken[];
+  passwordResets: PasswordReset[];
 }

@@ -13,7 +13,9 @@ export const fallbackDb: DatabaseShape = {
   groupPlans: [],
   groupRoutines: [],
   snapshots: [],
-  audits: []
+  audits: [],
+  deviceTokens: [],
+  passwordResets: []
 };
 
 export function normalizeDb(parsed: Partial<DatabaseShape>): DatabaseShape {
@@ -28,7 +30,9 @@ export function normalizeDb(parsed: Partial<DatabaseShape>): DatabaseShape {
     groupPlans: parsed.groupPlans ?? [],
     groupRoutines: parsed.groupRoutines ?? [],
     snapshots: parsed.snapshots ?? [],
-    audits: parsed.audits ?? []
+    audits: parsed.audits ?? [],
+    deviceTokens: parsed.deviceTokens ?? [],
+    passwordResets: parsed.passwordResets ?? []
   };
 }
 

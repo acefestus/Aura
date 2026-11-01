@@ -7,6 +7,12 @@ const ROW_ID = "singleton";
 export class PgStore implements DataStore {
   private readonly pool: Pool;
   private readonly ready: Promise<void>;
+  // This server is the only writer of app_state and runs as a single
+  // instance, so the last-written state can be served from memory instead
+  // of transferring and re-parsing the whole database from Postgres on every
+  // read -- which every app's 6-second sync poll triggers. Callers get a
+  // clone: handlers mutate what read() returns before (or without) writing.
+  private cache: DatabaseShape | null = null;
 
   constructor(connectionString: string) {
     this.pool = new Pool({
@@ -32,8 +38,11 @@ export class PgStore implements DataStore {
 
   async read(): Promise<DatabaseShape> {
     await this.ready;
-    const { rows } = await this.pool.query("SELECT data FROM app_state WHERE id = $1", [ROW_ID]);
-    return normalizeDb((rows[0]?.data ?? {}) as Partial<DatabaseShape>);
+    if (!this.cache) {
+      const { rows } = await this.pool.query("SELECT data FROM app_state WHERE id = $1", [ROW_ID]);
+      this.cache = normalizeDb((rows[0]?.data ?? {}) as Partial<DatabaseShape>);
+    }
+    return structuredClone(this.cache);
   }
 
   async write(next: DatabaseShape): Promise<void> {
@@ -42,6 +51,7 @@ export class PgStore implements DataStore {
       "UPDATE app_state SET data = $2::jsonb, updated_at = now() WHERE id = $1",
       [ROW_ID, JSON.stringify(next)]
     );
+    this.cache = structuredClone(next);
   }
 
   async update(mutator: (db: DatabaseShape) => void | DatabaseShape): Promise<void> {
@@ -58,6 +68,7 @@ export class PgStore implements DataStore {
         JSON.stringify(next)
       ]);
       await client.query("COMMIT");
+      this.cache = structuredClone(next);
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
