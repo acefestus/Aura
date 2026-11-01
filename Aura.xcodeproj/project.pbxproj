@@ -10,6 +10,21 @@
 		066CD3F39A352187A3FED570 /* Serenade.caf in Resources */ = {isa = PBXBuildFile; fileRef = D40029B8EAD89D2A3EFD594B /* Serenade.caf */; };
 		15D794ECB2950109AEF43EBB /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE6A03586A47486342AC600 /* ShareViewController.swift */; };
 		232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000003 /* AuraApp.swift */; };
+		0A7DECF2EA834BC843B5A69F /* AuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92A1995B77C42E46439C583 /* AuthViews.swift */; };
+		75832E875FEA36683B41E20A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB793FB9AD4DF907B47536F /* AppDelegate.swift */; };
+		9820F1F3E84031D35FE70A75 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E1FAF9CF043B4B60C3DC7D /* DesignSystem.swift */; };
+		E0FADF967BE69B1E9F5982E1 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2886C4009734174A5467B3 /* Models.swift */; };
+		944CCCB21C37C27603745DF7 /* ServerAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C032F389DBEABFA93CFC113 /* ServerAPI.swift */; };
+		E9273D921B79342455EC42B8 /* SupportingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED300F5B0BC2C9D24A00EE89 /* SupportingTypes.swift */; };
+		4445236843E95D0DF0A905F7 /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343701ED467F45A4A968DDB2 /* EventStore.swift */; };
+		9EEA0A8F290B7E9C40FFC869 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5BCAAA6346E985BA52A893 /* NotificationManager.swift */; };
+		8D2DE579169AE88591794798 /* HomeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B966A8355152810E7FD483DC /* HomeViews.swift */; };
+		2B57B48151BE58BC4FC7EC1D /* ListsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6AC71E7A8101175A93E9E68 /* ListsViews.swift */; };
+		9663139F078BE456D6129FF2 /* GroupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D5272ABD86C3C2FF7629A4 /* GroupViews.swift */; };
+		69C7FB11D5DB58AB7A384101 /* AgendaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD966DC9F858DCDB5AF12867 /* AgendaViews.swift */; };
+		98F509F7A6DD2FA0B22B4068 /* CalendarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11B96175AD872C7757158A28 /* CalendarViews.swift */; };
+		14D84F43873DE7AA58947E83 /* EventViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3530DAEA77DED2C341F9B3E6 /* EventViews.swift */; };
+		49F51CB76A5705CFCDDD0A88 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F3732AA908BF24F87EB43C /* SettingsViews.swift */; };
 		232A7F4C2B5E8A9100000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 232A7F4C2B5E8A9100000005 /* Assets.xcassets */; };
 		36A677BDE2E450D59676BF87 /* Bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = B023B0364B0405A88A474D5F /* Bell.caf */; };
 		51A645B637AC5DA000208AC3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AW00000104 /* SwiftUI.framework */; };
@@ -78,6 +93,21 @@
 		0294901E68EA8B42A028BA36 /* Chime.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = Chime.caf; sourceTree = "<group>"; };
 		0EEBD93CAB1B799B1331CB5D /* AuraShareImport.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AuraShareImport.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		232A7F4C2B5E8A9100000003 /* AuraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuraApp.swift; sourceTree = "<group>"; };
+		D92A1995B77C42E46439C583 /* AuthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViews.swift; sourceTree = "<group>"; };
+		0CB793FB9AD4DF907B47536F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		C4E1FAF9CF043B4B60C3DC7D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		8D2886C4009734174A5467B3 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		0C032F389DBEABFA93CFC113 /* ServerAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerAPI.swift; sourceTree = "<group>"; };
+		ED300F5B0BC2C9D24A00EE89 /* SupportingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportingTypes.swift; sourceTree = "<group>"; };
+		343701ED467F45A4A968DDB2 /* EventStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStore.swift; sourceTree = "<group>"; };
+		8A5BCAAA6346E985BA52A893 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		B966A8355152810E7FD483DC /* HomeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViews.swift; sourceTree = "<group>"; };
+		F6AC71E7A8101175A93E9E68 /* ListsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsViews.swift; sourceTree = "<group>"; };
+		73D5272ABD86C3C2FF7629A4 /* GroupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViews.swift; sourceTree = "<group>"; };
+		FD966DC9F858DCDB5AF12867 /* AgendaViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgendaViews.swift; sourceTree = "<group>"; };
+		11B96175AD872C7757158A28 /* CalendarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarViews.swift; sourceTree = "<group>"; };
+		3530DAEA77DED2C341F9B3E6 /* EventViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventViews.swift; sourceTree = "<group>"; };
+		12F3732AA908BF24F87EB43C /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		232A7F4C2B5E8A9100000008 /* Aura.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aura.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -163,6 +193,21 @@
 			isa = PBXGroup;
 			children = (
 				232A7F4C2B5E8A9100000003 /* AuraApp.swift */,
+				D92A1995B77C42E46439C583 /* AuthViews.swift */,
+				0CB793FB9AD4DF907B47536F /* AppDelegate.swift */,
+				C4E1FAF9CF043B4B60C3DC7D /* DesignSystem.swift */,
+				8D2886C4009734174A5467B3 /* Models.swift */,
+				0C032F389DBEABFA93CFC113 /* ServerAPI.swift */,
+				ED300F5B0BC2C9D24A00EE89 /* SupportingTypes.swift */,
+				343701ED467F45A4A968DDB2 /* EventStore.swift */,
+				8A5BCAAA6346E985BA52A893 /* NotificationManager.swift */,
+				B966A8355152810E7FD483DC /* HomeViews.swift */,
+				F6AC71E7A8101175A93E9E68 /* ListsViews.swift */,
+				73D5272ABD86C3C2FF7629A4 /* GroupViews.swift */,
+				FD966DC9F858DCDB5AF12867 /* AgendaViews.swift */,
+				11B96175AD872C7757158A28 /* CalendarViews.swift */,
+				3530DAEA77DED2C341F9B3E6 /* EventViews.swift */,
+				12F3732AA908BF24F87EB43C /* SettingsViews.swift */,
 				232A7F4C2B5E8A9100000005 /* Assets.xcassets */,
 				232A7F4C2B5E8A9100000007 /* Info.plist */,
 				AW00000107 /* Aura.entitlements */,
@@ -418,6 +463,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				232A7F4C2B5E8A9100000004 /* AuraApp.swift in Sources */,
+				0A7DECF2EA834BC843B5A69F /* AuthViews.swift in Sources */,
+				75832E875FEA36683B41E20A /* AppDelegate.swift in Sources */,
+				9820F1F3E84031D35FE70A75 /* DesignSystem.swift in Sources */,
+				E0FADF967BE69B1E9F5982E1 /* Models.swift in Sources */,
+				944CCCB21C37C27603745DF7 /* ServerAPI.swift in Sources */,
+				E9273D921B79342455EC42B8 /* SupportingTypes.swift in Sources */,
+				4445236843E95D0DF0A905F7 /* EventStore.swift in Sources */,
+				9EEA0A8F290B7E9C40FFC869 /* NotificationManager.swift in Sources */,
+				8D2DE579169AE88591794798 /* HomeViews.swift in Sources */,
+				2B57B48151BE58BC4FC7EC1D /* ListsViews.swift in Sources */,
+				9663139F078BE456D6129FF2 /* GroupViews.swift in Sources */,
+				69C7FB11D5DB58AB7A384101 /* AgendaViews.swift in Sources */,
+				98F509F7A6DD2FA0B22B4068 /* CalendarViews.swift in Sources */,
+				14D84F43873DE7AA58947E83 /* EventViews.swift in Sources */,
+				49F51CB76A5705CFCDDD0A88 /* SettingsViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
